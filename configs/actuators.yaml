@@ -1,0 +1,198 @@
+# Actuator catalog + joint assignment.
+#
+# All torques in N*m, speeds in rad/s, masses in kg, dimensions in m.
+# Envelope convention: L = long body dimension (perpendicular to shaft, output shaft
+# sits near one end of L), W = short body dimension, H = dimension along the output
+# shaft axis (case only; horn/bracket added separately via `horn_clearance`).
+#
+# torque-speed model (see slender_biped/actuator.py): linear DC motor curve
+#   tau = tau_stall * (u - omega/omega_noload),  u = PWM duty in [-1, 1]
+# "rated" = vendor rated/continuous torque if documented, else null (UNKNOWN).
+# `spec_confidence`: official = manufacturer datasheet/e-manual; vendor = retailer
+# listings only (no official datasheet located); estimate = our assumption.
+# Prices are planning numbers observed 2026-10, NOT live quotes.
+
+catalog:
+  STS3215_C018_12V:
+    vendor: Feetech
+    voltage: 12.0
+    stall_torque: 2.94        # 30 kgf*cm
+    rated_torque: 0.98        # 10 kgf*cm (vendor "rated")
+    noload_speed: 4.72        # 0.222 s/60deg
+    stall_current: 2.7
+    noload_current: 0.18
+    gear_ratio: 345
+    rotor_inertia: 2.5e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115      # shaft centre from the near end of L (estimate from drawings)
+    resolution_counts: 4096
+    bus: Feetech SCS/STS TTL half-duplex, up to 1 Mbps
+    price_usd: 32
+    spec_confidence: vendor
+    sources:
+      - https://www.robotshop.com/products/feetech-12v-30kgcm-magnetic-encoding-servo-sts3215
+      - https://openelab.io/products/feetech-sts3215-c018-servo-12v
+  STS3215_C046_7V4:
+    vendor: Feetech
+    voltage: 7.4
+    stall_torque: 1.41        # 14.4 kgf*cm
+    rated_torque: 0.47        # 4.8 kgf*cm
+    noload_speed: 11.1        # 106 rpm
+    stall_current: 3.3
+    noload_current: 0.5
+    gear_ratio: 147
+    rotor_inertia: 2.5e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    bus: Feetech SCS/STS TTL half-duplex, up to 1 Mbps
+    price_usd: 25
+    spec_confidence: vendor
+    sources:
+      - https://evelta.com/sts3215-c046-7-4v-1-147-magnetic-encoding-metal-gear-dual-axis-ttl-serial-bus-servo-motor/
+  STS3032_6V:
+    vendor: Feetech
+    voltage: 6.0
+    stall_torque: 0.44        # 4.5 kgf*cm
+    rated_torque: 0.147       # 1.5 kgf*cm
+    noload_speed: 11.6        # 0.09 s/60deg
+    stall_current: 1.2
+    noload_current: 0.15
+    gear_ratio: null
+    gear_ratio_assumed: 200       # unknown; assumed for reflected inertia only
+    rotor_inertia: 1.0e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.020
+    dims: {L: 0.0232, W: 0.0121, H: 0.0285}
+    shaft_offset: 0.006
+    resolution_counts: 4096
+    bus: Feetech SCS/STS TTL half-duplex, up to 1 Mbps
+    price_usd: 15
+    spec_confidence: vendor
+    sources:
+      - https://eckstein-shop.de/Motors?mf=1580
+  XL330_M288_5V:
+    vendor: ROBOTIS
+    voltage: 5.0
+    stall_torque: 0.52
+    rated_torque: null        # not documented -> UNKNOWN
+    noload_speed: 10.79       # 103 rpm
+    stall_current: 1.47
+    noload_current: 0.1
+    gear_ratio: 288.4
+    rotor_inertia: 4.0e-9    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.018
+    dims: {L: 0.034, W: 0.020, H: 0.026}
+    shaft_offset: 0.010
+    resolution_counts: 4096
+    bus: DYNAMIXEL Protocol 2.0 TTL, up to 4 Mbps
+    price_usd: 23.9
+    spec_confidence: official
+    sources:
+      - https://emanual.robotis.com/docs/en/dxl/x/xl330-m288/
+      - https://en.robotis.com/shop_en/category.php?ca_id=20
+  XC330_T288_11V1:
+    vendor: ROBOTIS
+    voltage: 11.1
+    stall_torque: 0.92
+    rated_torque: null
+    noload_speed: 6.81        # 65 rpm
+    stall_current: 0.80
+    noload_current: 0.1
+    gear_ratio: 288.35
+    rotor_inertia: 4.0e-9    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.023
+    dims: {L: 0.034, W: 0.020, H: 0.026}
+    shaft_offset: 0.010
+    resolution_counts: 4096
+    bus: DYNAMIXEL Protocol 2.0 TTL, up to 4 Mbps
+    price_usd: 103
+    spec_confidence: official
+    sources:
+      - https://emanual.robotis.com/docs/en/dxl/x/xc330-t288/
+      - https://www.robotshop.com/products/robotis-dynamixel-xc330-t288-t-smart-servo-actuator
+  XL430_W250_11V1:
+    vendor: ROBOTIS
+    voltage: 11.1
+    stall_torque: 1.4
+    rated_torque: null
+    noload_speed: 5.97        # 57 rpm
+    stall_current: 1.3
+    noload_current: 0.1
+    gear_ratio: 258.5
+    rotor_inertia: 1.0e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.0572
+    dims: {L: 0.0465, W: 0.0285, H: 0.034}
+    shaft_offset: 0.0125
+    resolution_counts: 4096
+    bus: DYNAMIXEL Protocol 2.0 TTL, up to 4 Mbps
+    price_usd: 50             # unverified (catalog scrape ambiguous)
+    spec_confidence: official
+    sources:
+      - https://emanual.robotis.com/docs/en/dxl/x/xl430-w250/
+  SC15_8V4:
+    vendor: Waveshare/Feetech
+    voltage: 8.4
+    stall_torque: 1.67        # "up to 17 kg*cm at 8.4V" - treated as stall-equivalent
+    rated_torque: null
+    noload_speed: 6.54        # 0.16 s/60deg is the 6V figure; 8.4V not listed
+    stall_current: 1.7
+    noload_current: 0.2
+    gear_ratio: null
+    gear_ratio_assumed: 250       # unknown; assumed for reflected inertia only
+    rotor_inertia: 2.5e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.060               # NOT listed on wiki - estimate
+    dims: {L: 0.0405, W: 0.020, H: 0.040}
+    shaft_offset: 0.010
+    resolution_counts: 1024   # over 210 deg
+    bus: Feetech SCS TTL, 1 Mbps
+    price_usd: 20             # unverified
+    spec_confidence: vendor
+    sources:
+      - https://www.waveshare.com/wiki/SC15_Servo
+
+# Derating scenarios for the "sustained" check when rated torque is unknown or
+# untrusted: sustained_cap = factor * stall_torque.
+derating_scenarios: {optimistic: 0.5, nominal: 0.33, conservative: 0.25}
+
+# Joint -> servo assignment sets. `baseline` is what the model is built with.
+assignments:
+  baseline:          # Feetech, single protocol; 2S (7.4 V) main rail + 6 V buck for STS3032.
+                     # Chosen over the 12 V C018 after the Gate B audit: C018 knee speed (4.7 rad/s)
+                     # limits swing to ~1 step/s; C046 reaches 2 steps/s with knee peak ~72% stall.
+    hip_yaw: STS3032_6V
+    hip_roll: STS3215_C046_7V4
+    hip_pitch: STS3215_C046_7V4
+    knee: STS3215_C046_7V4
+    ankle: STS3032_6V
+  torque_feetech_12v:  # same case, 345:1: 2x torque, 0.43x speed (12 V rail) -- speed-limited
+    hip_yaw: STS3032_6V
+    hip_roll: STS3215_C018_12V
+    hip_pitch: STS3215_C018_12V
+    knee: STS3215_C018_12V
+    ankle: STS3032_6V
+  slim_dynamixel:    # smallest envelope, over budget
+    hip_yaw: XL330_M288_5V
+    hip_roll: XC330_T288_11V1
+    hip_pitch: XC330_T288_11V1
+    knee: XC330_T288_11V1
+    ankle: XL330_M288_5V
+  xl330_only:        # cheapest/slimmest - expected to fail torque audit; kept as an explicit negative check
+    hip_yaw: XL330_M288_5V
+    hip_roll: XL330_M288_5V
+    hip_pitch: XL330_M288_5V
+    knee: XL330_M288_5V
+    ankle: XL330_M288_5V
+
+# Servo-internal controller approximation (hardware calibration needed).
+servo_model:
+  kp_duty_per_rad: 8.0       # PWM duty per rad of position error (full duty at ~7 deg error)
+  kd_duty_per_radps: 0.05
+  current_limit_frac: 1.0    # fraction of stall current allowed by firmware
+  frictionloss: 0.03         # N*m, gearbox Coulomb friction (estimate)
+  armature_fallback: 0.002   # kg*m^2, used only if a servo has no rotor_inertia / gear ratio
+  deadband_rad: 0.0015       # ~1 encoder tick x 4
+  backlash_rad: 0.0          # 0 in deterministic baseline; randomized later (0.5-1.5 deg)
+  latency_s: 0.004           # bus round-trip + firmware (estimate @1 Mbps, 10 servos)
+  target_slew_radps: 8.0

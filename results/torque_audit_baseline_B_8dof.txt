@@ -1,0 +1,25 @@
+== baseline_B_8dof  mass 858 g
+-- baseline
+  hip_yaw   STS3032_6V         stance(nom)=0.000Nm single(k<=60)=0.000 2x/stall=0.00 nom/0.33stall=0.00 max feasible swing rate=None steps/s
+  hip_roll  STS3215_C046_7V4   stance(nom)=0.275Nm single(k<=60)=0.276 2x/stall=0.39 nom/0.33stall=0.59 max feasible swing rate=None steps/s
+  hip_pitch STS3215_C046_7V4   stance(nom)=0.031Nm single(k<=60)=0.050 2x/stall=0.07 nom/0.33stall=0.07 max feasible swing rate=3.0 steps/s
+  knee      STS3215_C046_7V4   stance(nom)=0.292Nm single(k<=60)=0.531 2x/stall=0.75 nom/0.33stall=0.63 max feasible swing rate=2.5 steps/s
+   rig: rise=89.6 mm, track err={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.87, 'L_knee': 1.17, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.87, 'R_knee': 1.17}, duty_sat={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.0, 'L_knee': 0.0, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.0, 'R_knee': 0.0}
+-- torque_feetech_12v
+  hip_yaw   STS3032_6V         stance(nom)=0.000Nm single(k<=60)=0.000 2x/stall=0.00 nom/0.33stall=0.00 max feasible swing rate=None steps/s
+  hip_roll  STS3215_C018_12V   stance(nom)=0.275Nm single(k<=60)=0.276 2x/stall=0.19 nom/0.33stall=0.28 max feasible swing rate=None steps/s
+  hip_pitch STS3215_C018_12V   stance(nom)=0.031Nm single(k<=60)=0.050 2x/stall=0.03 nom/0.33stall=0.03 max feasible swing rate=3.0 steps/s
+  knee      STS3215_C018_12V   stance(nom)=0.292Nm single(k<=60)=0.531 2x/stall=0.36 nom/0.33stall=0.30 max feasible swing rate=1.0 steps/s
+   rig: rise=89.9 mm, track err={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.62, 'L_knee': 0.65, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.62, 'R_knee': 0.65}, duty_sat={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.0, 'L_knee': 0.0, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.0, 'R_knee': 0.0}
+-- slim_dynamixel
+  hip_yaw   XL330_M288_5V      stance(nom)=0.000Nm single(k<=60)=0.000 2x/stall=0.00 nom/0.33stall=0.00 max feasible swing rate=None steps/s
+  hip_roll  XC330_T288_11V1    stance(nom)=0.275Nm single(k<=60)=0.276 2x/stall=0.60 nom/0.33stall=0.91 max feasible swing rate=None steps/s
+  hip_pitch XC330_T288_11V1    stance(nom)=0.031Nm single(k<=60)=0.050 2x/stall=0.11 nom/0.33stall=0.10 max feasible swing rate=3.0 steps/s
+  knee      XC330_T288_11V1    stance(nom)=0.292Nm single(k<=60)=0.531 2x/stall=1.15 nom/0.33stall=0.96 max feasible swing rate=1.5 steps/s
+   rig: rise=89.3 mm, track err={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.89, 'L_knee': 1.59, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.89, 'R_knee': 1.59}, duty_sat={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.0, 'L_knee': 0.0, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.0, 'R_knee': 0.0}
+-- xl330_only
+  hip_yaw   XL330_M288_5V      stance(nom)=0.000Nm single(k<=60)=0.000 2x/stall=0.00 nom/0.33stall=0.00 max feasible swing rate=None steps/s
+  hip_roll  XL330_M288_5V      stance(nom)=0.275Nm single(k<=60)=0.276 2x/stall=1.06 nom/0.33stall=1.60 max feasible swing rate=None steps/s
+  hip_pitch XL330_M288_5V      stance(nom)=0.031Nm single(k<=60)=0.050 2x/stall=0.19 nom/0.33stall=0.18 max feasible swing rate=3.0 steps/s
+  knee      XL330_M288_5V      stance(nom)=0.292Nm single(k<=60)=0.531 2x/stall=2.04 nom/0.33stall=1.70 max feasible swing rate=2.5 steps/s
+   rig: rise=88.7 mm, track err={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.69, 'L_knee': 2.44, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.69, 'R_knee': 2.44}, duty_sat={'L_hip_yaw': 0.0, 'L_hip_roll': 0.0, 'L_hip_pitch': 0.0, 'L_knee': 0.0, 'R_hip_yaw': 0.0, 'R_hip_roll': 0.0, 'R_hip_pitch': 0.0, 'R_knee': 0.0}

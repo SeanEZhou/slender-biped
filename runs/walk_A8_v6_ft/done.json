@@ -1,0 +1,1 @@
+{"ok": false, "stopped_by_operator": "collapsed after warm start (len 989 -> 26 at 10M, 97 at 20M); critic was re-initialized with the new reward. Retried as walk_A8_v6b_ft with critic restored and lr 1e-4."}

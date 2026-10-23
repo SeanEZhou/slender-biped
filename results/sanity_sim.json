@@ -1,0 +1,98 @@
+[
+ {
+  "model": "baseline_A_10dof",
+  "mode": "limp",
+  "fall_time_s": 0.803,
+  "final_z": 0.02428643181372878,
+  "max_tilt_deg": 94.99882387004958,
+  "peak_tau_over_stall": 0.6549452915004037
+ },
+ {
+  "model": "baseline_A_10dof",
+  "mode": "hold",
+  "fall_time_s": 0.833,
+  "final_z": 0.026938579002397937,
+  "max_tilt_deg": 96.74141135532086,
+  "peak_tau_over_stall": 1.0
+ },
+ {
+  "model": "baseline_A_10dof",
+  "mode": "random",
+  "fall_time_s": 0.785,
+  "final_z": 0.0306025269971872,
+  "max_tilt_deg": 104.94667298541721,
+  "peak_tau_over_stall": 1.0
+ },
+ {
+  "model": "baseline_B_10dof",
+  "mode": "limp",
+  "fall_time_s": 1.077,
+  "final_z": 0.0242908546938449,
+  "max_tilt_deg": 93.27016442259341,
+  "peak_tau_over_stall": 0.22237043861282227
+ },
+ {
+  "model": "baseline_B_10dof",
+  "mode": "hold",
+  "fall_time_s": 0.864,
+  "final_z": 0.026940101242157576,
+  "max_tilt_deg": 96.61911683952341,
+  "peak_tau_over_stall": 0.6112905872243988
+ },
+ {
+  "model": "baseline_B_10dof",
+  "mode": "random",
+  "fall_time_s": 0.797,
+  "final_z": 0.030596146815299118,
+  "max_tilt_deg": 104.95274519840132,
+  "peak_tau_over_stall": 1.0
+ },
+ {
+  "model": "baseline_A_8dof",
+  "mode": "limp",
+  "fall_time_s": 0.737,
+  "final_z": 0.02430748538400897,
+  "max_tilt_deg": 94.79227996559538,
+  "peak_tau_over_stall": 0.49937632635544243
+ },
+ {
+  "model": "baseline_A_8dof",
+  "mode": "hold",
+  "fall_time_s": 0.764,
+  "final_z": 0.0269340510390886,
+  "max_tilt_deg": 96.60667898842347,
+  "peak_tau_over_stall": 0.24400270042391292
+ },
+ {
+  "model": "baseline_A_8dof",
+  "mode": "random",
+  "fall_time_s": 0.767,
+  "final_z": 0.03143114371420756,
+  "max_tilt_deg": 103.6765627115416,
+  "peak_tau_over_stall": 0.6999660892676035
+ },
+ {
+  "model": "baseline_B_8dof",
+  "mode": "limp",
+  "fall_time_s": 0.853,
+  "final_z": 0.02432608458528284,
+  "max_tilt_deg": 93.10918140491096,
+  "peak_tau_over_stall": 0.19878040348351747
+ },
+ {
+  "model": "baseline_B_8dof",
+  "mode": "hold",
+  "fall_time_s": 0.791,
+  "final_z": 0.02693549728911138,
+  "max_tilt_deg": 97.58609097689815,
+  "peak_tau_over_stall": 1.0
+ },
+ {
+  "model": "baseline_B_8dof",
+  "mode": "random",
+  "fall_time_s": 0.807,
+  "final_z": 0.03139439249974105,
+  "max_tilt_deg": 103.67081448873938,
+  "peak_tau_over_stall": 0.92262575307476
+ }
+]

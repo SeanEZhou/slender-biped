@@ -1,0 +1,115 @@
+# Parametric morphology. Units: m, kg, rad (joint ranges in deg for readability).
+# Frames: world Z up, X forward, Y left. Pelvis frame origin = pelvis shell centre.
+# Leg chain (per side): pelvis -> hip_yaw (Z) -> hip_roll (X) -> hip_pitch (Y)
+#   -> knee (Y) -> [ankle (Y), 10-DoF only] -> foot tip.
+# Sign conventions (both legs, mirrored axes): +yaw = toe outward, +roll = abduction,
+# +hip_pitch = flexion (foot forward), +knee = flexion (foot backward),
+# +ankle = dorsiflexion (toe up).
+
+base:
+  actuator_set: baseline
+  ankle: false                # true = 10 DoF, false = 8 DoF (tip fixed to shin)
+  foot: A                     # A = spherical point tip, B = curved micro-rocker
+                              # 2026-10-22: user selected A / 8-DoF as the primary design;
+                              # B and the ankle remain as ablations.
+
+  pelvis:
+    hip_spacing: 0.060        # hip-yaw axis to hip-yaw axis
+    width: 0.104              # exterior shell (must enclose yaw servos + swept roll-servo tops)
+    depth: 0.054
+    height: 0.066
+    bottom_taper: 0.82        # bottom width / top width (brief-like pelvis)
+    exponent: 3.4             # superellipsoid exponent (2 = ellipsoid, higher = boxier)
+    yaw_joint_z: -0.003       # hip-yaw joint relative to pelvis origin
+    yaw_servo_dir: inward     # inward = yaw-servo case points at midline (shallow pelvis); forward
+    shell_wall: 0.0018
+    electronics:              # name: [mass, x, y, z]  (placeholders, pelvis frame)
+      mcu_esp32s3: [0.008, -0.014, 0.0, 0.016]
+      bus_adapter: [0.006, -0.014, 0.0, 0.006]
+      imu_bno085: [0.003, 0.0, 0.0, 0.020]
+      buck_6v: [0.006, 0.014, 0.0, 0.014]
+      switch_xt30_wiring: [0.012, 0.012, 0.0, 0.004]
+      fasteners: [0.008, 0.0, 0.0, 0.0]
+    pod:                      # removable battery / test-mass pod on top of pelvis
+      enabled: true
+      size: [0.048, 0.034, 0.022]   # exterior
+      battery_mass: 0.030     # 2S 450 mAh LiPo (tether is the default for first hardware)
+      shell_mass: 0.005
+
+  hip:
+    roll_below_yaw: 0.037     # yaw joint -> roll axis (roll-servo case length sets this)
+    pitch_below_roll: 0.026   # roll axis -> pitch axis (no-overlap of roll & pitch cases)
+    cover_half: [0.031, 0.0235, 0.018]  # superellipsoid cover around pitch servo (x, y, z)
+    cover_exponent: 4.0
+    roll_cover_clearance: 0.0045  # roll-servo cover inset (y, z) incl. 1.2 mm wall
+    bracket_mass: 0.012       # yaw->roll bracket + horns + M2 hardware
+    cross_mass: 0.010         # roll->pitch cross bracket
+    horn_clearance: 0.004     # added along shaft axis for horn / U-bracket
+
+  thigh:
+    length: 0.138             # hip-pitch axis -> knee axis
+    top: {w: 0.044, d: 0.036, n: 4.0}   # exterior cross-section (w lateral, d fore-aft, n superellipse exp.)
+    mid: {z: -0.070, w: 0.042, d: 0.034, n: 3.7}   # stays full-width over the knee servo, then tapers
+    bottom: {w: 0.026, d: 0.027, n: 2.2}
+    top_z: -0.014             # tube starts below pitch axis (hidden under hip cover)
+    shell_wall: 0.0016
+    knee_drive: remote        # remote = knee servo at upper thigh + 1:1 GT2 belt; direct = servo at knee
+    knee_servo_z: -0.040      # servo centre in thigh frame (remote drive)
+    belt_mass: 0.008          # belt, pulleys, tensioner (remote only)
+    misc_mass: 0.010          # fasteners, wiring, bearing (MR85ZZ)
+
+  knee_cover: {half: [0.0165, 0.0145, 0.0165]}   # ellipsoidal joint cover (x, y, z)
+
+  shin:
+    length: 0.150             # knee axis -> lowest point of tip (straight pose)
+    top: {w: 0.022, d: 0.036, n: 3.5}
+    mid: {z: -0.046, w: 0.021, d: 0.033, n: 3.2}   # calf: full depth over the ankle servo
+    bottom: {w: 0.011, d: 0.012, n: 2.0}
+    top_z: -0.012
+    shell_wall: 0.0014
+    ankle_servo_z: -0.030     # 10-DoF: ankle servo in upper shin, hidden pushrod to ankle
+    pushrod_mass: 0.004
+    misc_mass: 0.008
+
+  ankle_above_contact: 0.020  # ankle axis height above contact point (10-DoF)
+
+  foot_A:                     # rubber-capped sphere
+    radius: 0.008
+    mass: 0.004
+    friction: [1.0, 0.002, 0.0002]   # slide, torsional (~mu * 2 mm patch), rolling
+  foot_B:                     # ellipsoidal rocker: sagittal bottom radius = a^2/c
+    half_length: 0.016        # a (fore-aft)
+    half_width: 0.0065        # b (lateral)
+    half_height: 0.0075       # c
+    mass: 0.006
+    friction: [1.0, 0.004, 0.0004]   # slide, torsional (~mu * 4 mm patch), rolling
+
+  joint_limits_deg:
+    hip_yaw: [-20, 30]
+    hip_roll: [-14, 30]
+    hip_pitch: [-35, 100]
+    knee: [0, 130]
+    ankle: [-30, 30]
+
+  nominal_pose_deg: {hip_yaw: 0, hip_roll: 0, hip_pitch: 16, knee: 32, ankle: 16}
+
+  material:
+    shell_density: 1250       # PETG/PLA, kg/m^3 (shell mass = area * wall * density * 1.25 ribs)
+    rib_factor: 1.25
+
+# Named geometry variants for the appearance gate (overrides merged onto `base`).
+variants:
+  baseline: {}
+  long_shin:
+    thigh: {length: 0.130}
+    shin: {length: 0.170}
+  slim_dynamixel:             # 34 mm XC330/XL330 cases -> narrower hips/thighs (over budget)
+    actuator_set: slim_dynamixel
+    pelvis: {hip_spacing: 0.052, width: 0.090, depth: 0.066, exponent: 3.8, yaw_joint_z: -0.006, yaw_servo_dir: forward}
+    hip: {roll_below_yaw: 0.028, pitch_below_roll: 0.022, cover_half: [0.024, 0.018, 0.014]}
+    thigh: {top: {w: 0.036, d: 0.030}, mid: {w: 0.034, d: 0.028}, knee_servo_z: -0.036}
+    shin: {top: {w: 0.030, d: 0.036}, mid: {w: 0.029, d: 0.033}}
+  direct_knee:
+    thigh: {knee_drive: direct, top: {w: 0.032, d: 0.032, n: 2.5}, mid: {z: -0.085, w: 0.040, d: 0.032, n: 3.5},
+            bottom: {w: 0.044, d: 0.032, n: 4.0}}
+    knee_cover: {half: [0.019, 0.0225, 0.019], n: 3.0}

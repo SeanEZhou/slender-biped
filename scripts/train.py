@@ -1,0 +1,198 @@
+"""PPO training on MJX (GPU). One run at a time -- do not launch two concurrently.
+
+    scripts/gpu_python.sh scripts/train.py --name stand_A8_s0 --model baseline_A_8dof --task stand \
+        --steps 100_000_000 [--dr] [--push 0.3] [--seed 0] [--init runs/<other>/params.pkl]
+
+Writes runs/<name>/{config.json, progress.jsonl, params_*.pkl, params.pkl, done.json}.
+"""
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import functools
+import json
+import pickle
+import sys
+import time
+import traceback
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+import jax  # noqa: E402
+import jax.numpy as jnp  # noqa: E402
+import numpy as np  # noqa: E402
+
+
+def _install_jax_shims():
+    """Brax 0.14 still calls pmap-era helpers that JAX 0.12 removed; single-host equivalents."""
+    def put_replicated(x, devices):
+        return jax.tree.map(lambda a: jax.device_put(jnp.stack([jnp.asarray(a)] * len(devices)), devices[0])
+                            if len(devices) == 1 else jax.device_put_sharded([a] * len(devices), devices), x)
+
+    def put_sharded(xs, devices):
+        return jax.tree.map(lambda *a: jax.device_put(jnp.stack(a), devices[0]), *xs)
+
+    for name, fn in (("device_put_replicated", put_replicated), ("device_put_sharded", put_sharded)):
+        try:
+            getattr(jax, name)
+        except AttributeError:
+            setattr(jax, name, fn)
+
+
+_install_jax_shims()
+from brax.training.agents.ppo import networks as ppo_networks  # noqa: E402
+from brax.training.agents.ppo import train as ppo  # noqa: E402
+
+from slender_biped.mjx_env import EnvConfig, SlenderBipedEnv, randomization_fn  # noqa: E402
+
+TASKS = {
+    # v0 (stand_A8_nodr_s0): quiet-stand shaping only -- learned to slow its fall, never to step
+    "stand_quiet": dict(cmd_zero_prob=1.0, rw=dict(both_feet=0.3, touchdown=-0.2)),
+    # v1: dynamic balance = stepping in place on the gait clock, zero velocity command
+    "stand_v1": dict(cmd_zero_prob=1.0, phase_when_still=True,
+                  rw=dict(contact_phase=0.5, swing_height=-100.0, feet_air_time=0.5, ang_vel_xy=-0.02,
+                          termination=-5.0, alive=1.0)),
+    # v2: v1 + hardware-plausibility pressure (sustained torque above 1/3 stall, speed, saturation)
+    "stand": dict(cmd_zero_prob=1.0, phase_when_still=True,
+                  rw=dict(contact_phase=0.5, swing_height=-100.0, feet_air_time=0.5, ang_vel_xy=-0.02,
+                          termination=-5.0, alive=1.0, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                          saturation=-1.0, action_rate=-0.05)),
+    # quiet-stand fine-tune (start from a stepping policy via --init): can it stop stepping?
+    "stand_still": dict(cmd_zero_prob=1.0, phase_when_still=False,
+                        rw=dict(both_feet=0.5, touchdown=-0.5, ang_vel_xy=-0.02, termination=-5.0, alive=1.0,
+                                torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
+                                action_rate=-0.05)),
+    "walk_v1": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                 phase_when_still=True,
+                 rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,
+                         ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=1.0)),
+    # v3: v2 never tracked velocity (stepped in place, drifted backward); stronger/wider tracking, less alive
+    # v6 (fine-tune from v5): v5 kept walking at ~0.09 m/s on zero command -> sharp stop reward, more zeros
+    "walk_v6": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.35,
+                    phase_when_still=True, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                    rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, feet_air_time=1.0,
+                            contact_phase=0.5, swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2, termination=-5.0,
+                            alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
+                            action_rate=-0.05)),
+    # v5: v4 + wide yaw-rate kernel (0.25) + direct heading-hold reward -- v4 yaw reward stayed ~0.06 of max
+    "walk": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                 phase_when_still=True, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                 rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, feet_air_time=1.0, contact_phase=0.5,
+                         swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=0.5,
+                         torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # v4: v3 + heading command (corrective yaw rate) and stronger yaw tracking -- v3 drifted ~80 deg in 20 s
+    "walk_v4": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                 phase_when_still=True, track_sigma=0.02, heading_cmd=True,
+                 rw=dict(track_lin=3.0, track_ang=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,
+                         ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=0.5, torque=-0.2,
+                         over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    "walk_v3": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                 phase_when_still=True, track_sigma=0.02,
+                 rw=dict(track_lin=3.0, track_ang=0.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,
+                         ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=0.5, torque=-0.2,
+                         over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    "walk_v2": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                 phase_when_still=True,
+                 rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,
+                         ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=1.0, torque=-0.2,
+                         over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+}
+
+
+def build_cfg(a) -> EnvConfig:
+    base = EnvConfig()
+    over = dict(TASKS[a.task])
+    rw = dict(base.rw)
+    rw.update(over.pop("rw", {}))
+    for kv in a.rw or []:
+        k, v = kv.split("=")
+        rw[k] = float(v)
+    over.update(model=a.model, task=a.task, dr=a.dr, push_vel=a.push, rw=rw, strength_scale=a.strength,
+                obs_noise=a.obs_noise, action_scale=a.action_scale)
+    for kv in a.set or []:
+        k, v = kv.split("=")
+        cur = getattr(base, k)
+        over[k] = type(cur)(json.loads(v)) if not isinstance(cur, tuple) else tuple(json.loads(v))
+    return dataclasses.replace(base, **over)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--name", required=True)
+    ap.add_argument("--model", default="baseline_A_8dof")
+    ap.add_argument("--task", default="stand", choices=list(TASKS))
+    ap.add_argument("--steps", type=float, default=100e6)
+    ap.add_argument("--dr", action="store_true")
+    ap.add_argument("--push", type=float, default=0.0)
+    ap.add_argument("--strength", type=float, default=1.0)
+    ap.add_argument("--obs-noise", type=float, default=1.0)
+    ap.add_argument("--action-scale", type=float, default=0.35)
+    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--num-envs", type=int, default=4096)
+    ap.add_argument("--episode-length", type=int, default=1000)
+    ap.add_argument("--init", help="params.pkl to warm-start from (curriculum)")
+    ap.add_argument("--rw", nargs="*", help="reward weight overrides k=v")
+    ap.add_argument("--set", nargs="*", help="EnvConfig overrides k=json")
+    ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--entropy", type=float, default=0.005)
+    ap.add_argument("--gamma", type=float, default=0.99)
+    a = ap.parse_args()
+
+    out = ROOT / "runs" / a.name
+    out.mkdir(parents=True, exist_ok=True)
+    cfg = build_cfg(a)
+    env = SlenderBipedEnv(cfg)
+    (out / "config.json").write_text(json.dumps({"args": vars(a), "env": dataclasses.asdict(cfg),
+                                                 "jax_devices": [str(d) for d in jax.devices()]}, indent=1))
+    prog = open(out / "progress.jsonl", "a")
+    t0 = time.time()
+
+    def progress(step, metrics):
+        rec = {"t": round(time.time() - t0, 1), "step": int(step)}
+        for k, v in metrics.items():
+            if k.startswith("eval/") and ("episode_" in k or "avg_episode_length" in k) or k.startswith("training/"):
+                try:
+                    rec[k] = float(np.asarray(v))
+                except Exception:
+                    pass
+        prog.write(json.dumps(rec) + "\n")
+        prog.flush()
+        print(f"[{rec['t']:7.0f}s] step {step/1e6:7.1f}M  reward {rec.get('eval/episode_reward', float('nan')):8.2f}  "
+              f"len {rec.get('eval/avg_episode_length', float('nan')):6.1f}", flush=True)
+
+    def save_params(step, make_policy, params):
+        with open(out / f"params_{int(step/1e6):04d}M.pkl", "wb") as f:
+            pickle.dump(jax.device_get(params), f)
+        with open(out / "params.pkl", "wb") as f:
+            pickle.dump(jax.device_get(params), f)
+
+    restore = None
+    if a.init:
+        with open(a.init, "rb") as f:
+            restore = pickle.load(f)
+
+    net = functools.partial(ppo_networks.make_ppo_networks, policy_hidden_layer_sizes=(128, 128, 128, 128),
+                            value_hidden_layer_sizes=(256, 256, 256, 256, 256),
+                            policy_obs_key="state", value_obs_key="privileged_state")
+    try:
+        make_inference, params, _ = ppo.train(
+            environment=env, num_timesteps=int(a.steps), num_envs=a.num_envs, episode_length=a.episode_length,
+            randomization_fn=randomization_fn if a.dr else None,
+            learning_rate=a.lr, entropy_cost=a.entropy, discounting=a.gamma, unroll_length=20, batch_size=256,
+            num_minibatches=32, num_updates_per_batch=4, normalize_observations=True, reward_scaling=1.0,
+            clipping_epsilon=0.2, gae_lambda=0.95, max_grad_norm=1.0, network_factory=net, seed=a.seed,
+            num_evals=max(2, int(a.steps // 10e6) + 1), num_eval_envs=512, deterministic_eval=True, progress_fn=progress,
+            # restoring the critic too: E16 (v6) collapsed when fine-tuning with a freshly initialized critic
+            policy_params_fn=save_params, restore_params=restore, restore_value_fn=restore is not None,
+            action_repeat=1)
+        save_params(a.steps, None, params)
+        (out / "done.json").write_text(json.dumps({"ok": True, "wall_s": time.time() - t0}))
+    except Exception:
+        (out / "done.json").write_text(json.dumps({"ok": False, "error": traceback.format_exc()}))
+        raise
+
+
+if __name__ == "__main__":
+    main()

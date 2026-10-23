@@ -1,0 +1,575 @@
+{
+ "name": "baseline_A_8dof_train",
+ "cfg": {
+  "actuator_set": "baseline",
+  "ankle": false,
+  "foot": "A",
+  "pelvis": {
+   "hip_spacing": 0.06,
+   "width": 0.104,
+   "depth": 0.054,
+   "height": 0.066,
+   "bottom_taper": 0.82,
+   "exponent": 3.4,
+   "yaw_joint_z": -0.003,
+   "yaw_servo_dir": "inward",
+   "shell_wall": 0.0018,
+   "electronics": {
+    "mcu_esp32s3": [
+     0.008,
+     -0.014,
+     0.0,
+     0.016
+    ],
+    "bus_adapter": [
+     0.006,
+     -0.014,
+     0.0,
+     0.006
+    ],
+    "imu_bno085": [
+     0.003,
+     0.0,
+     0.0,
+     0.02
+    ],
+    "buck_6v": [
+     0.006,
+     0.014,
+     0.0,
+     0.014
+    ],
+    "switch_xt30_wiring": [
+     0.012,
+     0.012,
+     0.0,
+     0.004
+    ],
+    "fasteners": [
+     0.008,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "pod": {
+    "enabled": true,
+    "size": [
+     0.048,
+     0.034,
+     0.022
+    ],
+    "battery_mass": 0.03,
+    "shell_mass": 0.005
+   }
+  },
+  "hip": {
+   "roll_below_yaw": 0.037,
+   "pitch_below_roll": 0.026,
+   "cover_half": [
+    0.031,
+    0.0235,
+    0.018
+   ],
+   "cover_exponent": 4.0,
+   "roll_cover_clearance": 0.0045,
+   "bracket_mass": 0.012,
+   "cross_mass": 0.01,
+   "horn_clearance": 0.004
+  },
+  "thigh": {
+   "length": 0.138,
+   "top": {
+    "w": 0.044,
+    "d": 0.036,
+    "n": 4.0
+   },
+   "mid": {
+    "z": -0.07,
+    "w": 0.042,
+    "d": 0.034,
+    "n": 3.7
+   },
+   "bottom": {
+    "w": 0.026,
+    "d": 0.027,
+    "n": 2.2
+   },
+   "top_z": -0.014,
+   "shell_wall": 0.0016,
+   "knee_drive": "remote",
+   "knee_servo_z": -0.04,
+   "belt_mass": 0.008,
+   "misc_mass": 0.01
+  },
+  "knee_cover": {
+   "half": [
+    0.0165,
+    0.0145,
+    0.0165
+   ]
+  },
+  "shin": {
+   "length": 0.15,
+   "top": {
+    "w": 0.022,
+    "d": 0.036,
+    "n": 3.5
+   },
+   "mid": {
+    "z": -0.046,
+    "w": 0.021,
+    "d": 0.033,
+    "n": 3.2
+   },
+   "bottom": {
+    "w": 0.011,
+    "d": 0.012,
+    "n": 2.0
+   },
+   "top_z": -0.012,
+   "shell_wall": 0.0014,
+   "ankle_servo_z": -0.03,
+   "pushrod_mass": 0.004,
+   "misc_mass": 0.008
+  },
+  "ankle_above_contact": 0.02,
+  "foot_A": {
+   "radius": 0.008,
+   "mass": 0.004,
+   "friction": [
+    1.0,
+    0.002,
+    0.0002
+   ]
+  },
+  "foot_B": {
+   "half_length": 0.016,
+   "half_width": 0.0065,
+   "half_height": 0.0075,
+   "mass": 0.006,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ]
+  },
+  "joint_limits_deg": {
+   "hip_yaw": [
+    -20,
+    30
+   ],
+   "hip_roll": [
+    -14,
+    30
+   ],
+   "hip_pitch": [
+    -35,
+    100
+   ],
+   "knee": [
+    0,
+    130
+   ],
+   "ankle": [
+    -30,
+    30
+   ]
+  },
+  "nominal_pose_deg": {
+   "hip_yaw": 0,
+   "hip_roll": 0,
+   "hip_pitch": 16,
+   "knee": 32,
+   "ankle": 16
+  },
+  "material": {
+   "shell_density": 1250,
+   "rib_factor": 1.25
+  },
+  "contact_set": "train",
+  "variant": "baseline"
+ },
+ "joints": [
+  "L_hip_yaw",
+  "L_hip_roll",
+  "L_hip_pitch",
+  "L_knee",
+  "R_hip_yaw",
+  "R_hip_roll",
+  "R_hip_pitch",
+  "R_knee"
+ ],
+ "nominal_q": [
+  0.0,
+  0.0,
+  0.2792526803190927,
+  0.5585053606381855,
+  0.0,
+  0.0,
+  0.2792526803190927,
+  0.5585053606381855
+ ],
+ "stand_base_z": 0.3431532748627294,
+ "servos": {
+  "hip_yaw": {
+   "vendor": "Feetech",
+   "voltage": 6.0,
+   "stall_torque": 0.44,
+   "rated_torque": 0.147,
+   "noload_speed": 11.6,
+   "stall_current": 1.2,
+   "noload_current": 0.15,
+   "gear_ratio": null,
+   "gear_ratio_assumed": 200,
+   "rotor_inertia": 1e-08,
+   "mass": 0.02,
+   "dims": {
+    "L": 0.0232,
+    "W": 0.0121,
+    "H": 0.0285
+   },
+   "shaft_offset": 0.006,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 15,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://eckstein-shop.de/Motors?mf=1580"
+   ],
+   "model": "STS3032_6V"
+  },
+  "hip_roll": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.41,
+   "rated_torque": 0.47,
+   "noload_speed": 11.1,
+   "stall_current": 3.3,
+   "noload_current": 0.5,
+   "gear_ratio": 147,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 25,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://evelta.com/sts3215-c046-7-4v-1-147-magnetic-encoding-metal-gear-dual-axis-ttl-serial-bus-servo-motor/"
+   ],
+   "model": "STS3215_C046_7V4"
+  },
+  "hip_pitch": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.41,
+   "rated_torque": 0.47,
+   "noload_speed": 11.1,
+   "stall_current": 3.3,
+   "noload_current": 0.5,
+   "gear_ratio": 147,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 25,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://evelta.com/sts3215-c046-7-4v-1-147-magnetic-encoding-metal-gear-dual-axis-ttl-serial-bus-servo-motor/"
+   ],
+   "model": "STS3215_C046_7V4"
+  },
+  "knee": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.41,
+   "rated_torque": 0.47,
+   "noload_speed": 11.1,
+   "stall_current": 3.3,
+   "noload_current": 0.5,
+   "gear_ratio": 147,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 25,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://evelta.com/sts3215-c046-7-4v-1-147-magnetic-encoding-metal-gear-dual-axis-ttl-serial-bus-servo-motor/"
+   ],
+   "model": "STS3215_C046_7V4"
+  }
+ },
+ "mass_log": [
+  [
+   "pelvis",
+   "shell:pelvis_shell",
+   0.05826590076980767
+  ],
+  [
+   "pelvis",
+   "mcu_esp32s3",
+   0.008
+  ],
+  [
+   "pelvis",
+   "bus_adapter",
+   0.006
+  ],
+  [
+   "pelvis",
+   "imu_bno085",
+   0.003
+  ],
+  [
+   "pelvis",
+   "buck_6v",
+   0.006
+  ],
+  [
+   "pelvis",
+   "switch_xt30_wiring",
+   0.012
+  ],
+  [
+   "pelvis",
+   "fasteners",
+   0.008
+  ],
+  [
+   "pelvis",
+   "servo:STS3032_6V",
+   0.02
+  ],
+  [
+   "pelvis",
+   "servo:STS3032_6V",
+   0.02
+  ],
+  [
+   "pelvis",
+   "shell:pod_shell",
+   0.005
+  ],
+  [
+   "pelvis",
+   "battery",
+   0.03
+  ],
+  [
+   "L_hip_yaw",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "L_hip_yaw",
+   "bracket",
+   0.012
+  ],
+  [
+   "L_hip_yaw",
+   "shell:L_roll_cover",
+   0.022840508071264226
+  ],
+  [
+   "L_hip_roll",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "L_hip_roll",
+   "cross_bracket",
+   0.01
+  ],
+  [
+   "L_hip_roll",
+   "shell:L_hip_cover",
+   0.02511074163869888
+  ],
+  [
+   "L_thigh",
+   "shell:L_thigh_shell",
+   0.04388823099785803
+  ],
+  [
+   "L_thigh",
+   "belt_pulleys",
+   0.008
+  ],
+  [
+   "L_thigh",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "L_thigh",
+   "misc",
+   0.01
+  ],
+  [
+   "L_thigh",
+   "shell:L_knee_cover",
+   0.007332378591981786
+  ],
+  [
+   "L_shin",
+   "misc",
+   0.008
+  ],
+  [
+   "L_shin",
+   "tip:rubber_sphere",
+   0.004
+  ],
+  [
+   "L_shin",
+   "shell:L_shin_shell",
+   0.022853421994062345
+  ],
+  [
+   "R_hip_yaw",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "R_hip_yaw",
+   "bracket",
+   0.012
+  ],
+  [
+   "R_hip_yaw",
+   "shell:R_roll_cover",
+   0.022840508071264226
+  ],
+  [
+   "R_hip_roll",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "R_hip_roll",
+   "cross_bracket",
+   0.01
+  ],
+  [
+   "R_hip_roll",
+   "shell:R_hip_cover",
+   0.02511074163869888
+  ],
+  [
+   "R_thigh",
+   "shell:R_thigh_shell",
+   0.04388823099785803
+  ],
+  [
+   "R_thigh",
+   "belt_pulleys",
+   0.008
+  ],
+  [
+   "R_thigh",
+   "servo:STS3215_C046_7V4",
+   0.055
+  ],
+  [
+   "R_thigh",
+   "misc",
+   0.01
+  ],
+  [
+   "R_thigh",
+   "shell:R_knee_cover",
+   0.007332378591981786
+  ],
+  [
+   "R_shin",
+   "misc",
+   0.008
+  ],
+  [
+   "R_shin",
+   "tip:rubber_sphere",
+   0.004
+  ],
+  [
+   "R_shin",
+   "shell:R_shin_shell",
+   0.022853421994062345
+  ]
+ ],
+ "envelopes": [
+  {
+   "name": "env_L_hip_yaw",
+   "joint": "L_hip_yaw",
+   "model": "STS3032_6V"
+  },
+  {
+   "name": "env_R_hip_yaw",
+   "joint": "R_hip_yaw",
+   "model": "STS3032_6V"
+  },
+  {
+   "name": "env_L_hip_roll",
+   "joint": "L_hip_roll",
+   "model": "STS3215_C046_7V4"
+  },
+  {
+   "name": "env_L_hip_pitch",
+   "joint": "L_hip_pitch",
+   "model": "STS3215_C046_7V4"
+  },
+  {
+   "name": "env_L_knee",
+   "joint": "L_knee",
+   "model": "STS3215_C046_7V4"
+  },
+  {
+   "name": "env_R_hip_roll",
+   "joint": "R_hip_roll",
+   "model": "STS3215_C046_7V4"
+  },
+  {
+   "name": "env_R_hip_pitch",
+   "joint": "R_hip_pitch",
+   "model": "STS3215_C046_7V4"
+  },
+  {
+   "name": "env_R_knee",
+   "joint": "R_knee",
+   "model": "STS3215_C046_7V4"
+  }
+ ],
+ "exteriors": [
+  "pelvis_shell",
+  "pod_shell",
+  "L_roll_cover",
+  "L_hip_cover",
+  "L_thigh_shell",
+  "L_knee_cover",
+  "L_shin_shell",
+  "R_roll_cover",
+  "R_hip_cover",
+  "R_thigh_shell",
+  "R_knee_cover",
+  "R_shin_shell"
+ ],
+ "total_mass": 0.85431626
+}
