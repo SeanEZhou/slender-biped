@@ -17,8 +17,8 @@ secrets*
 credentials*
 wandb/
 
-# Training runs: keep configs and learning curves for every run, weights only for the
-# selected policy (walk_A8_v6b_ft) and the checkpoint it was fine-tuned from.
+# Training runs: keep configs and learning curves for every run, weights only for selected policies
+# and the checkpoints they were fine-tuned from.
 runs/*
 !runs/*/
 runs/*/*
@@ -27,6 +27,12 @@ runs/*/*
 !runs/*/done.json
 !runs/walk_A8_v6b_ft/params.pkl
 !runs/walk_A8_v5_dr_s0/params_0030M.pkl
+# round 2: best ball policy and its fine-tune chain, the pad standing and walking policies, footed controls
+!runs/cadence_A8_ft/params_0020M.pkl
+!runs/stride_A8_ft/params_0010M.pkl
+!runs/q2_stand_P30/params_0022M.pkl
+!runs/stride_P30_ft/params_0020M.pkl
+!runs/ctl_stand_F60_12/params_0045M.pkl
 *.log
 checkpoints/
 *.zip

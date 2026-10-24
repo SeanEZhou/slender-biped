@@ -68,7 +68,8 @@ def main():
     ec = EvalConfig.from_train(cfg["env"], push_vel=t.get("push", 0.0))
     env = CpuBiped(cfg["env"]["model"], ec, seed=a.seed)
     env.m.mat_reflectance[:] = 0.0
-    r = Renderer(env.m, 480, 400)
+    rw = max(480, a.width)  # render at least at output width so the GIF is never upscaled
+    r = Renderer(env.m, rw, rw * 5 // 12 * 2)  # even height for the h264 intermediate
     r.set_groups(shells=True)
     env.reset()
     yaw0 = np.degrees(yaw_of(env.d.qpos[3:7]))

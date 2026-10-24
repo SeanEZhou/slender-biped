@@ -122,6 +122,7 @@ class CpuBiped:
         sph = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_SPHERE
         size[sph] = size[sph][:, :1].repeat(3, 1)
         self.tip_semi = size
+        self.tip_box = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_BOX  # flat soles (control frame)
         self.tip_pairs = [i for i in range(m.npair)
                           if {mujoco.mj_id2name(m, 5, m.pair_geom1[i]), mujoco.mj_id2name(m, 5, m.pair_geom2[i])}
                           in ({"floor", "L_tip"}, {"floor", "R_tip"})]
@@ -137,7 +138,8 @@ class CpuBiped:
         d = self.d
         c = d.geom_xpos[self.tip_gid]
         R = d.geom_xmat[self.tip_gid].reshape(2, 3, 3)
-        h = np.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1)
+        h = np.where(self.tip_box, np.abs(self.tip_semi * R[:, 2, :]).sum(-1),
+                     np.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1))
         return c[:, 2] - h, c.copy()
 
     def reset(self, cmd=(0.0, 0.0, 0.0)):
@@ -284,6 +286,10 @@ def run_episode(env: CpuBiped, policy, seconds, cmd_schedule=None, record=False,
     yaw0 = yaw_of(env.d.qpos[3:7])
     taus, qds, ureqs, vx, vy, wz, cmds, z, tilt, contacts = [], [], [], [], [], [], [], [], [], []
     touchdowns, bounces, frames = 0, 0, []
+    # stillness (after a 2 s settle): any lift-off of a whole tip/sole, horizontal tip travel, base speed
+    settle = 2.0
+    liftoffs, tip_travel, vbase2, n_settled = 0, 0.0, 0.0, 0
+    tip_prev = None
     air = np.zeros(2)
     fall_t = None
     si = 0
@@ -311,6 +317,14 @@ def run_episode(env: CpuBiped, policy, seconds, cmd_schedule=None, record=False,
         low, _ = env.tip_low()
         con = low < 0.0015
         td = con & ~env.contact_prev
+        _, tip_c = env.tip_low()
+        if t >= settle:
+            liftoffs += int(np.sum(~con & env.contact_prev))
+            if tip_prev is not None:
+                tip_travel += float(np.sum(np.linalg.norm(tip_c[:, :2] - tip_prev[:, :2], axis=1)))
+            vbase2 += float(d.qvel[0] ** 2 + d.qvel[1] ** 2)
+            n_settled += 1
+        tip_prev = tip_c
         # a step = touchdown after >= 60 ms of air time; shorter airborne blips are bounces/chatter
         touchdowns += int(np.sum(td & (air >= 0.06 - 1e-9)))
         bounces += int(np.sum(td & (air < 0.06 - 1e-9)))
@@ -342,6 +356,9 @@ def run_episode(env: CpuBiped, policy, seconds, cmd_schedule=None, record=False,
         overspeed_events=int((np.abs(qds) > env.w00).sum()),
         speed_util=(np.abs(qds) / env.w00).max(0).tolist() if len(qds) else None,
         mean_vx=float(np.mean(vx)) if vx else 0.0,
+        liftoffs_after_settle=liftoffs, tip_travel_m=tip_travel,
+        base_speed_rms=float(np.sqrt(vbase2 / max(n_settled, 1))),
+        step_length_m=float(disp @ np.array([np.cos(yaw0), np.sin(yaw0)])) / max(touchdowns, 1),
         energy_proxy=float(np.sum(taus ** 2) * c.sim_dt),
         z_std=float(np.std(z)) if z else 0.0, max_tilt_deg=float(max(tilt)) if tilt else 0.0,
     )

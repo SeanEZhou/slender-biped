@@ -30,6 +30,9 @@ def lowest_foot_z(m, d):
         gid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f"{side}_tip")
         if m.geom_type[gid] == mujoco.mjtGeom.mjGEOM_SPHERE:
             zs.append(d.geom_xpos[gid][2] - m.geom_size[gid][0])
+        elif m.geom_type[gid] == mujoco.mjtGeom.mjGEOM_BOX:  # box support function along -z
+            R = d.geom_xmat[gid].reshape(3, 3)
+            zs.append(d.geom_xpos[gid][2] - np.abs(m.geom_size[gid] * R[2, :]).sum())
         else:  # ellipsoid support function along -z
             R = d.geom_xmat[gid].reshape(3, 3)
             e = m.geom_size[gid]
@@ -67,7 +70,7 @@ def generate(variant="baseline", foot="B", ankle=True, actuator_set=None, overri
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--variant")
-    ap.add_argument("--foot", choices=["A", "B"], default="B")
+    ap.add_argument("--foot", choices=["A", "B", "F40", "F60", "F90", "P20", "P30"], default="B")
     ap.add_argument("--no-ankle", action="store_true")
     ap.add_argument("--actuator-set")
     a = ap.parse_args()

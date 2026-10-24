@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "configs"
 MODEL_DIR = ROOT / "models"
 
-JOINTS = ["hip_yaw", "hip_roll", "hip_pitch", "knee", "ankle"]
+JOINTS = ["hip_yaw", "hip_roll", "hip_pitch", "knee", "ankle", "ankle_roll"]
 SIDES = {"L": 1.0, "R": -1.0}
 
 
@@ -58,6 +58,8 @@ def joint_servos(cfg: dict, act: dict | None = None) -> dict[str, dict]:
     for j in JOINTS:
         if j == "ankle" and not cfg["ankle"]:
             continue
+        if j == "ankle_roll" and not (cfg["ankle"] and cfg.get("ankle_roll")):
+            continue
         spec = dict(act["catalog"][assign[j]])
         spec["model"] = assign[j]
         out[j] = spec
@@ -65,5 +67,5 @@ def joint_servos(cfg: dict, act: dict | None = None) -> dict[str, dict]:
 
 
 def model_name(cfg: dict) -> str:
-    dof = 10 if cfg["ankle"] else 8
+    dof = 8 + 2 * bool(cfg["ankle"]) + 2 * bool(cfg["ankle"] and cfg.get("ankle_roll"))
     return f"{cfg['variant']}_{cfg['foot']}_{dof}dof"

@@ -172,6 +172,13 @@ assignments:
     hip_pitch: STS3215_C018_12V
     knee: STS3215_C018_12V
     ankle: STS3032_6V
+  footed_control:    # control frame only: strong ankles so ankle torque is not the limiting factor
+    hip_yaw: STS3032_6V
+    hip_roll: STS3215_C046_7V4
+    hip_pitch: STS3215_C046_7V4
+    knee: STS3215_C046_7V4
+    ankle: STS3215_C046_7V4
+    ankle_roll: STS3215_C046_7V4
   slim_dynamixel:    # smallest envelope, over budget
     hip_yaw: XL330_M288_5V
     hip_roll: XC330_T288_11V1

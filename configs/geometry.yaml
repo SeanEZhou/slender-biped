@@ -84,14 +84,26 @@ base:
     mass: 0.006
     friction: [1.0, 0.004, 0.0004]   # slide, torsional (~mu * 4 mm patch), rolling
 
+  # --- control-experiment flat feet (foot: F40 / F60 / F90). NOT part of the ball-tip design. ---
+  # Rubber-soled box: length x width x thickness; ankle sits toe_frac of the way back from the toe.
+  foot_F40: {length: 0.040, width: 0.020, thickness: 0.006, toe_frac: 0.42, mass: 0.010, friction: [1.0, 0.004, 0.0004], condim: 3}
+  foot_F60: {length: 0.060, width: 0.032, thickness: 0.006, toe_frac: 0.42, mass: 0.016, friction: [1.0, 0.004, 0.0004], condim: 3}
+  foot_F90: {length: 0.090, width: 0.045, thickness: 0.006, toe_frac: 0.42, mass: 0.026, friction: [1.0, 0.004, 0.0004], condim: 3}
+  # --- flat-tipped leg (foot: P20 / P30): rigid rubber pad at the shin tip, no ankle, ball-tip form factor ---
+  foot_P20: {length: 0.020, width: 0.014, thickness: 0.004, toe_frac: 0.5, mass: 0.005, friction: [1.0, 0.004, 0.0004], condim: 3}
+  foot_P30: {length: 0.030, width: 0.018, thickness: 0.004, toe_frac: 0.5, mass: 0.007, friction: [1.0, 0.004, 0.0004], condim: 3}
+  ankle_roll: false           # true adds an ankle-roll joint below the ankle pitch (footed control frame only)
+  ankle_roll_servo_z: -0.062  # roll servo in the lower shin, pushrod to the ankle
+
   joint_limits_deg:
     hip_yaw: [-20, 30]
     hip_roll: [-14, 30]
     hip_pitch: [-35, 100]
     knee: [0, 130]
     ankle: [-30, 30]
+    ankle_roll: [-20, 20]
 
-  nominal_pose_deg: {hip_yaw: 0, hip_roll: 0, hip_pitch: 16, knee: 32, ankle: 16}
+  nominal_pose_deg: {hip_yaw: 0, hip_roll: 0, hip_pitch: 16, knee: 32, ankle: 16, ankle_roll: 0}
 
   material:
     shell_density: 1250       # PETG/PLA, kg/m^3 (shell mass = area * wall * density * 1.25 ribs)
@@ -109,6 +121,14 @@ variants:
     hip: {roll_below_yaw: 0.028, pitch_below_roll: 0.022, cover_half: [0.024, 0.018, 0.014]}
     thigh: {top: {w: 0.036, d: 0.030}, mid: {w: 0.034, d: 0.028}, knee_servo_z: -0.036}
     shin: {top: {w: 0.030, d: 0.036}, mid: {w: 0.029, d: 0.033}}
+  footed:                     # CONTROL FRAME (2026-10-23): baseline A legs + 2-DoF ankle + flat feet.
+                              # Separate frame for the feet-vs-ball control experiment; the ball-tip
+                              # baseline above is unchanged. Packaging is not enforced for this frame.
+    ankle: true
+    ankle_roll: true
+    foot: F60
+    actuator_set: footed_control
+    ankle_above_contact: 0.026
   direct_knee:
     thigh: {knee_drive: direct, top: {w: 0.032, d: 0.032, n: 2.5}, mid: {z: -0.085, w: 0.040, d: 0.032, n: 3.5},
             bottom: {w: 0.044, d: 0.032, n: 4.0}}

@@ -64,6 +64,39 @@ TASKS = {
                         rw=dict(both_feet=0.5, touchdown=-0.5, ang_vel_xy=-0.02, termination=-5.0, alive=1.0,
                                 torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
                                 action_rate=-0.05)),
+    # quiet stand v2 (E29+): also penalize every lift-off (micro-steps never count as touchdowns) and reward
+    # zero base velocity -- from scratch or as a fine-tune
+    "stand_quiet2": dict(cmd_zero_prob=1.0, phase_when_still=False, track_ang_sigma=0.005,  # penalize yaw creep (E24)
+                         rw=dict(both_feet=0.5, touchdown=-0.5, liftoff=-1.0, stop=1.0, ang_vel_xy=-0.05, track_ang=1.0,
+                                 termination=-5.0, alive=1.0, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                                 saturation=-1.0, action_rate=-0.05)),
+    # stride walking (E3x): slower clock (2.4 steps/s), longer air time, reward forward tip travel per step
+    # (up to 6 cm), wider speed range; v5 heading/tracking/hardware terms; stop at zero command (v6)
+    "walk_stride": dict(cmd_vx=(0.05, 0.3), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.25,
+                        phase_when_still=False, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                        gait_hz=1.2, air_time_target=0.25, swing_height=0.03,
+                        # slip -30 (default -4): the footed control (E28) "walked" by skating its soles
+                        rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, stride=2.0, feet_air_time=2.0, slip=-30.0,
+                                contact_phase=1.0, swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2,
+                                termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                                saturation=-1.0, action_rate=-0.05)),
+    # gentler stride curriculum (E34): fine-tune v6b toward longer steps instead of training strides from scratch
+    "walk_stride_ft": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.25,
+                           phase_when_still=True, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                           gait_hz=1.4, air_time_target=0.2, swing_height=0.03, stride_target=0.05,
+                           rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, stride=1.5, feet_air_time=1.0,
+                                   slip=-10.0, contact_phase=0.5, swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2,
+                                   termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                                   saturation=-1.0, action_rate=-0.05)),
+    # E37: step length = speed / cadence. Enforce the clock hard (contact pattern 3.0 at 2.4 steps/s) and command
+    # 0.15-0.3 m/s, so the only way to track speed is a 6-12 cm step. Fine-tune from stride_A8_ft.
+    "walk_cadence": dict(cmd_vx=(0.15, 0.3), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.15,
+                         phase_when_still=True, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                         gait_hz=1.2, air_time_target=0.25, swing_height=0.03, stride_target=0.08,
+                         rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, stride=1.5, feet_air_time=1.5,
+                                 slip=-10.0, contact_phase=3.0, swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2,
+                                 termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                                 saturation=-1.0, action_rate=-0.05)),
     "walk_v1": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
                  phase_when_still=True,
                  rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,

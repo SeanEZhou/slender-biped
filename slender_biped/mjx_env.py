@@ -76,7 +76,7 @@ class EnvConfig:
         track_lin=1.0, track_ang=0.5, upright=1.0, height=0.5, lin_vel_z=-1.0, ang_vel_xy=-0.05,
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
-        both_feet=0.0, touchdown=0.0, alive=0.5, termination=-20.0))
+        both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, alive=0.5, termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
     track_ang_sigma: float = 0.05      # yaw-rate tracking kernel width (rad/s)^2
@@ -85,6 +85,7 @@ class EnvConfig:
     height_sigma: float = 0.03
     swing_height: float = 0.025
     air_time_target: float = 0.2
+    stride_target: float = 0.06        # m, forward tip travel per step rewarded up to this (stride term)
 
 
 def _quat_rot_t(q, v):
@@ -130,6 +131,7 @@ class SlenderBipedEnv(Env):
         sphere = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_SPHERE
         size[sphere] = size[sphere][:, :1].repeat(3, 1)
         self.tip_semi = jp.array(size)                      # semi-axes for the support function
+        self.tip_box = jp.array(m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_BOX)  # flat soles (control frame)
         self.knee_bid = np.array([bid("L_shin"), bid("R_shin")])
         self.pelvis_bid = bid("pelvis")
         self.knee_r = float(m.geom_size[gid("L_knee_col")][0])
@@ -167,7 +169,8 @@ class SlenderBipedEnv(Env):
         """Lowest world point of each tip (support function along -z) and the tip centre."""
         c = data.geom_xpos[self.tip_gid]                       # (2,3)
         R = data.geom_xmat[self.tip_gid]                       # (2,3,3)
-        h = jp.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1)
+        h = jp.where(self.tip_box, jp.sum(jp.abs(self.tip_semi * R[:, 2, :]), axis=-1),
+                      jp.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1))
         return c[:, 2] - h, c
 
     def _sample_servo(self, rng):
@@ -224,7 +227,7 @@ class SlenderBipedEnv(Env):
             rng=rng, servo=servo, cmd=cmd, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
             prev_cmd=qj, q_tgt=qj, phase=jp.array(0.0), air_time=jp.zeros(2),
-            contact_prev=low < 0.0015, tip_prev=centre, step=jp.array(0, jp.int32),
+            contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
         obs = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
@@ -290,6 +293,8 @@ class SlenderBipedEnv(Env):
         tip_v = (centre - info["tip_prev"]) / c.ctrl_dt
         slip = jp.sum(jp.where(contact & info["contact_prev"], jp.sum(tip_v[:, :2] ** 2, -1), 0.0))
         touchdown = contact & ~info["contact_prev"]
+        liftoff = ~contact & info["contact_prev"]
+        lift_pos = jp.where(liftoff[:, None], centre, info["lift_pos"])
         air = info["air_time"] + c.ctrl_dt
         air_rew = jp.sum(jp.where(touchdown, jp.clip(air - c.air_time_target, -0.3, 0.3), 0.0))
         air = jp.where(contact, 0.0, air)
@@ -307,6 +312,10 @@ class SlenderBipedEnv(Env):
         head_err = jp.mod(info["heading"] - yaw_cur + jp.pi, 2 * jp.pi) - jp.pi
         # heading-frame velocity for command tracking (yaw-only frame)
         yaw_fwd = _quat_rot_t(quat, jp.array([1.0, 0.0, 0.0]))
+        # stride: forward (heading-direction) travel of a tip between its lift-off and touchdown
+        fwd = jp.array([jp.cos(yaw_cur), jp.sin(yaw_cur)])
+        step_len = (centre[:, :2] - lift_pos[:, :2]) @ fwd
+        stride = jp.sum(jp.where(touchdown, jp.clip(step_len, 0.0, c.stride_target) / c.stride_target, 0.0))
         rw = c.rw
         tilt2 = jp.sum(g_body[:2] ** 2)
         terms = dict(
@@ -331,6 +340,8 @@ class SlenderBipedEnv(Env):
             swing_height=jp.where(stepping, swing_err, 0.0),
             both_feet=jp.where(moving, 0.0, jp.all(contact).astype(float)),
             touchdown=jp.sum(touchdown).astype(float) * (1 - moving),
+            liftoff=jp.sum(liftoff).astype(float) * (1 - moving),
+            stride=stride * moving,
             alive=1.0,
             termination=0.0,
         )
@@ -358,7 +369,7 @@ class SlenderBipedEnv(Env):
         info["cmd_timer"] = jp.where(resample, self._steps(k_ct, c.cmd_resample_s), info["cmd_timer"])
 
         info.update(rng=rng, last_act=action, prev_cmd=q_cmd, q_tgt=q_tgt, air_time=air,
-                    contact_prev=contact, tip_prev=centre, step=info["step"] + 1)
+                    contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1)
         metrics = dict(state.metrics)
         for k, v in terms.items():
             metrics["r_" + k] = rw[k] * v

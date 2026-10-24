@@ -164,6 +164,20 @@ class Builder:
                 f'mass="{fa["mass"]}" friction="{fmt(fa["friction"])}"/>')
             self.mass_log.append((body.name, "tip:rubber_sphere", fa["mass"]))
             tip_top = contact_z + 2 * r
+        elif c["foot"][0] in "FP":  # flat rubber sole (F: control frame) or flat pad at the shin tip (P)
+            ff = c[f"foot_{c['foot']}"]
+            a, b, cc = ff["length"] / 2, ff["width"] / 2, ff["thickness"] / 2
+            th = mount_pitch
+            x0 = a - ff["toe_frac"] * 2 * a  # sole centre relative to the ankle (toe longer than heel)
+            h = abs(a * math.sin(th)) + cc * math.cos(th)  # box support depth
+            # sole centre = point below the ankle + x0 along the levelled sole + cc along its normal
+            pos = (x0 * math.cos(th) - cc * math.sin(th), 0, contact_z + x0 * math.sin(th) + cc * math.cos(th))
+            quat = (math.cos(th / 2), 0, -math.sin(th / 2), 0)
+            body.xml.append(
+                f'<geom name="{side}_tip" class="foot" type="box" size="{fmt([a, b, cc])}" '
+                f'pos="{fmt(pos)}" quat="{fmt(quat)}" mass="{ff["mass"]}" friction="{fmt(ff["friction"])}"/>')
+            self.mass_log.append((body.name, "tip:rubber_sole", ff["mass"]))
+            tip_top = contact_z + 2 * h
         else:
             fb = c["foot_B"]
             a, b, cc = fb["half_length"], fb["half_width"], fb["half_height"]
@@ -254,15 +268,28 @@ class Builder:
             asv = sv["ankle"]
             self.servo_box(shin, f"{side}_ankle", asv, (0, 0, S["ankle_servo_z"]), {"H": 0, "W": 1, "L": 2})
             self.inert(shin, "pushrod", S["pushrod_mass"], (0, 0, (S["ankle_servo_z"] + z_ank) / 2))
-            foot = Body(f"{side}_foot", (0, 0, z_ank), joint("ankle", (0, -1, 0)))
-            ah = 0.0062
-            self.mesh_geom(foot, f"{side}_ankle_cover", superellipsoid(ah, ah, ah, n=2.0), "joint", wall=0.0012)
+            if c.get("ankle_roll"):  # control frame: ankle pitch link, then ankle roll carrying the sole
+                rsv = sv["ankle_roll"]
+                self.servo_box(shin, f"{side}_ankle_roll", rsv, (0, 0, c["ankle_roll_servo_z"]), {"H": 0, "W": 1, "L": 2})
+                link = Body(f"{side}_ankle_link", (0, 0, z_ank), joint("ankle", (0, -1, 0)))
+                ah = 0.0075
+                self.mesh_geom(link, f"{side}_ankle_cover", superellipsoid(ah, ah, ah, n=2.0), "joint", wall=0.0012)
+                foot = Body(f"{side}_foot", (0, 0, 0), joint("ankle_roll", (s, 0, 0)))
+                link.children.append(foot)
+                shin.children.append(link)
+            else:
+                foot = Body(f"{side}_foot", (0, 0, z_ank), joint("ankle", (0, -1, 0)))
+                ah = 0.0062
+                self.mesh_geom(foot, f"{side}_ankle_cover", superellipsoid(ah, ah, ah, n=2.0), "joint", wall=0.0012)
+                shin.children.append(foot)
             tip_top = self.foot_geom(foot, side, -c["ankle_above_contact"], 0.0)
-            shin.children.append(foot)
+            if c["foot"][0] in "FP":  # visual strut ankle -> sole (massless, no contact)
+                foot.xml.append(f'<geom name="{side}_ankle_strut" class="vis" type="capsule" size="0.005" '
+                                f'fromto="0 0 0 0 0 {tip_top:.6g}" material="joint" mass="0"/>')
             col_bot = z_ank + 0.004
         else:
             foot = None
-            tip_top = self.foot_geom(shin, side, -L2, stance_pitch if c["foot"] == "B" else 0.0)
+            tip_top = self.foot_geom(shin, side, -L2, stance_pitch if c["foot"] != "A" else 0.0)
             ftop = -L2 + (tip_top + L2) * 0.55
             self.mesh_geom(shin, f"{side}_shin_shell", tube(S["top_z"], S["top"], ftop, S["bottom"], cap_bot=0.3, mid=S.get("mid")),
                            "shell", wall=S["shell_wall"])
@@ -353,7 +380,8 @@ class Builder:
         lines = []
         lean = c.get("contact_set", "full") == "train"
         for s in "LR":
-            lines.append(f'    <pair geom1="floor" geom2="{s}_tip" condim="{c.get("tip_condim", 4)}" friction="{tip_fr}" '
+            condim = c[f"foot_{c['foot']}"].get("condim", c.get("tip_condim", 4))
+            lines.append(f'    <pair geom1="floor" geom2="{s}_tip" condim="{condim}" friction="{tip_fr}" '
                          f'solref="0.004 1" solimp="0.9 0.97 0.001"/>')
             if lean:  # training set: falls are detected kinematically and end the episode
                 continue

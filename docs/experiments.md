@@ -531,3 +531,382 @@ same late-training regression. Full table: `results/compare_walk_v5.md`.
   `scripts/train.py` and `scripts/render_rollout.py`; the run configs hold the exact settings.
 - **Evaluation:** every evaluation JSON quoted in this log is in `results/eval/`.
 
+
+---
+
+# Round 2 (2026-10-23, afternoon): feet control experiment, then ball-tip improvements
+
+Question from the user: is footlessness the real reason the robot never stands still and walks with tiny
+steps, or is something else (reward, servos, control) responsible? Method:
+1. **Control experiment.** Give the same frame ankles and flat feet, and train it with *the same recipe*.
+2. **Ball-tip improvements.** Apply what the control teaches, without abandoning the ball-tip form factor.
+
+The ball-tip baseline A model is untouched: `models/baseline_A_8dof.xml` is byte-identical before and
+after this round (checked by md5). New frames are separate models.
+
+**New models** (`configs/geometry.yaml`, `scripts/regen_train_models.py`):
+
+| model | what | DoF | mass |
+|---|---|---|---|
+| `footed_F40_12dof` / `F60` / `F90` | baseline A legs + ankle pitch & roll + flat rubber sole 40×20 / 60×32 / 90×45 mm (≈ 11 / 16 / 24 % of height) | 12 | 1.09–1.12 kg |
+| `footed_F60_8dof` | rigid 60×32 mm sole, no ankle: is it the foot or the ankle? | 8 | 0.88 kg |
+| `baseline_P20_8dof` / `P30` | **ball-tip form factor with a flat rubber pad instead of the ball** (20×14 / 30×18 mm), rigid, no ankle (user suggestion) | 8 | 0.86 kg |
+
+Confound, stated up front: the footed control frame uses STS3215-C046 servos at the ankles (so ankle
+torque cannot be the limiting factor), which adds ~250 g low on the legs. Packaging is not enforced for
+the control frame; it is a test rig, not a design candidate.
+
+**New metrics** (`scripts/evaluate.py`): after a 2 s settle, `liftoffs` (any tip or sole leaving the floor,
+however briefly), `tip_travel_m` (horizontal sliding/stepping of both tips), `base_speed_rms`.
+`quiet_frac` = survived **and** zero lift-offs **and** < 2 cm tip travel. This is stricter than round 1's
+`stationary_frac`, which ignored airborne blips shorter than 60 ms. Walking adds `step_length_m` =
+forward distance / steps.
+
+## E23 — Passive pose hold (no policy): what the contact geometry gives for free
+Nominal joint targets held by the servo model, 10 s, 5 seeds; "clean" = no reset noise, "noisy" = round-1
+reset noise (joints σ 0.08 rad, tilt σ 0.04 rad). Survival in seconds:
+
+| model | clean start | noisy start |
+|---|---|---|
+| ball A (round-1 baseline) | 0.76 ×5 | 0.4–0.7 |
+| pad P20 (20×14 mm) | **10 ×5** | 0.5–1.2 |
+| pad P30 (30×18 mm) | **10 ×5** | 1 of 5 survives |
+| rigid sole F60 (no ankle) | 10 ×5 | 4 of 5 survive |
+| footed F40 / F60 / F90 (ankles) | 10 ×5 | 2 / 4 / 4 of 5 survive |
+
+A ball tip has no static equilibrium: two point contacts leave one unactuated degree of freedom, a
+rotation about the line between the tips. Any flat contact, even a 20 mm pad, creates one. The pad's
+margin is tiny, though (noise knocks it over), so it still needs active balance. The difference is that
+the balance can now be quiet.
+
+## E24 — Control: footed F60 (12 DoF), quiet-stand recipe from scratch (`ctl_stand_F60_12`, task `stand_still`, 45 M)
+- Recipe identical to the ball run E25 (round 1's `stand_still`: both feet +0.5, touchdown −0.5, no gait
+  shaping, hardware penalties, termination −5, alive +1).
+- **Checkpoint-rule amendment** (made before any CPU result of this run was seen): the rule picked the
+  *untrained* step-0 checkpoint, because a near-zero-action policy on flat feet holds pose passively and
+  scores highest. `scripts/best_checkpoint.py` now ignores step 0. Selected: 45 M. Both are reported.
+
+| checkpoint | alive @30 s | no-lift stance | strict quiet | lift-offs | steps/s | tip travel (28 s) | heading drift |
+|---|---|---|---|---|---|---|---|
+| 45 M (rule) | 96 % | **95 %** | 0 % | **0** | 0.03 | 0.45 m | 107° |
+| 0 M (untrained) | 82 % | 82 % | 77 % | 0 | 0 | 0.01 m | small |
+
+- Diagnosis of the 0 % strict quiet (seed 10000): neither sole ever leaves the floor, and joint motion
+  stays < 1° std. The robot slowly **pirouettes** (~0.06 rad/s) by twisting its soles, driven at the
+  1.6 Hz gait-clock frequency. That is a reward gap: zero-command yaw was barely penalized (kernel
+  σ² = 0.05). It is not a balance problem. The phase-2 quiet task narrows the yaw kernel to 0.005.
+- **Result: with feet, the policy stops stepping entirely.**
+
+## E25 — Control: ball A (8 DoF), the identical recipe from scratch (`ctl_stand_A8`, 45 M, rule → 33 M)
+
+| | footed F60 (E24) | **ball A** |
+|---|---|---|
+| alive @30 s | 96 % | 97 % |
+| no-lift stance | 95 % | **0 %** |
+| lift-offs per episode (median) | 0 | **221** |
+| steps/s | 0.03 | **6.2** |
+| tip travel in 28 s | 0.45 m | **12.6 m** |
+| base speed RMS | 0.03 m/s | 0.18 m/s |
+| RMS torque / rated (max joint) | 0.53 | 0.73 |
+
+**Same reward, same budget, same legs: the ball tip micro-steps, the flat foot does not.** Round 1's
+constant stepping is caused by the point contact, not by the reward design (which in round 1 did
+explicitly shape stepping) and not by the servos.
+
+## E26 — Control: foot size (`ctl_stand_F40_12`, `ctl_stand_F90_12`; same recipe, 45 M each)
+100 held-out seeds; rule-selected checkpoints (33 M for both).
+
+| foot | alive @30 s | no-lift stance | strict quiet | tip travel (28 s) | base speed RMS | heading drift |
+|---|---|---|---|---|---|---|
+| ball A (E25) | 97 % | 0 % | 0 % | 12.6 m | 0.18 m/s | 94° |
+| F40 40×20 mm (11 % of height) | 98 % | 94 % | 0 % | 0.68 m | 0.041 m/s | 27° |
+| F60 60×32 mm (16 %) (E24) | 96 % | 95 % | 0 % | 0.45 m | 0.032 m/s | 107° |
+| F90 90×45 mm (24 %) | 92 % | 90 % | **12 %** | **0.03 m** | **0.009 m/s** | 27° |
+
+- **Any foot stops the stepping.** Even the 40 mm sole gives a no-lift stance in 94 % of episodes.
+- **Bigger feet make the stance quieter** (sliding drops by ~20× from F40 to F90). Bigger feet are the only
+  size to reach strict quiet in some episodes.
+- All 8 F90 falls happen in the first 2.4 s (tilt ~42°): the randomized start leaves a big sole on its
+  edge. Every F90 episode that survived 2.4 s stood the full 30 s.
+
+## E27 — Control: is it the foot or the ankle? Rigid F60 sole, no ankle (`ctl_stand_F60_8rigid`, 8 DoF, 45 M)
+- Rule-selected 45 M: **95 % alive @30 s, 94 % no-lift stance**, 0 median lift-offs, tip travel 0.55 m,
+  base speed 0.031 m/s, heading drift 12°.
+- Same as the 12-DoF F60 with ankles (96 % / 95 %). **The flat contact, not the ankle, removes the stepping.**
+  The hip and knee servos can tilt a rigid sole well enough to stand. This motivates the flat-pad leg
+  (`baseline_P20/P30`): a rigid flat contact inside the ball-tip silhouette.
+
+## E28 — Control: footed F60 walking with the ball's walk recipe (`ctl_walk_F60_12`, task `walk` = v5, DR, 100 M)
+- The rule picked 91 M. (The untrained step 0 scored highest, 4877: on flat feet, standing still with
+  good heading earns most of the walk reward. The amended rule ignores step 0.)
+- CPU, 100 seeds:
+
+| | footed F60 @91 M | ball v5 @50 M (same recipe) | ball v6b (round-1 best) |
+|---|---|---|---|
+| walk ≥ 2 m in 40 s | 83 % | 85 % | 100 % |
+| mean vx at a 0.15 command | 0.054 m/s | 0.065 m/s | 0.086 m/s |
+| lift-offs in 38 s (median) | 92 | 444 | 462 |
+| start/stop success | 43 % | 44 % (E14) | 79 % |
+| standing: no-lift stance | 0 % (59 lift-offs) | — | — |
+
+- **Gait anatomy** (`scripts/gait_anatomy.py`, 20 s, 3 seeds): where does foot travel happen?
+
+| | foot travel airborne | foot travel sliding on the floor | lift-offs | mean air time | airborne step |
+|---|---|---|---|---|---|
+| footed F60 | 0.36 m | **1.59 m** | 28 | 31 ms | 0.4 cm |
+| ball v6b | 8.0 m | 1.7 m | 234 | 55 ms | 1.8 cm |
+
+- **The footed robot does not walk; it skates.** It slides its soles forward and lifts them only for
+  ~30 ms blips. The ball robot at least swings its tips through the air, in 1.8 cm steps.
+- Lesson: **feet fix standing, not walking.** The tiny-step gait is a reward problem as much as a
+  contact problem. The v5 reward barely penalizes sliding (slip −4 × v²: ≈ 0.03 per step at 0.08 m/s)
+  and weakly enforces alternating contact (0.5). A robot with feet exploits that even more readily,
+  since sliding a flat sole is cheap and stable.
+- Next: the `walk_stride` recipe (slip −30, stride reward, air-time 0.25 s, 2.4 steps/s clock, contact
+  pattern 1.0) on ball A, footed F60 (control) and pad P20.
+
+## E29 — Ball A, quiet stand v2 (`q2_stand_A8`, task `stand_quiet2`, 45 M from scratch)
+- `stand_still` plus a lift-off penalty (−1 per lift-off, so short blips count too), a zero-velocity
+  stop reward (+1) and a sharp zero-yaw kernel (σ² 0.005, weight 1).
+- Rule → 45 M. CPU, 100 seeds: 97 % alive @30 s, **still 210 lift-offs per episode, 6.1 steps/s, 0 %
+  no-lift stance**, tip travel 14 m, heading drift 80° (from 94°).
+- The third reward design for ball stillness that fails, after E18 (fine-tune from stepping) and E25
+  (from scratch). With the hardware-like control loop (50 Hz, 4 ms latency, IMU noise), the policy
+  always prefers stepping to falling.
+- Queued as an upper bound: `q2_stand_A8_ideal100` (100 Hz control, zero latency, ideal sensors, no
+  deadzone). If even that cannot stand still, quiet ball stance is impractical rather than just untrained.
+
+## E30 — Flat pad P20 (ball-tip form factor, 20×14 mm pad), quiet stand v2 (`q2_stand_P20`, 45 M)
+- Rule → 22 M. CPU, 100 seeds: 95 % alive @30 s, **210 lift-offs, 5.3 steps/s, 0 % no-lift stance**.
+  The final 45 M checkpoint is the same (100 % alive, 278 lift-offs, 5.5 steps/s; 50 seeds).
+- So a 20 mm pad by itself did not remove the stepping, unlike the 60 mm rigid sole (E27).
+- One visible difference: the untrained policy. On the 60 mm sole it already stood, scoring 3586 at
+  step 0, so training began from a quiet stance. On the pad it falls in ~1 s from the randomized start
+  (joint noise σ 0.08 rad, tilt σ 0.04), because the pad's passive margin is tiny (E23). PPO then finds
+  stepping before it ever experiences quiet balance.
+- Hypothesis: **exploration, not physics.** Test: `q2_stand_P20_gentle`, the same recipe with gentle
+  starts (σ 0.02 rad / 0.01). It is evaluated under both gentle and standard starts.
+
+## E31 — Flat pad P30 (ball-tip form factor, 30×18 mm pad), quiet stand v2 (`q2_stand_P30`, 45 M): **stands without stepping**
+- Training peaked at 22 M (eval reward 4409, 958/1000 steps) and **collapsed** by 45 M (336 steps). The
+  declared rule picked 22 M.
+- CPU, 100 held-out seeds, standard (noisy) starts:
+
+| | ball A (E29, same recipe) | pad P20 (E30) | **pad P30** | rigid sole F60 (E27, different recipe) |
+|---|---|---|---|---|
+| alive @30 s | 97 % | 95 % | 94 % | 95 % |
+| no-lift stance | 0 % | 0 % | **85 %** | 94 % |
+| lift-offs (median) | 210 | 210 | **0** | 0 |
+| steps/s | 6.1 | 5.3 | **0.03** | 0.07 |
+| base speed RMS | 0.19 m/s | 0.13 m/s | **0.027 m/s** | 0.031 m/s |
+| heading drift | 80° | 93° | **17°** | 12° |
+
+- Gait anatomy (30 s, 3 seeds): about 1 lift-off per episode; **body displacement 2 cm**; the pads slide
+  0.5 m back and forth (small fidgeting corrections, not stepping). Strict quiet (< 2 cm tip travel) is
+  still 0 %.
+- The policy holds a **split stance**, one pad ahead of the other (`assets/gifs/pad30_stand.gif`).
+  Two flat pads staggered fore-aft form a real support polygon (≈ the stagger × the pad width).
+- **Result: a 30×18 mm flat pad at the shin tip, with no ankle or foot, inside the ball-tip silhouette,
+  lets the robot stand without stepping.** The 20 mm pad did not, at least not from noisy starts (E30).
+
+## E32 — Pad P20 with gentle starts (`q2_stand_P20_gentle`, reset noise σ 0.02 rad / tilt 0.01, 45 M)
+- Rule → 33 M. CPU, 100 seeds, under both start conditions:
+
+| start | alive @30 s | no-lift stance | lift-offs | steps/s | base speed |
+|---|---|---|---|---|---|
+| gentle (as trained) | 100 % | 0 % | 130 | 1.6 | 0.097 m/s |
+| standard (σ 0.08 / 0.04) | 98 % | 0 % | 130 | 1.7 | 0.097 m/s |
+| (E30, standard training) | 95 % | 0 % | 210 | 5.3 | 0.13 m/s |
+
+- Partial support for the exploration hypothesis: gentle starts cut stepping by 3× and the result holds
+  under standard starts. But **the 20 mm pad still never holds a no-lift stance**; 30 mm does (E31).
+- **Pad size threshold:** between 20×14 mm (no) and 30×18 mm (yes) for this 0.86 kg, 38 cm robot with these
+  servos. Scale reference: the shin is 22 mm wide at the top and tapers to 11 mm at the tip.
+
+## E33 — Ball A, stride recipe from scratch (`stride_A8`, task `walk_stride`, DR, 100 M): **failed**
+- Recipe: 2.4 steps/s clock, air-time target 0.25 s, stride reward (+2 up to 6 cm per step), slip −30,
+  contact pattern 1.0, commands 0.05–0.3 m/s. No warm start.
+- Training never got past ~3 s episodes (peak 186/1000 steps at 81 M).
+- CPU (rule → 81 M, 50 seeds, walk40): 0 % alive @30 s; it lunges forward at 0.38 m/s and falls; 60 %
+  reach 1 m. Steps are still only 2.6 cm. Hip roll, hip pitch and knee run at ~1.0 × rated torque.
+- Reading: demanding long, airborne, non-sliding steps *from scratch* gives the ball robot nothing to
+  hold on to. Every attempt to swing a leg far ends in a fall before the stride reward pays. Next is a
+  curriculum: fine-tune the working v6b walker toward longer steps (`walk_stride_ft`, E34).
+- The pad stride run was changed for the same reason: v6b transferred onto the P30 model (same
+  joints and observations), then fine-tuned with `walk_stride_ft` (E36).
+
+## E34 — Ball A, gentle stride fine-tune from v6b (`stride_A8_ft`, task `walk_stride_ft`, 40 M, critic restored, lr 1e-4)
+- Recipe: 2.8 steps/s clock, air-time target 0.2 s, stride reward +1.5 (up to 5 cm), slip −10, commands
+  0.05–0.25 m/s, v6 stop reward. Rule → 10 M (in-training eval 4969).
+- CPU, 100 seeds each:
+
+| | v6b (round-1 best, re-evaluated) | **stride_A8_ft @10 M** |
+|---|---|---|
+| walk ≥ 2 m in 40 s | 100 % | 100 % |
+| mean vx @ 0.15 command | 0.086 m/s | **0.122 m/s** (81 % of command) |
+| start → stop → start | 79 % | **89 %** |
+| stand 30 s | 100 % | 100 % |
+| steps/s (walking) | 5.7 | 7.0 |
+| step length (forward distance / steps) | 1.5 cm | 1.8 cm |
+| airborne step / sliding per 20 s (anatomy) | 1.8 cm / 1.7 m | 2.1 cm / 1.0 m |
+| RMS torque / rated (max) | 0.82 | 0.82 |
+
+- **A better walker on every round-1 gate, but not a longer stride.** The extra speed comes from cadence
+  (7 steps/s), not step length.
+- Together with E33 this suggests a ball-tip limit: single support on a point contact is an
+  unstabilizable inverted pendulum, so each swing must end within roughly one fall time constant
+  (√(l/g) ≈ 0.17 s here). Long swings mean falling. Whether a flat contact relaxes this is tested by
+  E35 (footed) and E36 (pad).
+
+## E35 — Control: footed F60 with the stride recipe from scratch (`stride_F60_12`, task `walk_stride`, DR, 80 M)
+- Unlike the ball (E33), the footed robot survives the from-scratch stride recipe. Rule → 30 M.
+- CPU, 100 seeds: walk40 93 % alive, but **3 % reach 1 m**; vx 0.054 m/s; heading drift 65°; 5.3 steps/s.
+  Start/stop 16 %. Standing: 270 lift-offs (it marches in place even at zero command).
+- Gait anatomy: real lift-offs (122 ms mean air time, vs 31 ms when skating in E28), but **1.4 cm airborne
+  steps**. It marches in place.
+
+| from-scratch stride recipe | ball A (E33) | footed F60 |
+|---|---|---|
+| survives | no (~3 s) | yes (93 % @30 s) |
+| reaches 1 m in 40 s | 60 % | 3 % |
+| airborne step | 2.6 cm | 1.4 cm |
+
+- **Conclusion on strides: feet do not produce long strides either.** With the v5 reward they skate (E28);
+  with the stride reward they march in place. Short steps are not specific to the ball tip; they come
+  from what RL finds easiest under these rewards, servos and this scale. Only the *survivability* of
+  long-step training differs (feet survive, the ball falls).
+- Remaining idea: step length = speed / cadence. E37 (`cadence_A8_ft`) enforces a 2.4 steps/s clock hard
+  while commanding 0.15–0.3 m/s.
+
+## E36 — Pad P30 walking: v6b ball walker transferred onto the pad, then the gentle stride fine-tune (`stride_P30_ft`, 40 M)
+- The P30 model has the same 8 joints and observation layout as ball A, so the v6b policy (and critic)
+  load directly. Task `walk_stride_ft` (same as E34), lr 1e-4, DR. Rule → 20 M.
+- CPU, 100 seeds. E34 (ball, same recipe and initialization) for comparison:
+
+| | ball A (E34) | **pad P30** |
+|---|---|---|
+| walk ≥ 2 m in 40 s | 100 % | 100 % |
+| mean vx @ 0.15 command | 0.122 m/s | **0.157 m/s** (tracks the command) |
+| steps/s | 7.0 | **4.25** |
+| step length (forward distance / steps) | 1.8 cm | **3.6 cm** |
+| airborne step / sliding per 20 s | 2.1 cm / 1.0 m | 3.1 cm / 2.0 m |
+| start → stop → start | **89 %** | 44 % |
+| standing (this walking policy) | 100 % alive, 363 lift-offs | 99 % alive, 239 lift-offs, 2.2 steps/s |
+| RMS torque / rated (max) | 0.82 | 0.79 |
+
+- **The flat pad doubles step length and halves cadence** at the same reward. It also tracks the full commanded
+  speed. Stopping on command is worse (44 %). This walking policy keeps stepping at zero command
+  (`phase_when_still` on, inherited from v6b), so the pad's quiet stance comes from the separate standing
+  policy (E31). Merging the two behaviours into one policy is untested.
+- Reading, with E33–E35: the flat contact gives each stance phase some CoP authority, so single support
+  lasts longer and steps get longer. The ball cannot. But no configuration produced human-like strides
+  (step ≈ 25 % of leg length or more, i.e. ≥ 7 cm) within this budget.
+
+## E37 — Ball A, hard cadence clock (`cadence_A8_ft`, task `walk_cadence`, 30 M from E34 @10 M, lr 1e-4): **new best ball policy, but no longer steps**
+- Recipe: contact pattern 3.0 on a 2.4 steps/s clock, commands 0.15–0.3 m/s, stride target 8 cm. The idea:
+  step length = speed / cadence, so a held cadence forces long steps.
+- Training peaked at 20 M (eval reward 7016) and collapsed at 30 M (411 steps). Rule → 20 M.
+- **The policy ignored the clock**: still 7.2 steps/s, 1.8 cm steps (airborne 2.6 cm). The contact-pattern
+  reward was traded away for speed tracking and survival.
+- But it is the **best ball-tip policy so far on every round-1 gate** (CPU, 100 seeds):
+
+| gate | v6b (round 1) | E34 stride_ft | **E37 cadence_ft @20 M** |
+|---|---|---|---|
+| stand 30 s | 100 % | 100 % | **100 %** |
+| walk ≥ 2 m in 40 s | 100 % | 100 % | **100 %** |
+| vx @ 0.15 command | 0.086 | 0.122 | **0.134 m/s** (89 %) |
+| heading drift (40 s) | 3.8° | 3.2° | **1.5°** |
+| start → stop → start | 79 % | 89 % | **98 %** |
+| RMS torque / rated (max joint) | 0.82 | 0.82 | **0.73** |
+| peak joint speed / no-load | 0.95–1.0 (knee) | — | **0.79** |
+| duty saturation | 0.4 % | — | **0.03 %** |
+
+- Lesson: progressive fine-tuning (v5 → v6b → stride_ft → cadence_ft) kept improving tracking, stopping and
+  hardware margins. The step-length goal was not met by any reward lever we tried on the ball tip.
+
+## E38 — Upper bound: ball A quiet stand under ideal control (`q2_stand_A8_ideal100`, 100 Hz, zero latency, ideal sensors, no deadzone, 60 M)
+- Same `stand_quiet2` reward as E29. Rule → 50 M. CPU, 100 seeds:
+
+| eval condition | alive @30 s | no-lift stance | lift-offs | drift (30 s) |
+|---|---|---|---|---|
+| ideal (as trained) | 92 % | **0 %** | 475 | 5.1 m |
+| realistic (4 ms latency, nominal noise, deadzone) | 78 % | 0 % | 404 | 1.5 m |
+
+- **Even with perfect sensing and 100 Hz zero-latency control, the ball tip does not learn a quiet stance.**
+  It steps (more lift-offs per second, at the higher control rate) and wanders further. Together with
+  E18, E25 and E29 (four reward and control variants), ball-tip quiet standing is not an artefact of our
+  servo model or control rate. With two point contacts the unactuated tip-over mode makes stepping the
+  only robust strategy that RL finds. In principle an acrobot-style feedback balance exists, but it was
+  never found.
+
+## E39 — Reproducibility: pad P30 quiet stand, seed 1 (`q2_stand_P30_s1`, 45 M)
+- Training only escaped falling at the very end (eval length 60–106 steps from 11 to 34 M, then 991 at 45 M).
+  Seed 0 got there by 22 M.
+- Rule → 45 M. CPU, 100 seeds: 96 % alive @30 s, but **0 % no-lift stance**: 152 lift-offs, 2.1 steps/s,
+  heading drift 87°.
+- **The quiet pad stance did not reproduce on seed 1 within the same budget.** The pad *permits* a
+  no-lift stance (seed 0: 85 %), but training does not reliably find it. Continued for 30 M from
+  45 M (`q2_stand_P30_s1_cont`) to separate "needs more training" from "seed-dependent outcome".
+- **Continuation** (`q2_stand_P30_s1_cont`, +30 M, critic restored, rule → 30 M): 100 % alive, lift-offs
+  152 → 98, steps/s 2.1 → 0.6, but still **0 % no-lift stance**. The trend is toward quiet, but it is not
+  there after 75 M total. **The P30 quiet stance is seed-dependent (1 of 2 seeds) or at best slow to find.**
+
+## Round 2 summary
+
+**Run index**
+
+| # | run | what | outcome |
+|---|---|---|---|
+| E23 | — | passive pose hold, all contacts | any flat contact has a static equilibrium; the ball has none |
+| E24 | `ctl_stand_F60_12` | footed 60 mm, quiet stand | no stepping (95 % no-lift); slow yaw creep |
+| E25 | `ctl_stand_A8` | ball, same recipe | 0 % no-lift, 6.2 steps/s |
+| E26 | `ctl_stand_F40_12`, `ctl_stand_F90_12` | foot size | all sizes stop stepping; bigger is quieter |
+| E27 | `ctl_stand_F60_8rigid` | rigid sole, no ankle | same as with ankle: the contact matters, not the ankle |
+| E28 | `ctl_walk_F60_12` | footed walking (ball recipe) | skates its soles; no stepping |
+| E29 | `q2_stand_A8` | ball, lift-off penalty | still 210 lift-offs |
+| E30 | `q2_stand_P20` | 20 mm pad, quiet stand | still steps |
+| E31 | `q2_stand_P30` | 30 mm pad, quiet stand | **85 % no-lift stance** (seed 0) |
+| E32 | `q2_stand_P20_gentle` | 20 mm pad, gentle starts | stepping cut 3×, still not quiet |
+| E33 | `stride_A8` | ball, stride reward from scratch | falls (~3 s) |
+| E34 | `stride_A8_ft` | ball, gentle stride fine-tune | better walker, same 2 cm steps |
+| E35 | `stride_F60_12` | footed, stride reward from scratch | marches in place |
+| E36 | `stride_P30_ft` | pad, v6b transferred + stride fine-tune | **3.6 cm steps (2× ball), 0.157 m/s** |
+| E37 | `cadence_A8_ft` | ball, hard cadence clock | **best ball policy** (98 % start/stop); still 2 cm steps |
+| E38 | `q2_stand_A8_ideal100` | ball, ideal 100 Hz control | still 0 % no-lift |
+| E39 | `q2_stand_P30_s1(_cont)` | pad P30, seed 1 | quiet stance not reproduced (0.6 steps/s at 75 M) |
+
+**Answers to the round-2 questions**
+1. *Does footlessness cause the constant stepping?* **Yes.** Same reward, same legs: every flat foot
+   (40–90 mm, with or without an ankle) stands with no lift-offs; the ball never does, even with ideal
+   sensing and control. Two point contacts leave an unactuated tip-over mode.
+2. *Does footlessness cause the tiny steps?* **Not by itself.** Feet with the same rewards skated
+   (E28) or marched in place (E35). A flat pad did lengthen steps 2× at an identical reward and
+   initialization (E36), so contact shape contributes, but reward design and training method dominate.
+3. *Can the ball-tip form factor stand still?* **The 16 mm ball cannot** in anything we tried. A
+   **30 × 18 mm flat pad** at the shin tip, the same silhouette, **can** (E31, 85 % no-lift), but training
+   found it on 1 of 2 seeds. A 20 mm pad is below the threshold.
+4. *Best ball-tip policy:* `cadence_A8_ft` @20 M (E37). It passes every round-1 gate with more margin.
+
+**Lessons (round 2)**
+1. **Use a matched control to separate morphology from reward.** Same recipe and budget on feet and
+   ball turned "the robot steps constantly" into a clear statement: point contacts cause it.
+2. **Passive tests are cheap and predictive.** The no-policy pose hold (E23) predicted which contacts
+   could stand still before any GPU time was spent.
+3. **Measure behaviour, not reward.**
+   - The footed walker "passed" a 2 m gate by skating (E28).
+   - The untrained flat-foot policy topped the reward curve (E24).
+   - Gait anatomy (airborne vs sliding travel) and a strict lift-off count were essential.
+4. **What the untrained policy can do shapes what PPO finds.** Contacts that stand passively (60 mm
+   soles) started quiet and stayed quiet. Marginal contacts (20/30 mm pads) fall first and discover
+   stepping. Gentle starts help (E32).
+5. **Curricula beat from-scratch rewrites for gait changes.** Stride rewards from scratch failed or
+   degenerated (E33, E35). Fine-tuning a working walker improved it step by step (E34, E37) and
+   transferred across tip shapes (E36).
+6. **Every long run regressed after its peak** (P30 22 → 45 M, cadence 20 → 30 M). The declared
+   checkpoint rule, amended once and openly to skip step 0, kept selection honest.
+7. **Seeds matter.** The headline pad result reproduced on only 1 of 2 seeds; report that, don't hide it.
+
+**GPU-time accounting (11:03 – 18:26, one job at a time):** 18 runs, about 7.4 h. All 18 completed (none
+stalled or crashed); 3 were conclusive failures by design (E33 falls, E35 marches, E38 still steps). The
+health watchdog (`scripts/health_watch.sh`) checked the queue runner, GPU utilization and log freshness
+every 30 s and reported every 30 min. No intervention was needed.

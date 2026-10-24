@@ -73,6 +73,15 @@ def summarize(eps, test, ts_stall=None):
     out["steps_per_s_median"] = float(np.median([e["steps_per_s"] for e in pick]))
     out["bounces_median"] = float(np.median([e.get("bounces", 0) for e in pick]))
     out["stationary_frac"] = float(np.mean([e["touchdowns"] == 0 and not e["fell"] for e in eps]))
+    if "liftoffs_after_settle" in eps[0]:
+        # quiet stance: survived, no tip/sole lift-off after 2 s, < 2 cm total horizontal tip travel
+        out["quiet_frac"] = float(np.mean([(not e["fell"]) and e["liftoffs_after_settle"] == 0 and e["tip_travel_m"] < 0.02
+                                           for e in eps]))
+        out["nolift_frac"] = float(np.mean([(not e["fell"]) and e["liftoffs_after_settle"] == 0 for e in eps]))
+        out["liftoffs_median"] = float(np.median([e["liftoffs_after_settle"] for e in pick]))
+        out["tip_travel_median_m"] = float(np.median([e["tip_travel_m"] for e in pick]))
+        out["base_speed_rms_median"] = float(np.median([e["base_speed_rms"] for e in pick]))
+        out["step_length_median_m"] = float(np.median([e["step_length_m"] for e in pick]))
     out["drift_median_m"] = float(np.median([e["drift_m"] for e in pick]))
     out["forward_median_m"] = float(np.median([e["forward_m"] for e in eps]))
     out["mean_vx_median"] = float(np.median([e["mean_vx"] for e in pick]))

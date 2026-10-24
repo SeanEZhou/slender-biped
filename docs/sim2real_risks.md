@@ -15,4 +15,4 @@ Updated after training (2026-10-23). "Evidence" points to `docs/experiments.md`.
 | Contact model | Lean contacts in training; MuJoCo soft contacts | Full-contact CPU eval agrees, but the B rocker transferred worse in v1 | Hardware is the only real test |
 | Heading control | Policy needs an IMU-yaw heading-hold loop | Open-loop turn commands not followed (E10–E14) | Gyro-integrated yaw; magnetometer optional; train turning explicitly |
 | Printed-shell mass | Shells are a third of total mass (estimate) | ±15 % mass randomization; +20 % mass harmless (E17) | Weigh the parts; update the config |
-| Quiet standing | Point contacts never stand still | 0 % stationary in every policy, including the quiet-stand fine-tune (E18) | Accept micro-stepping, or add an ankle and wider rockers (not tested here) |
+| Quiet standing | Point contacts never stand still | 0 % no-lift stance for the ball in every variant, including ideal control (E18, E25, E29, E38). Any flat foot stands (E24–E27); a 30 × 18 mm pad at the shin tip stands on 1 of 2 seeds (E31, E39) | Accept micro-stepping with the ball, or fit a 30 mm flat rubber pad. Bench-test real pad compliance and edge contact |

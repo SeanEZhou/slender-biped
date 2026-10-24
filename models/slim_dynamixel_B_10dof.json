@@ -154,6 +154,73 @@
     0.0004
    ]
   },
+  "foot_F40": {
+   "length": 0.04,
+   "width": 0.02,
+   "thickness": 0.006,
+   "toe_frac": 0.42,
+   "mass": 0.01,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ],
+   "condim": 3
+  },
+  "foot_F60": {
+   "length": 0.06,
+   "width": 0.032,
+   "thickness": 0.006,
+   "toe_frac": 0.42,
+   "mass": 0.016,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ],
+   "condim": 3
+  },
+  "foot_F90": {
+   "length": 0.09,
+   "width": 0.045,
+   "thickness": 0.006,
+   "toe_frac": 0.42,
+   "mass": 0.026,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ],
+   "condim": 3
+  },
+  "foot_P20": {
+   "length": 0.02,
+   "width": 0.014,
+   "thickness": 0.004,
+   "toe_frac": 0.5,
+   "mass": 0.005,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ],
+   "condim": 3
+  },
+  "foot_P30": {
+   "length": 0.03,
+   "width": 0.018,
+   "thickness": 0.004,
+   "toe_frac": 0.5,
+   "mass": 0.007,
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ],
+   "condim": 3
+  },
+  "ankle_roll": false,
+  "ankle_roll_servo_z": -0.062,
   "joint_limits_deg": {
    "hip_yaw": [
     -20,
@@ -174,6 +241,10 @@
    "ankle": [
     -30,
     30
+   ],
+   "ankle_roll": [
+    -20,
+    20
    ]
   },
   "nominal_pose_deg": {
@@ -181,7 +252,8 @@
    "hip_roll": 0,
    "hip_pitch": 16,
    "knee": 32,
-   "ankle": 16
+   "ankle": 16,
+   "ankle_roll": 0
   },
   "material": {
    "shell_density": 1250,
