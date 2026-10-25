@@ -1,0 +1,242 @@
+{
+ "model": "baseline_P30_8dof",
+ "total_mass_kg": 0.8609152600000001,
+ "height_body_m": 0.37584300137714954,
+ "height_with_pod_m": 0.39584299922443883,
+ "pelvis_origin_height_m": 0.342843,
+ "hip_width_m": 0.10689960181713123,
+ "hip_width_ratio": 0.28442621367282034,
+ "shin_max_width_front_m": 0.021999999880790738,
+ "shin_max_depth_side_m": 0.059271581521811764,
+ "shin_width_ratio": 0.0585350792755996,
+ "thigh_max_width_m": 0.04399999976158142,
+ "thigh_width_ratio": 0.11707015855119905,
+ "knee_cover_width_m": 0.02887620031833653,
+ "thigh_length_m": 0.138,
+ "shin_length_m": 0.15,
+ "shin_to_thigh": 1.0869565217391304,
+ "hip_spacing_m": 0.06,
+ "stance_width_m": 0.06,
+ "com_stand_m": [
+  0.004220142238926117,
+  -2.89761590170174e-13,
+  0.26641321637590454
+ ],
+ "com_height_m": 0.26641321637590454,
+ "com_x_minus_tip_x_m": 0.007527650007032218,
+ "footprint": {
+  "type": "flat pad",
+  "length_mm": 30.0,
+  "width_mm": 18.0,
+  "rollable_arc_mm_pm20deg": 0.0,
+  "sagittal_radius_mm": Infinity,
+  "static_contact": "flat rectangle - a real support polygon per foot"
+ },
+ "targets": {
+  "hip_width_ratio": [
+   0.24,
+   0.28
+  ],
+  "shin_width_ratio": [
+   0.09,
+   0.12
+  ]
+ },
+ "meets_hip_target": false,
+ "meets_shin_target": true,
+ "packaging": [
+  {
+   "envelope": "env_L_hip_yaw",
+   "max_protrusion_mm": -1.91,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_R_hip_yaw",
+   "max_protrusion_mm": -1.91,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_L_hip_roll",
+   "max_protrusion_mm": -2.03,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_L_hip_pitch",
+   "max_protrusion_mm": -1.4,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_L_knee",
+   "max_protrusion_mm": -1.36,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_R_hip_roll",
+   "max_protrusion_mm": -2.03,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_R_hip_pitch",
+   "max_protrusion_mm": -1.4,
+   "frac_outside": 0.0,
+   "ok": true
+  },
+  {
+   "envelope": "env_R_knee",
+   "max_protrusion_mm": -1.36,
+   "frac_outside": 0.0,
+   "ok": true
+  }
+ ],
+ "packaging_ok": true,
+ "stand_contacts": [],
+ "knee_z_m": 0.1441888981205268,
+ "hip_pitch_z_m": 0.276843,
+ "mass_by_category_kg": {
+  "shell": 0.30791551080233875,
+  "electronics/fasteners/misc": 0.16900000000000004,
+  "servo": 0.37,
+  "tip": 0.014
+ },
+ "mass_by_body_kg": {
+  "pelvis": 0.1762659007698077,
+  "hip_yaw": 0.17968101614252846,
+  "hip_roll": 0.1802214832773978,
+  "thigh": 0.24844121917967965,
+  "shin": 0.07630589143292522
+ },
+ "links": [
+  {
+   "body": "pelvis",
+   "mass_kg": 0.17626590000000003,
+   "com_local_m": [
+    0.00018,
+    -0.0,
+    0.0137
+   ],
+   "principal_inertia_kgm2": [
+    0.0001467032926604562,
+    0.00010307351012224017,
+    9.857674839112411e-05
+   ]
+  },
+  {
+   "body": "L_hip_yaw",
+   "mass_kg": 0.0898405,
+   "com_local_m": [
+    0.0,
+    -0.0,
+    -0.02297
+   ],
+   "principal_inertia_kgm2": [
+    3.346423742295127e-05,
+    2.826797795605503e-05,
+    1.799034961929835e-05
+   ]
+  },
+  {
+   "body": "L_hip_roll",
+   "mass_kg": 0.0901107,
+   "com_local_m": [
+    -0.00987,
+    -0.0,
+    -0.02456
+   ],
+   "principal_inertia_kgm2": [
+    3.2038960286201496e-05,
+    2.8541734119721898e-05,
+    2.0099971231291712e-05
+   ]
+  },
+  {
+   "body": "L_thigh",
+   "mass_kg": 0.12422058,
+   "com_local_m": [
+    -0.0,
+    0.0,
+    -0.06077
+   ],
+   "principal_inertia_kgm2": [
+    0.00017163202465800986,
+    0.00016692467963184667,
+    2.529734765183139e-05
+   ]
+  },
+  {
+   "body": "L_shin",
+   "mass_kg": 0.038152900000000003,
+   "com_local_m": [
+    -0.0001,
+    -0.0,
+    -0.07972
+   ],
+   "principal_inertia_kgm2": [
+    7.81187987109164e-05,
+    7.671685665664639e-05,
+    4.267679199527311e-06
+   ]
+  },
+  {
+   "body": "R_hip_yaw",
+   "mass_kg": 0.0898405,
+   "com_local_m": [
+    0.0,
+    -0.0,
+    -0.02297
+   ],
+   "principal_inertia_kgm2": [
+    3.346423742295127e-05,
+    2.826797795605503e-05,
+    1.799034961929835e-05
+   ]
+  },
+  {
+   "body": "R_hip_roll",
+   "mass_kg": 0.0901107,
+   "com_local_m": [
+    -0.00987,
+    -0.0,
+    -0.02456
+   ],
+   "principal_inertia_kgm2": [
+    3.2038960286201496e-05,
+    2.8541734119721898e-05,
+    2.0099971231291712e-05
+   ]
+  },
+  {
+   "body": "R_thigh",
+   "mass_kg": 0.12422058,
+   "com_local_m": [
+    -0.0,
+    0.0,
+    -0.06077
+   ],
+   "principal_inertia_kgm2": [
+    0.00017163202465800986,
+    0.00016692467963184667,
+    2.529734765183139e-05
+   ]
+  },
+  {
+   "body": "R_shin",
+   "mass_kg": 0.038152900000000003,
+   "com_local_m": [
+    -0.0001,
+    -0.0,
+    -0.07972
+   ],
+   "principal_inertia_kgm2": [
+    7.81187987109164e-05,
+    7.671685665664639e-05,
+    4.267679199527311e-06
+   ]
+  }
+ ]
+}

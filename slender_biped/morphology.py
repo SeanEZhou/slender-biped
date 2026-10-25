@@ -131,12 +131,18 @@ def measure(m, meta):
     tip = tips[0]
     if m.geom_type[tip] == mujoco.mjtGeom.mjGEOM_SPHERE:
         fp = {"type": "A sphere", "length_mm": 2e3 * m.geom_size[tip][0], "width_mm": 2e3 * m.geom_size[tip][0]}
+    elif m.geom_type[tip] == mujoco.mjtGeom.mjGEOM_BOX:  # flat pad / sole (round-2 control frames)
+        fp = {"type": "flat pad", "length_mm": 2e3 * m.geom_size[tip][0], "width_mm": 2e3 * m.geom_size[tip][1]}
     else:
         fp = {"type": "B ellipsoid rocker", "length_mm": 2e3 * m.geom_size[tip][0], "width_mm": 2e3 * m.geom_size[tip][1]}
-    arc, rad = rocker_arc(m, tip)
-    fp["rollable_arc_mm_pm20deg"] = round(arc * 1000, 1)
-    fp["sagittal_radius_mm"] = round(rad * 1000, 1)
-    fp["static_contact"] = "single point (rigid); real rubber patch a few mm - no support polygon"
+    if m.geom_type[tip] == mujoco.mjtGeom.mjGEOM_BOX:
+        fp["rollable_arc_mm_pm20deg"], fp["sagittal_radius_mm"] = 0.0, float("inf")
+        fp["static_contact"] = "flat rectangle - a real support polygon per foot"
+    else:
+        arc, rad = rocker_arc(m, tip)
+        fp["rollable_arc_mm_pm20deg"] = round(arc * 1000, 1)
+        fp["sagittal_radius_mm"] = round(rad * 1000, 1)
+        fp["static_contact"] = "single point (rigid); real rubber patch a few mm - no support polygon"
     pelvis_id = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "pelvis")
     com = d.subtree_com[pelvis_id].copy()
     stand_tips = [d.site_xpos[mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, f"{s}_contact")] for s in "LR"]

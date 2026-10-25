@@ -88,7 +88,7 @@ def dimensioned(m, img_front, img_side, rep, path):
     ax.axis("off")
     fig.suptitle(f"{rep['model']}  |  mass {rep['total_mass_kg']*1000:.0f} g  |  "
                  f"ortho scale {s*1000:.2f} mm/px  |  stance pose (hip 16 deg, knee 32 deg)", fontsize=11)
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.965))  # leave room for the suptitle above the panel titles
     fig.savefig(path)
     plt.close(fig)
 
