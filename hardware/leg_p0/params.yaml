@@ -1,0 +1,101 @@
+# P0 single-leg CAD parameters (mm, deg). Regenerate everything with:
+#   .venv-cad/bin/python hardware/leg_p0/cad/build.py
+# Values marked MEASURE are taken from vendor CAD/datasheet and must be checked with calipers on the
+# real servos (see verification.md, "caliper checklist"); edit them here and rebuild.
+
+side: left                     # this leg is the LEFT leg (+Y side). Mirrored right-leg STLs are exported too.
+
+# --- Feetech STS3215-C001 (1:345). Source: Feetech datasheet (Seeed, 2023-06-23) and the
+#     SO-ARM100 STS3215_03a STEP model (Apache-2.0). Servo frame: origin = case centre,
+#     X = length (output end at +X), Z = output axis (main horn at +Z, idler horn at -Z).
+servo:
+  case_len: 45.4               # MEASURE (datasheet 45.23)
+  case_wid: 24.8               # MEASURE (datasheet 24.73)
+  case_face_z: 15.9            # MEASURE: case faces at +-15.9 (31.8 thick between mounting faces)
+  output_x: 12.5               # MEASURE: output axis from case centre (10.2 mm from the output end)
+  horn_bump: {x0: -21.0, x1: -0.5, half_w: 8.5, z: 17.0}     # raised label area on the horn face
+  idler_bump: {x0: -19.0, x1: -6.0, half_w: 7.0, z: 17.7}    # raised area on the idler face
+  horn_d: 20.0                 # MEASURE: horn disc diameter (both horns)
+  horn_face_z: 18.7            # MEASURE: main-horn outer face height above case centre
+  idler_face_z: 17.7           # MEASURE: idler-horn outer face height (below case centre)
+  horn_hole_offset: 4.95       # 4 horn holes at (+-4.95, +-4.95) around the axis (14 mm circle)
+  horn_hole_d: 2.5             # MEASURE: horn hole diameter / thread
+  horn_center_screw_head_d: 6.0  # M3x6 horn screw head; arms get an access hole
+  mount_holes_top: [[4.2, 10.25], [4.2, -10.25], [-16.5, 10.25], [-16.5, -10.25]]   # MEASURE: horn face
+  mount_holes_bot: [[4.2, 10.25], [4.2, -10.25], [-20.3, 10.25], [-20.3, -10.25]]   # MEASURE: idler face
+  mount_hole_pilot_d: 1.5      # pilot holes in the case for self-tapping screws (datasheet: PA2.0)
+  connector_x: -1.55           # 5264 connectors on the idler face
+  connector_keepout: {x0: -4.5, x1: 1.5, half_w: 9.5, depth: 12.0}   # plug + cable bend allowance
+  mass_g: 55
+
+# --- printing / fit
+fit:
+  pocket_clearance: 0.35       # per side, servo case in printed pockets (tune with coupon A)
+  horn_face_gap: 0.0           # arms sit flat on the horn faces
+  m2_clear_d: 2.4              # M2 clearance (horn screws, case screws)
+  m3_clear_d: 3.4
+  m3_nut_af: 5.7               # M3 nut across flats + clearance (captive nut traps)
+  m3_nut_h: 2.6
+  min_wall: 2.4
+
+# --- joint chain (left leg, world frame: X forward, Y left, Z up; origin on the pelvis centreline at
+#     the yaw-servo centre height). Neutral CAD pose = all joints 0 = straight leg.
+chain:
+  hip_y: 30.0                  # yaw axis 30 mm from the centreline (hip spacing 60, as in the sim)
+  arm_t: 3.5                   # U-bracket arm thickness (on the horns)
+  arm_disc_r: 10.5             # arm disc radius around the axis (horn r = 10)
+  web_r: 18.0                  # U-bracket web inner distance from its axis (servo end corner r = 16.1)
+  web_t: 3.5
+  stack_gap: 0.3               # gap between a bracket and the next servo end face
+  roll_drop: 3.0               # extra drop of the roll stage so the yaw bracket clears the pelvis cup when yawing
+  inner_arm_back: 3.0          # inner (idler-side) fork arms extend only this far behind the axis: the servo
+                               # connectors sit ~14 mm behind the axis on that face (E: hip extension, knee flexion)
+  pitch_web_r: 22.0            # thigh crotch below the pitch axis (deeper than web_r: clears the servo on extension)
+  thigh_crotch: {d: 24.0, x_offset: 3.0}   # crotch shallower at the back (servo body is behind the axis)
+  thigh_len: 138.0             # hip-pitch axis to knee axis (sim value kept)
+  shin_len: 150.0              # knee axis to pad underside, straight leg (sim value kept)
+  cheek_t: 3.0                 # servo-case cheek walls
+  cheek_clear_r: 21.0          # case cheeks only grip the servo beyond this distance from its axis
+
+# --- slender exterior (the visual pass/fail part). Sections are superellipses: w = lateral (Y),
+#     d = fore-aft (X), n = exponent (2 = ellipse, higher = squarer).
+thigh:
+  top: {w: 42.0, d: 30.0, n: 2.6}      # just below the hip fork
+  mid: {w: 37.0, d: 28.0, n: 2.4}
+  bot: {w: 34.0, d: 26.5, n: 2.4}      # just above the knee cradle
+  wall: 2.4
+  knee_cradle_round: 6.0               # corner radius of the exposed knee cradle
+shin:
+  top: {w: 28.0, d: 24.0, n: 2.4}      # just below the knee fork
+  mid: {w: 22.0, d: 21.0, n: 2.2}
+  bot: {w: 17.0, d: 24.0, n: 2.2}      # flares fore-aft into the pad
+  mid_frac: 0.45
+  wall: 2.2
+pad:
+  length: 30.0                 # fore-aft (sim P30)
+  width: 18.0                  # lateral
+  thickness: 5.0
+  corner_r: 5.0
+  stem: {w: 11.0, d: 15.0, h: 10.0}    # plugs into the shin tip
+  stance_pitch: 16.0           # pad rotated so it is flat at the sim stance pose (hip 16, knee 32)
+
+# --- bench fixture
+pelvis:
+  plate_t: 5.0
+  x0: -42.0                    # plate extent (world X)
+  x1: 34.0
+  y_outer: 50.0                # left edge
+  y_inner: -72.0               # right edge (overhangs the desk side)
+  cup_wall: 3.0
+tongue:
+  length: 150.0                # lies on the desk, clamped with two C-clamps
+  width: 70.0
+  t: 6.0
+  overlap: 30.0
+
+# --- joint ranges for P0 bench tests (deg). Sim ranges: yaw -20..30, roll -14..30, pitch -35..100, knee 0..130.
+rom_targets: {hip_yaw: [-20, 30], hip_roll: [-14, 30], hip_pitch: [-35, 100], knee: [0, 120]}
+
+print:
+  density_g_cm3: 1.24          # PLA/PETG ~1.24-1.27
+  fill_factor: 0.55            # rough solid fraction for 3-4 perimeters + 25 % infill on thin parts

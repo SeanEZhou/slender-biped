@@ -1,0 +1,25 @@
+item,qty,unit,material_or_spec,placement,source_or_link,included_with_servos,must_measure_or_verify,p0_required
+P01 pelvis_plate (with yaw-servo cup),1,printed part,PETG or PLA; 4 perimeters; 30% gyroid,bench fixture; holds the hip-yaw servo case,exports/stl/P01_pelvis_plate.stl,n/a,no,required
+P02 clamp_tongue,1,printed part,PETG or PLA; 3 perimeters; 25% infill,bolts under P01; clamped to the desk,exports/stl/P02_clamp_tongue.stl,n/a,no,required
+P03 yaw_bracket (U-bracket + roll-servo saddle),1,printed part,PETG preferred; 4 perimeters; 40% infill,yaw horns -> holds the hip-roll servo case,exports/stl/P03_yaw_bracket.stl,n/a,no,required
+P04 roll_bracket (U-bracket + pitch-servo cradle),1,printed part,PETG preferred; 4 perimeters; 40% infill,roll horns -> holds the hip-pitch servo case,exports/stl/P04_roll_bracket.stl,n/a,no,required
+P05 thigh (pitch fork + tube + knee cradle),1,printed part,PLA or PETG; 3 perimeters; 15% infill (hollow tube),pitch horns -> holds the knee servo case (direct-drive knee),exports/stl/P05_thigh.stl,n/a,no,required
+P06 shin (knee fork + tapered tube),1,printed part,PLA or PETG; 3 perimeters; 15% infill,knee horns -> carries the pad,exports/stl/P06_shin.stl,n/a,no,required
+P07 pad (30 x 18 mm flat contact cap),1,printed part,PLA/PETG now; TPU 95A or a rubber skin later,plugs into the shin tip,exports/stl/P07_pad.stl,n/a,no,required
+Fit-test coupons A B/C D E,1 set,printed parts,same filament as the real parts,print first; ~1 h,fit_tests/*.stl,n/a,yes - drives params.yaml,required
+Feetech STS3215-C001 (1:345) serial-bus servo,4,pcs,7.4 V class; 19.5 kg.cm stall; 25T spline,hip yaw / hip roll / hip pitch / knee,https://files.seeedstudio.com/products/Feetech/108090023_STS3215-C001_Datasheet.pdf,owned (6; 2 kept as spares),case/horn dimensions (caliper checklist in verification.md),required
+Main horn (25T) + its M3x6 centre screw,4,sets,metal/plastic horn shipped with the servo,one per servo output,with servo,expected - VERIFY (datasheet lists no accessories),yes: horn disc diameter and hole pattern,required
+Idler (rear) horn + its centre screw,4,sets,horn for the passive rear shaft,one per servo rear boss,with servo,expected - VERIFY,yes: idler horn face height and hole pattern,required
+Horn-to-bracket screws,32,pcs,M2 x 6 (thread type depends on the horn holes: M2 machine screw if tapped / M2 self-tapping if plain),4 per horn x 2 horns x 4 joints,any M2 assortment,maybe,YES - horn holes measured as 2.5 mm in vendor CAD; confirm thread/pitch before buying,required
+Case mounting screws (self-tapping into the servo case),16,pcs,M2 x 8 self-tapping (datasheet: PA2.0); pan head <= 4 mm,4 per cradle x 4 cradles,any M2 self-tapping assortment,maybe,YES - pilot holes measured as 1.5 mm; confirm depth and screw size,required
+Tongue bolts + nuts,4,sets,M3 x 16 socket head + M3 hex nut,P02 to P01 lap joint,any M3 assortment,no,no,required
+Pad retaining screw,1,pcs,M2 x 8 self-tapping,through the shin tip into the pad stem (from the back),any M2 assortment,no,no,required
+C-clamps (G-clamps),2,pcs,>= 60 mm opening,clamp P02 to the desk,hardware store,no,no,required
+Zip ties,10,pcs,2.5 mm x 100 mm,cable strain relief on the thigh lugs and brackets,hardware store,no,no,required
+Servo bus adapter,1,pcs,Feetech FE-URT-1 or Waveshare Bus Servo Adapter (A) (USB to half-duplex TTL),PC <-> servo bus,already purchased,no,YES - confirm it accepts a 5 V servo supply and the polarity of its terminals,required
+DC power supply,1,pcs,5 V 5 A adapter (unloaded bring-up only),servo power,already planned,no,YES - verify voltage and polarity with a multimeter before connecting,required
+Inline power switch (hardware kill),1,pcs,rocker or inline DC switch rated >= 5 A,between the supply and the adapter; within reach,any,no,no,required
+5264 3-pin servo extension cable,1,pcs,20-30 cm 3P 2.54 mm (Feetech/SCS compatible),pitch servo -> knee servo (the stock 15 cm lead is too short),Feetech/robot shops,no,YES - pin order must match (GND/VCC/SIG),required
+Threadlocker (medium) or nylon-insert nuts,optional,-,-,horn screws if they loosen,-,no,no,nice-to-have
+TPU 95A filament or 1 mm rubber sheet,optional,-,-,pad skin for future contact tests,-,no,no,nice-to-have
+Spare STS3215-C001,2,pcs,-,bench spares (NOT a second leg),owned,owned,no,spare

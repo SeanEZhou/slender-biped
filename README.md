@@ -354,6 +354,23 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
 
+## 5. Toward hardware: the P0 printable leg
+
+<img src="hardware/leg_p0/renders/leg_silhouette_dimensioned.png" width="620">
+
+The next step is a real leg. [`hardware/leg_p0/`](hardware/leg_p0/) contains a parametric,
+print-ready CAD of one 4-DoF leg on a desk-clamped pelvis fixture:
+- **Build123d source:** regenerate with one command.
+- **Exports:** STL, 3MF and STEP for every part, plus mirrored right-leg parts.
+- **Servos:** four Feetech STS3215-C001, with a **direct-drive knee** (no belt).
+- **Pad:** the 30 × 18 mm flat pad from the control experiments.
+
+The CAD is checked automatically before printing: interference and range-of-motion sweeps include
+servo dummies, screw heads and connector keep-outs. Calibration coupons, a BOM, a beginner assembly
+guide and a cautious bench-test script are included.
+
+It's built for unloaded bench testing only; standing and walking come later.
+
 ## Limitations and next steps
 
 - **Simulation only.**
@@ -368,4 +385,4 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
   1. make the pad's quiet stance reproducible and merge standing and walking into one policy;
   2. longer strides via motion priors;
   3. bench-test servo torque-speed curves, pad friction and IMU noise;
-  4. print and build.
+  4. print and assemble the P0 leg ([`hardware/leg_p0/`](hardware/leg_p0/)).
