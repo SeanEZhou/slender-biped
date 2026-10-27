@@ -56,7 +56,7 @@ def arm(which):
     a -= Pos(0, 0, t / 2) * Cylinder(S["horn_center_screw_head_d"] / 2 + 0.5, t + 1)
     for dx in (-o, o):
         for dy in (-o, o):
-            a -= Pos(dx, dy, t / 2) * Cylinder(FIT["m2_clear_d"] / 2, t + 1)
+            a -= Pos(dx, dy, t / 2) * Cylinder(FIT["horn_screw"]["clear_d"] / 2, t + 1)
     if which == "idler":
         a -= box(22, 26, -1, 1, t - 1, t + 1)            # one notch = idler arm
     return a

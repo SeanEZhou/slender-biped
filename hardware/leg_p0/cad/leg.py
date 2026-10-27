@@ -36,6 +36,9 @@ CL = FIT["pocket_clearance"]
 ARM_T, ARM_R = C["arm_t"], C["arm_disc_r"]
 WEB_R, WEB_T, GAP = C["web_r"], C["web_t"], C["stack_gap"]
 HORN_Z, IDLER_Z = S["horn_face_z"], S["idler_face_z"]
+HS, CS = FIT["horn_screw"], FIT["case_screw"]                  # M3x6 horn screws, M2x6 case screws
+Z_CRADLE = max(S["horn_bump"]["z"], S["idler_bump"]["z"]) + CL + C["cheek_t"]   # cradle wall outer face
+Z_CASE_HEAD = S["case_face_z"] + CL + CS["grip"]               # case-screw head seat: grip mm of wall under it
 
 Z_YAW = 0.0                                                    # yaw servo centre
 Z_ROLL = -(HORN_Z + ARM_T + C["roll_drop"] + END_FAR)          # roll axis
@@ -131,8 +134,9 @@ def servo_case(clear=0.0, extend_open=0.0):
     c = clear
     body = box(-HALF_L - c, HALF_L + c + extend_open, -HALF_W - c, HALF_W + c, -S["case_face_z"] - c, S["case_face_z"] + c)
     hb, ib = S["horn_bump"], S["idler_bump"]
-    body += box(hb["x0"] - c, hb["x1"] + c, -hb["half_w"] - c, hb["half_w"] + c, 0, hb["z"] + c)
-    body += box(ib["x0"] - c, ib["x1"] + c, -ib["half_w"] - c, ib["half_w"] + c, -ib["z"] - c, 0)
+    m = c + (FIT["bump_margin"] if clear > 0 else 0.0)        # recesses only need to clear the bumps
+    body += box(hb["x0"] - m, hb["x1"] + m, -hb["half_w"] - m, hb["half_w"] + m, 0, hb["z"] + c)
+    body += box(ib["x0"] - m, ib["x1"] + m, -ib["half_w"] - m, ib["half_w"] + m, -ib["z"] - c, 0)
     if clear == 0:  # recesses around the output on both faces (horn hubs sit in them)
         for sgn in (1, -1):
             z0 = 14.4 if sgn > 0 else -15.9
@@ -157,13 +161,13 @@ def connector_keepout():
 
 
 def horn_screw_heads(face_z, sgn):
-    """M2 pan heads (d 4.0, h 1.6) on the outside of an arm + the M3 horn screw access, servo frame."""
+    """M3x6 horn-screw pan heads on the outside of an arm, servo frame."""
     out = None
     o, ox = S["horn_hole_offset"], S["output_x"]
     z0 = sgn * (face_z + ARM_T)
     for dx in (-o, o):
         for dy in (-o, o):
-            h = Pos(ox + dx, dy, z0 + sgn * 0.8) * Cylinder(2.0, 1.6)
+            h = Pos(ox + dx, dy, z0 + sgn * HS["head_h"] / 2) * Cylinder(HS["head_d"] / 2, HS["head_h"])
             out = h if out is None else out + h
     return out
 
@@ -171,20 +175,21 @@ def horn_screw_heads(face_z, sgn):
 # ----------------------------------------------------------------------------- cradle (parent side)
 def cradle(name, walls_outer=None, cap=True):
     """Block around the far end of the servo case (beyond cheek_clear_r from its axis) minus the
-    clearance envelope; M2 clearance holes at every case mounting hole inside the cradle.
+    clearance envelope; M2x6 case screws at every case mounting hole inside the cradle, counterbored so only
+    case_screw.grip mm of wall sits under the head (the bump recesses make the wall ~5 mm thick there).
     Returned in world coordinates. The pocket is open toward the output end."""
     t = C["cheek_t"]
     x_cut = S["output_x"] - CHEEK_CLEAR[name]
-    z_out = max(S["horn_bump"]["z"], S["idler_bump"]["z"]) + CL + t
+    z_out = Z_CRADLE
     x0 = -HALF_L - CL - (t if cap else 0.0)
     blk = box(x0, x_cut, -HALF_W - CL - t, HALF_W + CL + t, -z_out, z_out)
     blk = try_fillet(blk, blk.edges().filter_by(Axis.X), 2.0)
     blk -= servo_case(clear=CL, extend_open=40.0)
-    d = FIT["m2_clear_d"]
     for (hx, hy), sgn in [(h, 1) for h in S["mount_holes_top"]] + [(h, -1) for h in S["mount_holes_bot"]]:
         if hx < x_cut - 2.5:
-            blk -= Pos(hx, hy, sgn * (z_out - 2)) * Cylinder(d / 2, 8)
-            blk -= Pos(hx, hy, sgn * (z_out + 0.5)) * Cylinder(2.3, 2.0)   # shallow head seat (M2 pan, d 4)
+            blk -= Pos(hx, hy, sgn * (z_out - 2)) * Cylinder(CS["clear_d"] / 2, 8)
+            cb = z_out + 1.0 - Z_CASE_HEAD
+            blk -= Pos(hx, hy, sgn * (Z_CASE_HEAD + cb / 2)) * Cylinder(CS["seat_d"] / 2, cb)   # head counterbore
     return in_servo(name, blk)
 
 
@@ -203,7 +208,7 @@ def arm_plate(name, which, length_to_web):
     a -= Pos(ox, 0, zc) * Cylinder(S["horn_center_screw_head_d"] / 2 + 0.5, h + 1)   # M3 horn-screw access
     for dx in (-o, o):
         for dy in (-o, o):
-            a -= Pos(ox + dx, dy, zc) * Cylinder(FIT["m2_clear_d"] / 2, h + 1)
+            a -= Pos(ox + dx, dy, zc) * Cylinder(HS["clear_d"] / 2, h + 1)
     return in_servo(name, a)
 
 
@@ -275,6 +280,12 @@ def part_yaw_bracket():
     """U-bracket on the yaw horns + the roll-servo saddle hanging under its bottom (horn-side) arm."""
     u = u_bracket("hip_yaw")
     saddle = cradle("hip_roll")
+    # the saddle's front wall stops short of the web's outer face: extend it flush so the part prints web-down
+    # with both on the bed (otherwise the saddle hovers 0.5 mm above the plate)
+    front = saddle.faces().filter_by(Axis.X).sort_by(Axis.X)[-1]
+    gap = u.bounding_box().max.X - front.center().X
+    if gap > 0.01:
+        saddle += extrude(front, amount=gap)
     bb = saddle.bounding_box()
     # bridge: round boss (r 20 about the yaw axis, so it clears the pelvis cup at any yaw angle) joining the
     # bottom arm to the saddle cap; everything else of this part beyond r 20 stays below the cup wall
@@ -282,11 +293,15 @@ def part_yaw_bracket():
     bridge = Pos(0, HY, (bb.max.Z - 2.5 + top) / 2) * Cylinder(20.0, top - (bb.max.Z - 2.5))
     bridge -= Pos(0, HY, top - 2) * Cylinder(S["horn_center_screw_head_d"] / 2 + 0.5, 10)   # horn-screw access
     body = u + saddle + bridge
-    # keep the yaw horn screw heads accessible from below: counterbores through the bridge
+    # keep the yaw horn screw heads accessible from below: counterbores through the bridge only, stopping at
+    # the arm's outer face so the M3 heads still bear on the arm
     o = S["horn_hole_offset"]
+    cb0, cb1 = bb.max.Z - 3.5, top - ARM_T
     for dx in (-o, o):
         for dy in (-o, o):
-            body -= Pos(dx, HY + dy, top - 5) * Cylinder(2.4, 10.5)
+            body -= Pos(dx, HY + dy, (cb0 + cb1) / 2) * Cylinder(HS["head_d"] / 2 + 0.4, cb1 - cb0)
+            # the boss overlaps the bottom arm and was added after its holes were cut: re-cut them
+            body -= Pos(dx, HY + dy, (cb1 + top) / 2) * Cylinder(HS["clear_d"] / 2, top - cb1 + 1.0)
     return body
 
 
@@ -322,7 +337,7 @@ def part_thigh():
         a -= Pos(0, (y0 + y1) / 2, Z_PITCH) * (Rot(90, 0, 0) * Cylinder(S["horn_center_screw_head_d"] / 2 + 0.5, 10))
         for dx in (-o, o):
             for dz in (-o, o):
-                a -= Pos(dx, (y0 + y1) / 2, Z_PITCH + dz) * (Rot(90, 0, 0) * Cylinder(FIT["m2_clear_d"] / 2, 10))
+                a -= Pos(dx, (y0 + y1) / 2, Z_PITCH + dz) * (Rot(90, 0, 0) * Cylinder(HS["clear_d"] / 2, 10))
         arms = a if arms is None else arms + a
     knee_cr = cradle("knee")
     kb = knee_cr.bounding_box()
@@ -354,7 +369,7 @@ def part_shin():
         a -= Pos(0, (y0 + y1) / 2, Z_KNEE) * (Rot(90, 0, 0) * Cylinder(S["horn_center_screw_head_d"] / 2 + 0.5, 10))
         for dx in (-o, o):
             for dz in (-o, o):
-                a -= Pos(dx, (y0 + y1) / 2, Z_KNEE + dz) * (Rot(90, 0, 0) * Cylinder(FIT["m2_clear_d"] / 2, 10))
+                a -= Pos(dx, (y0 + y1) / 2, Z_KNEE + dz) * (Rot(90, 0, 0) * Cylinder(HS["clear_d"] / 2, 10))
         arms = a if arms is None else arms + a
     crotch = tube([(zc0, dict(w=y_out - y_in, d=sh["top"]["d"], n=3.2)), (zc1, dict(w=y_out - y_in, d=sh["top"]["d"] - 4, n=3.2))],
                   cx=0.0, cy=(y_in + y_out) / 2)
@@ -415,15 +430,14 @@ def build_items():
         items.append(Item(f"horn_{name}", in_servo(name, m), s["child"], printable=False, color=horn_c, kind="horn"))
         items.append(Item(f"idler_{name}", in_servo(name, i), s["child"], printable=False, color=horn_c, kind="horn"))
         items.append(Item(f"keepout_{name}", in_servo(name, connector_keepout()), s["parent"], printable=False, color=ko, kind="keepout"))
-        # screw heads: 8 M2 horn screws (child link) and the case screws inside the cradle (parent link)
+        # screw heads: 8 M3 horn screws (child link) and the M2 case screws in the cradle counterbores (parent link)
         heads = horn_screw_heads(HORN_Z, 1) + horn_screw_heads(IDLER_Z, -1)
         items.append(Item(f"hornscrews_{name}", in_servo(name, heads), s["child"], printable=False, color=(0.7, 0.7, 0.72, 1), kind="hardware"))
-        z_out = max(S["horn_bump"]["z"], S["idler_bump"]["z"]) + CL + C["cheek_t"]
         x_cut = S["output_x"] - CHEEK_CLEAR[name]
         ch = None
         for (hx, hy), sgn in [(h, 1) for h in S["mount_holes_top"]] + [(h, -1) for h in S["mount_holes_bot"]]:
             if hx < x_cut - 2.5:
-                hd = Pos(hx, hy, sgn * (z_out + 0.5)) * Cylinder(2.0, 1.4)
+                hd = Pos(hx, hy, sgn * (Z_CASE_HEAD + CS["head_h"] / 2)) * Cylinder(CS["head_d"] / 2, CS["head_h"])
                 ch = hd if ch is None else ch + hd
         items.append(Item(f"casescrews_{name}", in_servo(name, ch), s["parent"], printable=False, color=(0.7, 0.7, 0.72, 1), kind="hardware"))
     return items

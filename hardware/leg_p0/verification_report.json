@@ -144,25 +144,25 @@
    "clamp_tongue": 47.2,
    "yaw_bracket": 13.0,
    "roll_bracket": 13.2,
-   "thigh": 28.4,
-   "shin": 18.0,
+   "thigh": 28.3,
+   "shin": 17.9,
    "pad": 4.4
   },
-  "printed_total_g": 162.6,
+  "printed_total_g": 162.4,
   "servos_g": 220,
   "hardware_g_estimate": 25,
-  "leg_on_fixture_total_g": 407.6,
+  "leg_on_fixture_total_g": 407.4,
   "note": "printed mass = solid volume x 1.24 g/cm3 x fill 0.55 (rough)"
  },
  "meshes": {
   "P01_pelvis_plate.stl": {
-   "faces": 6080,
+   "faces": 6100,
    "watertight": true,
-   "volume_cm3": 56.35,
+   "volume_cm3": 56.31,
    "bbox_mm": [
     76.0,
     122.0,
-    51.8
+    52.0
    ]
   },
   "P02_clamp_tongue.stl": {
@@ -176,39 +176,39 @@
    ]
   },
   "P03_yaw_bracket.stl": {
-   "faces": 6986,
+   "faces": 8686,
    "watertight": true,
-   "volume_cm3": 19.08,
+   "volume_cm3": 19.12,
    "bbox_mm": [
-    42.5,
+    42.8,
     40.0,
     60.6
    ]
   },
   "P04_roll_bracket.stl": {
-   "faces": 7172,
+   "faces": 7192,
    "watertight": true,
-   "volume_cm3": 19.41,
+   "volume_cm3": 19.36,
    "bbox_mm": [
     60.8,
-    42.1,
+    42.5,
     60.4
    ]
   },
   "P05_thigh.stl": {
-   "faces": 8134,
+   "faces": 8154,
    "watertight": true,
-   "volume_cm3": 41.92,
+   "volume_cm3": 41.81,
    "bbox_mm": [
     35.8,
-    43.4,
+    43.5,
     127.5
    ]
   },
   "P06_shin.stl": {
    "faces": 5646,
    "watertight": true,
-   "volume_cm3": 26.68,
+   "volume_cm3": 26.55,
    "bbox_mm": [
     24.0,
     43.4,
@@ -226,49 +226,49 @@
    ]
   },
   "P01_pelvis_plate_RIGHT.stl": {
-   "faces": 6080,
+   "faces": 6100,
    "watertight": true,
-   "volume_cm3": 56.35,
+   "volume_cm3": 56.31,
    "bbox_mm": [
     76.0,
     122.0,
-    51.8
+    52.0
    ]
   },
   "P03_yaw_bracket_RIGHT.stl": {
-   "faces": 6986,
+   "faces": 8686,
    "watertight": true,
-   "volume_cm3": 19.08,
+   "volume_cm3": 19.12,
    "bbox_mm": [
-    42.5,
+    42.8,
     40.0,
     60.6
    ]
   },
   "P04_roll_bracket_RIGHT.stl": {
-   "faces": 7172,
+   "faces": 7192,
    "watertight": true,
-   "volume_cm3": 19.41,
+   "volume_cm3": 19.36,
    "bbox_mm": [
     60.8,
-    42.1,
+    42.5,
     60.4
    ]
   },
   "P05_thigh_RIGHT.stl": {
-   "faces": 8134,
+   "faces": 8154,
    "watertight": true,
-   "volume_cm3": 41.92,
+   "volume_cm3": 41.81,
    "bbox_mm": [
     35.8,
-    43.4,
+    43.5,
     127.5
    ]
   },
   "P06_shin_RIGHT.stl": {
    "faces": 5646,
    "watertight": true,
-   "volume_cm3": 26.68,
+   "volume_cm3": 26.55,
    "bbox_mm": [
     24.0,
     43.4,
@@ -291,5 +291,5 @@
   -0.0,
   -1.0
  ],
- "check_seconds": 44.4
+ "check_seconds": 44.7
 }

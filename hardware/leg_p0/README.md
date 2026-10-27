@@ -45,8 +45,9 @@ affected part.
 
 Every joint uses one pattern, the classic hobby-humanoid servo bracket chain:
 - **Case:** the **parent** link holds the **servo case** in a cradle that grips only its far end
-  (≥ 21 mm from the output axis). The cradle has a snug pocket plus 4 × M2 self-tapping screws into
-  the case's own mounting holes.
+  (≥ 21 mm from the output axis). The cradle has a snug pocket plus 4 × M2×6 self-tapping screws into
+  the case's own mounting holes (counterbored to leave 2 mm of wall under each head). Horn arms take
+  M3×6 screws, as on the SO-101 arm, which uses the same servo.
 - **Horns:** the **child** link is a U-bracket whose two arms bolt to the **main horn** and to the
   **idler horn**.
 - **Support:** the idler horn turns on the servo's rear bearing, so every joint has a **passive

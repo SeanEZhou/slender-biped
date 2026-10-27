@@ -13,13 +13,16 @@ servo:
   case_wid: 24.8               # MEASURE (datasheet 24.73)
   case_face_z: 15.9            # MEASURE: case faces at +-15.9 (31.8 thick between mounting faces)
   output_x: 12.5               # MEASURE: output axis from case centre (10.2 mm from the output end)
-  horn_bump: {x0: -21.0, x1: -0.5, half_w: 8.5, z: 17.0}     # raised label area on the horn face
-  idler_bump: {x0: -19.0, x1: -6.0, half_w: 7.0, z: 17.7}    # raised area on the idler face
+  # raised areas on the two big faces (STEP height map, 0.1 mm grid). They are NOT symmetric: the horn-face
+  # bump is long and narrow, the idler-face bump short and wide. v1 had the widths swapped-ish (8.5 / 7.0), so the
+  # idler bump jammed in its recess. idler z 17.9: the SO-101 assembly's servo model is 0.2 mm prouder than the STEP.
+  horn_bump: {x0: -22.0, x1: 2.0, half_w: 7.0, z: 17.0}      # horn (driven) face
+  idler_bump: {x0: -17.3, x1: -7.4, half_w: 9.1, z: 17.9}    # idler (passive) face
   horn_d: 20.0                 # MEASURE: horn disc diameter (both horns)
   horn_face_z: 18.7            # MEASURE: main-horn outer face height above case centre
   idler_face_z: 17.7           # MEASURE: idler-horn outer face height (below case centre)
   horn_hole_offset: 4.95       # 4 horn holes at (+-4.95, +-4.95) around the axis (14 mm circle)
-  horn_hole_d: 2.5             # MEASURE: horn hole diameter / thread
+  horn_hole_d: 2.5             # horn holes take M3x6 screws (SO-101 assembly guide), both horns
   horn_center_screw_head_d: 6.0  # M3x6 horn screw head; arms get an access hole
   mount_holes_top: [[4.2, 10.25], [4.2, -10.25], [-16.5, 10.25], [-16.5, -10.25]]   # MEASURE: horn face
   mount_holes_bot: [[4.2, 10.25], [4.2, -10.25], [-20.3, 10.25], [-20.3, -10.25]]   # MEASURE: idler face
@@ -31,8 +34,13 @@ servo:
 # --- printing / fit
 fit:
   pocket_clearance: 0.35       # per side, servo case in printed pockets (tune with coupon A)
+  bump_margin: 0.4             # extra per side around the raised face areas (they only need to clear, not locate)
+  # screws, cross-checked against the SO-101 follower (same servo): horn-to-bracket M3x6 through a 3.5 mm arm
+  # (~2.5 mm into the horn); case screws M2x6 through ~2.0 mm of printed wall (~2.5-3 mm into the case)
+  horn_screw: {clear_d: 3.4, head_d: 5.6, head_h: 2.4, len: 6.0}
+  case_screw: {clear_d: 2.4, head_d: 4.0, head_h: 1.6, len: 6.0, grip: 2.0, seat_d: 4.6}   # grip = wall under the head
   horn_face_gap: 0.0           # arms sit flat on the horn faces
-  m2_clear_d: 2.4              # M2 clearance (horn screws, case screws)
+  m2_clear_d: 2.4              # M2 clearance (pad screw)
   m3_clear_d: 3.4
   m3_nut_af: 5.7               # M3 nut across flats + clearance (captive nut traps)
   m3_nut_h: 2.6
