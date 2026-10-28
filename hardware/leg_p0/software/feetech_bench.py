@@ -12,6 +12,7 @@ Software stop is NOT an emergency stop: keep a hand on the hardware power switch
     python feetech_bench.py move knee 10 --enable  # move ONE joint to +10 deg (from neutral), slowly
     python feetech_bench.py jog hip_yaw --enable   # keyboard nudges; `z` sets this angle as neutral
     python feetech_bench.py sweep hip_yaw --amp 10 --enable    # slow single-joint test, then torque off
+    python feetech_bench.py sweep hip_yaw hip_roll --amp 10 --enable   # several joints moving together
     python feetech_bench.py wave --amp 10 --cycles 2 --enable   # low-amplitude 4-joint test, logged to CSV
 
 Every command that moves a motor requires --enable and refuses targets outside the configured limits.
@@ -149,9 +150,20 @@ def cmd_set_id(bus, a):
     if bus.ping(a.old) is None:
         sys.exit(f"no servo answers at id {a.old}")
     bus.w1(a.old, ADDR["LOCK"], 0)           # unlock EEPROM
-    bus.w1(a.old, ADDR["ID"], a.new)
-    bus.w1(a.new, ADDR["LOCK"], 1)           # lock EEPROM
-    print("new id answers:", bus.ping(a.new) is not None)
+    try:
+        bus.w1(a.old, ADDR["ID"], a.new)
+    except IOError as e:                      # the reply comes from the new ID (or not at all): verify instead
+        print(f"  ({e}; verifying)")
+    time.sleep(0.1)
+    if bus.ping(a.new) is None:
+        bus.w1(a.old, ADDR["LOCK"], 1)
+        sys.exit(f"FAILED: id {a.new} does not answer")
+    try:
+        bus.w1(a.new, ADDR["LOCK"], 1)       # lock EEPROM
+    except IOError as e:
+        print(f"  ({e})")
+    time.sleep(0.05)
+    print(f"new id {a.new} answers; EEPROM {'locked' if bus.r1(a.new, ADDR['LOCK']) == 1 else 'STILL UNLOCKED'}")
 
 
 def encode_offset(v):
@@ -233,30 +245,38 @@ def cmd_move(bus, a):
 
 
 def cmd_sweep(bus, a):
-    """Slowly sweep ONE joint neutral -> +amp -> -amp -> neutral, a.cycles times, then relax it."""
+    """Slowly sweep one or more joints together: neutral -> +amp -> -amp -> neutral, a.cycles times, then relax."""
     if not a.enable:
         sys.exit("REFUSED: motion needs --enable (keep a hand on the power switch)")
-    j = bus.cfg["joints"][a.joint]
-    for d in (a.amp, -a.amp):
-        check_target(a.joint, j, d)
+    joints = {n: bus.cfg["joints"][n] for n in a.joints}
+    for n, j in joints.items():                       # pre-check every target before moving anything
+        for d in (a.amp, -a.amp):
+            check_target(n, j, d)
+        if bus.ping(j["id"]) is None:
+            sys.exit(f"{n}: no servo answers at id {j['id']}")
     stop = install_stop(bus)
     speed = int(a.speed * COUNTS_PER_DEG)
 
     def go(deg):
-        goto(bus, a.joint, j, deg, speed)
+        for n, j in joints.items():
+            goto(bus, n, j, deg, speed)
         t0 = time.time()
         while time.time() - t0 < 2.0 + 1.5 * a.amp / a.speed * 2:
-            p = bus.present(j["id"])
-            print(f"\r{a.joint}: target {deg:6.1f}  at {counts_to_deg(j, p['pos']):6.1f} deg  "
-                  f"load {p['load']:5d}  {p['volt']:.1f} V  {p['temp']} C ", end="")
-            if abs(counts_to_deg(j, p["pos"]) - deg) < 1.0 and p["speed"] == 0:
+            ps = {n: bus.present(j["id"]) for n, j in joints.items()}
+            line = "  ".join(f"{n} {counts_to_deg(joints[n], p['pos']):6.1f} (load {p['load']:4d}, {p['temp']} C)"
+                             for n, p in ps.items())
+            print(f"\rtarget {deg:6.1f} | {line} | {next(iter(ps.values()))['volt']:.1f} V ", end="")
+            if all(abs(counts_to_deg(joints[n], p["pos"]) - deg) < 1.0 and p["speed"] == 0 for n, p in ps.items()):
                 print()
                 return
             time.sleep(0.1)
-        sid = j["id"]
-        print(f"\n  MISSED target: goal register {bus.r2(sid, ADDR['GOAL_POS'])} (sent {deg_to_counts(j, deg)}), "
-              f"torque {bus.r1(sid, ADDR['TORQUE_ENABLE'])}, status {bus.r1(sid, ADDR['STATUS'])}, "
-              f"moving {bus.r1(sid, ADDR['MOVING'])}")
+        print()
+        for n, j in joints.items():
+            sid = j["id"]
+            if abs(counts_to_deg(j, bus.r2(sid, ADDR["PRESENT_POS"])) - deg) >= 1.0:
+                print(f"  MISSED target ({n}): goal register {bus.r2(sid, ADDR['GOAL_POS'])} "
+                      f"(sent {deg_to_counts(j, deg)}), torque {bus.r1(sid, ADDR['TORQUE_ENABLE'])}, "
+                      f"status {bus.r1(sid, ADDR['STATUS'])}, moving {bus.r1(sid, ADDR['MOVING'])}")
 
     go(0.0)
     for _ in range(a.cycles):
@@ -264,7 +284,8 @@ def cmd_sweep(bus, a):
             go(deg)
     go(0.0)
     if not a.hold:
-        bus.torque(j["id"], False)
+        for j in joints.values():
+            bus.torque(j["id"], False)
         print("torque off")
 
 
@@ -373,8 +394,8 @@ def main():
     sp.add_argument("joint")
     sp.add_argument("deg", type=float)
     sp.add_argument("--enable", action="store_true")
-    sp = sub.add_parser("sweep", help="slow single-joint sweep 0 -> +amp -> -amp -> 0")
-    sp.add_argument("joint")
+    sp = sub.add_parser("sweep", help="slow sweep of one or more joints together: 0 -> +amp -> -amp -> 0")
+    sp.add_argument("joints", nargs="+")
     sp.add_argument("--amp", type=float, default=10.0)
     sp.add_argument("--speed", type=float, default=10.0, help="deg/s")
     sp.add_argument("--cycles", type=int, default=1)

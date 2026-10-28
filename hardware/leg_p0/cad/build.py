@@ -30,9 +30,28 @@ EXP = ROOT / "exports"
 REN = ROOT / "renders"
 PRINTED = ["pelvis_plate", "clamp_tongue", "yaw_bracket", "roll_bracket", "thigh", "shin", "pad"]
 PART_NO = {n: f"P{i + 1:02d}" for i, n in enumerate(PRINTED)}
+# print orientation: the part axis that faces DOWN onto the bed (README "Printing"); others are added as we print them
+PRINT_DOWN = {"yaw_bracket": (1, 0, 0),      # front web on the bed
+              "roll_bracket": (-1, 0, 0),    # pitch-cradle back face on the bed, arms flat: horn holes print round
+              "thigh": (0, 1, 0)}            # lying on its side, one fork arm on the bed: layers run along the
+                                             # tube (strong in bending), all horn/case holes print round
+BED_CENTER = (128.0, 128.0)                  # Bambu A1 (256 x 256)
 
 
 # ----------------------------------------------------------------------------- export
+def export_print_ready(stems):
+    """Copies of the left-leg STLs rotated into print orientation, sitting on the bed at its centre."""
+    import trimesh
+    d = EXP / "stl" / "print_ready"
+    d.mkdir(parents=True, exist_ok=True)
+    for name, down in PRINT_DOWN.items():
+        m = trimesh.load(EXP / "stl" / f"{stems[name]}.stl")
+        m.apply_transform(trimesh.geometry.align_vectors(down, (0, 0, -1)))
+        c = m.bounds.mean(axis=0)
+        m.apply_translation((BED_CENTER[0] - c[0], BED_CENTER[1] - c[1], -m.bounds[0][2]))
+        m.export(d / f"{stems[name]}_print.stl")
+
+
 def export_all(items):
     (EXP / "stl").mkdir(parents=True, exist_ok=True)
     (EXP / "stl_right_mirror").mkdir(parents=True, exist_ok=True)
@@ -52,6 +71,7 @@ def export_all(items):
             export_stl(leg.mirror_right(it.shape), str(EXP / "stl_right_mirror" / f"{stem}_RIGHT.stl"),
                        tolerance=0.02, angular_tolerance=0.15)
         out[it.name] = stem
+    export_print_ready(out)
     # servo dummy (NOT printable) and the neutral assembly
     dummy = leg.servo_case() + leg.horns()[0] + leg.horns()[1]
     export_step(dummy, str(EXP / "step" / "NOT_PRINTABLE_servo_dummy_STS3215.step"))
@@ -290,7 +310,8 @@ def mass_report(items):
 def mesh_checks():
     import trimesh
     res = {}
-    for f in sorted((EXP / "stl").glob("P*.stl")) + sorted((EXP / "stl_right_mirror").glob("*.stl")):
+    for f in (sorted((EXP / "stl").glob("P*.stl")) + sorted((EXP / "stl" / "print_ready").glob("*.stl"))
+              + sorted((EXP / "stl_right_mirror").glob("*.stl"))):
         m = trimesh.load(f)
         res[f.name] = {"faces": int(len(m.faces)), "watertight": bool(m.is_watertight), "volume_cm3": round(m.volume / 1000, 2),
                        "bbox_mm": [round(v, 1) for v in m.extents]}

@@ -29,7 +29,8 @@ affected part.
 | `cad/leg.py` | parametric geometry (build123d): servo dummy, cradles, U-brackets, tubes, pad, fixture, kinematics |
 | `cad/build.py` | exports, renders, interference and range-of-motion checks |
 | `cad/coupons.py` | calibration coupons |
-| `exports/stl/`, `exports/3mf/` | one printable file per part, `P01`…`P07` |
+| `exports/stl/`, `exports/3mf/` | one printable file per part, `P01`…`P07`, in assembly orientation |
+| `exports/stl/print_ready/` | **send these to the printer**: parts rotated into print orientation, centred on a 256 mm bed (added as each part is printed; `PRINT_DOWN` in `cad/build.py`) |
 | `exports/step/` | per-part STEP files, `assembly_neutral.step`, `assembly_stance.step` |
 | `exports/*/NOT_PRINTABLE_servo_dummy_STS3215.*` | servo dummy, for clearance checks only |
 | `exports/stl_right_mirror/` | mirrored parts for a future right leg |
@@ -122,13 +123,17 @@ leg. "Stance" = hip pitch 16°, knee 32°, where the pad is level.
 | P01 pelvis plate | PETG (or PLA) | plate face down, cup walls up | none (the cup floor bridges ~26 mm) | 4 / 30 % gyroid |
 | P02 clamp tongue | PETG / PLA | flat, ribs up | none | 3 / 25 % |
 | P03 yaw bracket | PETG preferred | front web face down | tree supports under the round boss and saddle | 4 / 40 % |
-| P04 roll bracket | PETG preferred | web face down, arms up | tree supports for the pitch cradle | 4 / 40 % |
-| P05 thigh | PLA or PETG | upright, knee cradle on the bed, fork up | small supports under the back zip-tie lugs | 3 / 15 % |
+| P04 roll bracket | PETG preferred | pitch-cradle back face (−X) down, arms flat so horn holes print round | tree supports under both arms | 4 / 40 % |
+| P05 thigh | PLA or PETG | on its side, one fork arm (+Y) on the bed; the body sits 0.9 mm up | tree supports under the body, tube and upper fork arm | 3 / 15 % (4 walls for loads) |
 | P06 shin | PLA or PETG | upright, tip on the bed, fork up | none | 3 / 15 % |
 | P07 pad | PLA/PETG now, TPU 95A later | on its long side | none | 3 / 30 % |
 
 0.4 mm nozzle, 0.2 mm layers (0.16 mm for coupons and brackets if the hole fit is poor). Hide the
 seam toward the back or inside.
+
+PLA is fine for the bench P0 (P03 in PLA fits and sweeps cleanly). PETG is preferred for the brackets
+because PLA softens from about 55 °C and creeps under steady load; a servo case working hard can get
+that warm. Reprint the brackets in PETG before long powered holds or standing tests.
 
 ## Not done in P0
 

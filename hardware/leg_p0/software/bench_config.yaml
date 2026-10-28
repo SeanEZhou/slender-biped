@@ -9,6 +9,6 @@ acceleration: 20            # 0-254 (x100 counts/s^2); low = gentle starts
 # conventions"), else -1. Limits (deg, relative to neutral) are 5 deg inside the CAD collision-free range.
 joints:
   hip_yaw:   {id: 1, center: 2048, direction: 1, min_deg: -15, max_deg: 25}   # 2026-10-27: zeroed square in P03 (offset 2002), direction verified (+ = left), 10x +-15 deg sweep OK
-  hip_roll:  {id: 2, center: 2048, direction: 1, min_deg: -10, max_deg: 25}
+  hip_roll:  {id: 2, center: 2048, direction: -1, min_deg: -10, max_deg: 25}   # 2026-10-27: zeroed square in P03/P04 (offset -1993), direction verified (+ = abduction, counts reversed), 3x +-10 deg OK
   hip_pitch: {id: 3, center: 2048, direction: 1, min_deg: -25, max_deg: 80}
   knee:      {id: 4, center: 2048, direction: 1, min_deg: 0,   max_deg: 105}
