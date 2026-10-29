@@ -13,6 +13,9 @@ Software stop is NOT an emergency stop: keep a hand on the hardware power switch
     python feetech_bench.py jog hip_yaw --enable   # keyboard nudges; `z` sets this angle as neutral
     python feetech_bench.py sweep hip_yaw --amp 10 --enable    # slow single-joint test, then torque off
     python feetech_bench.py sweep hip_yaw hip_roll --amp 10 --enable   # several joints moving together
+    python feetech_bench.py sweep knee --mid 30 --amp 20 --enable      # 0 -> 50 -> 10 -> 0 (knee range is 0..105)
+    python feetech_bench.py routine check --enable   # whole-leg routines: check, stance, squat, knee_lift, kick,
+    python feetech_bench.py routine squat --enable --speed 0.5   #   step, circle, look (--speed = tempo factor)
     python feetech_bench.py wave --amp 10 --cycles 2 --enable   # low-amplitude 4-joint test, logged to CSV
 
 Every command that moves a motor requires --enable and refuses targets outside the configured limits.
@@ -32,6 +35,7 @@ import yaml
 
 try:
     from scservo_sdk import COMM_SUCCESS, PacketHandler, PortHandler
+    from scservo_sdk.scservo_def import SCS_MAKEWORD
 except ImportError:  # pragma: no cover
     sys.exit("Missing dependency: pip install feetech-servo-sdk pyyaml")
 
@@ -68,32 +72,39 @@ class Bus:
         model, res, err = self.pk.ping(self.port, sid)
         return model if res == COMM_SUCCESS else None
 
+    RETRIES = 3   # a reply now and then goes missing (USB passthrough latency); every call here is idempotent
+
+    def _txrx(self, fn, what):
+        for k in range(self.RETRIES):
+            out = fn()
+            res, err = out[-2:] if len(out) == 3 else out
+            if res == COMM_SUCCESS:
+                break
+            time.sleep(0.002)
+        self._ok(res, err, what)
+        return out
+
     def r1(self, sid, a):
-        v, res, err = self.pk.read1ByteTxRx(self.port, sid, a)
-        self._ok(res, err, f"read id {sid} @{a}")
-        return v
+        return self._txrx(lambda: self.pk.read1ByteTxRx(self.port, sid, a), f"read id {sid} @{a}")[0]
 
     def r2(self, sid, a):
-        v, res, err = self.pk.read2ByteTxRx(self.port, sid, a)
-        self._ok(res, err, f"read id {sid} @{a}")
-        return v
+        return self._txrx(lambda: self.pk.read2ByteTxRx(self.port, sid, a), f"read id {sid} @{a}")[0]
 
     def w1(self, sid, a, v):
-        res, err = self.pk.write1ByteTxRx(self.port, sid, a, int(v))
-        self._ok(res, err, f"write id {sid} @{a}")
+        self._txrx(lambda: self.pk.write1ByteTxRx(self.port, sid, a, int(v)), f"write id {sid} @{a}")
 
     def w2(self, sid, a, v):
-        res, err = self.pk.write2ByteTxRx(self.port, sid, a, int(v))
-        self._ok(res, err, f"write id {sid} @{a}")
+        self._txrx(lambda: self.pk.write2ByteTxRx(self.port, sid, a, int(v)), f"write id {sid} @{a}")
 
     def torque(self, sid, on):
         self.w1(sid, ADDR["TORQUE_ENABLE"], 1 if on else 0)
 
     def present(self, sid):
+        """Position, speed, load, voltage, temperature (registers 56-63) in ONE bus transaction."""
         signed = lambda v, b: -(v & ~(1 << b)) if v & (1 << b) else v  # noqa: E731  sign-magnitude
-        return dict(pos=self.r2(sid, ADDR["PRESENT_POS"]), speed=signed(self.r2(sid, ADDR["PRESENT_SPEED"]), 15),
-                    load=signed(self.r2(sid, ADDR["PRESENT_LOAD"]), 10), volt=self.r1(sid, ADDR["PRESENT_VOLT"]) / 10,
-                    temp=self.r1(sid, ADDR["PRESENT_TEMP"]))
+        d = self._txrx(lambda: self.pk.readTxRx(self.port, sid, ADDR["PRESENT_POS"], 8), f"read id {sid} status")[0]
+        return dict(pos=SCS_MAKEWORD(d[0], d[1]), speed=signed(SCS_MAKEWORD(d[2], d[3]), 15),
+                    load=signed(SCS_MAKEWORD(d[4], d[5]), 10), volt=d[6] / 10, temp=d[7])
 
 
 def load_cfg(path):
@@ -245,12 +256,12 @@ def cmd_move(bus, a):
 
 
 def cmd_sweep(bus, a):
-    """Slowly sweep one or more joints together: neutral -> +amp -> -amp -> neutral, a.cycles times, then relax."""
+    """Slowly sweep one or more joints together: neutral -> mid+amp -> mid-amp -> neutral, a.cycles times, then relax."""
     if not a.enable:
         sys.exit("REFUSED: motion needs --enable (keep a hand on the power switch)")
     joints = {n: bus.cfg["joints"][n] for n in a.joints}
     for n, j in joints.items():                       # pre-check every target before moving anything
-        for d in (a.amp, -a.amp):
+        for d in (a.mid + a.amp, a.mid - a.amp):
             check_target(n, j, d)
         if bus.ping(j["id"]) is None:
             sys.exit(f"{n}: no servo answers at id {j['id']}")
@@ -261,7 +272,7 @@ def cmd_sweep(bus, a):
         for n, j in joints.items():
             goto(bus, n, j, deg, speed)
         t0 = time.time()
-        while time.time() - t0 < 2.0 + 1.5 * a.amp / a.speed * 2:
+        while time.time() - t0 < 2.0 + 1.5 * (abs(a.mid) + 2 * a.amp) / a.speed:
             ps = {n: bus.present(j["id"]) for n, j in joints.items()}
             line = "  ".join(f"{n} {counts_to_deg(joints[n], p['pos']):6.1f} (load {p['load']:4d}, {p['temp']} C)"
                              for n, p in ps.items())
@@ -280,7 +291,7 @@ def cmd_sweep(bus, a):
 
     go(0.0)
     for _ in range(a.cycles):
-        for deg in (a.amp, -a.amp):
+        for deg in (a.mid + a.amp, a.mid - a.amp):
             go(deg)
     go(0.0)
     if not a.hold:
@@ -318,6 +329,9 @@ def cmd_jog(bus, a):
     sid = j["id"]
     install_stop(bus)
     goal = bus.r2(sid, ADDR["PRESENT_POS"])          # start where it is: no jump
+    # calibration happens before the joint limits mean anything (the zero is what defines them),
+    # so jog allows a window around the start instead: enough to absorb one spline tooth
+    lo, hi = goal - round(a.window * COUNTS_PER_DEG), goal + round(a.window * COUNTS_PER_DEG)
     bus.w1(sid, ADDR["ACCEL"], bus.cfg["acceleration"])
     bus.w2(sid, ADDR["GOAL_SPEED"], int(5 * COUNTS_PER_DEG))
     bus.w2(sid, ADDR["GOAL_POS"], goal)
@@ -331,8 +345,8 @@ def cmd_jog(bus, a):
         k = getch()
         if k in JOG_KEYS:
             new = goal + JOG_KEYS[k]
-            if not (j["min_deg"] <= counts_to_deg(j, new) <= j["max_deg"]):
-                print("\n  limit reached", end="")
+            if not (lo <= new <= hi):
+                print(f"\n  jog window (+-{a.window:g} deg from start) reached", end="")
                 continue
             goal = new
             bus.w2(sid, ADDR["GOAL_POS"], goal)
@@ -345,6 +359,80 @@ def cmd_jog(bus, a):
             bus.torque(sid, False)
             print("\ntorque off")
             return
+
+
+# Whole-leg routines for the leg hanging free on the bench fixture: keyframes of (pose, seconds), pose in joint
+# degrees (README sign conventions: yaw + = toe out, roll + = abduction, pitch + = flexion/foot forward,
+# knee + = flexion/foot back). Joints left out of a pose hold their previous target. Stance = hip 16, knee 32.
+Y, R, P_, K = "hip_yaw", "hip_roll", "hip_pitch", "knee"
+ROUTINES = {
+    "check": [({Y: 10}, 1.5), ({Y: 0}, 1.5), ({R: 10}, 1.5), ({R: 0}, 1.5),          # each joint +10 alone:
+              ({P_: 10}, 1.5), ({P_: 0}, 1.5), ({K: 20}, 1.5), ({K: 0}, 1.5)],         # verify directions
+    "stance": [({P_: 16, K: 32}, 2.0), ({}, 2.0)],
+    "squat": [({P_: 16, K: 32}, 2.0)] + [({P_: 45, K: 90}, 2.5), ({P_: 16, K: 32}, 2.5)] * 3,
+    "knee_lift": [({P_: 70, K: 100}, 3.0), ({P_: 0, K: 0}, 3.0)] * 2,
+    "kick": [({P_: 20, K: 90}, 2.0), ({P_: 50, K: 5}, 1.2), ({P_: 20, K: 90}, 1.5), ({P_: 0, K: 0}, 2.0)],
+    "step": [({P_: 16, K: 32}, 2.0)] + [({P_: 35, K: 75}, 1.2),    # lift: knee up, foot clears the floor
+                                        ({P_: 35, K: 25}, 1.0),    # reach: shin swings forward
+                                        ({P_: 16, K: 32}, 1.0),    # plant
+                                        ({P_: -10, K: 15}, 1.5)    # push back (stance phase)
+                                        ] * 3,
+    "circle": [({P_: 16, K: 32, R: 0}, 2.0)] + [
+        ({P_: 16 + 10 * math.cos(t), R: 8 + 8 * math.sin(t)}, 0.4)
+        for t in [2 * math.pi * i / 12 for i in range(1, 13)] * 2],
+    "look": [({P_: 16, K: 32}, 2.0)] + [({Y: 20}, 2.0), ({Y: -12}, 2.5), ({Y: 0}, 1.5)] * 2,
+}
+ROUTINE_HELP = "check (one joint at a time, verify directions), stance, squat, knee_lift, kick, step, circle, look"
+
+
+def cmd_routine(bus, a):
+    """Play a whole-leg routine: every joint moves together and arrives at the same time."""
+    if not a.enable:
+        sys.exit("REFUSED: motion needs --enable (keep a hand on the power switch)")
+    joints = bus.cfg["joints"]
+    frames, pose = [], {n: 0.0 for n in joints}
+    for target, dur in ROUTINES[a.name] + [({n: 0.0 for n in joints}, 2.5)]:   # always end at neutral
+        pose = {**pose, **target}
+        frames.append((dict(pose), dur / a.speed))
+    for pose, _ in frames:                                   # pre-check the whole routine before moving anything
+        for n, deg in pose.items():
+            check_target(n, joints[n], deg)
+    missing = [n for n, j in joints.items() if bus.ping(j["id"]) is None]
+    if missing:
+        sys.exit(f"no answer from {missing}: connect all four servos (and power) first")
+    stop = install_stop(bus)
+    try:
+        _play(bus, a, joints, frames)
+    except IOError as e:
+        print(f"\nBUS ERROR after retries: {e}")
+        stop()                                               # torque off everywhere, exit 1
+
+
+def _play(bus, a, joints, frames):
+    cur = {n: counts_to_deg(j, bus.r2(j["id"], ADDR["PRESENT_POS"])) for n, j in joints.items()}
+    if any(abs(d) > 30 for d in cur.values()):
+        print("note: some joints start far from neutral:", {n: round(d) for n, d in cur.items()})
+    for k, (pose, dur) in enumerate(frames):
+        for n, j in joints.items():                          # speed per joint so all arrive together
+            counts = abs(pose[n] - cur[n]) * COUNTS_PER_DEG
+            goto(bus, n, j, pose[n], speed=max(20, int(counts / dur)))   # 0 would mean full speed: never send it
+        t0 = time.time()
+        while time.time() - t0 < dur + 0.3:
+            ps = {n: bus.present(j["id"]) for n, j in joints.items()}
+            print(f"\r{a.name} {k + 1}/{len(frames)} | " + "  ".join(
+                f"{n.replace('hip_', '')} {counts_to_deg(joints[n], p['pos']):6.1f}/{pose[n]:5.1f} ({p['load']:4d})"
+                for n, p in ps.items()) + f" | {next(iter(ps.values()))['volt']:.1f} V ", end="")
+            time.sleep(0.05)
+        late = {n: round(counts_to_deg(joints[n], p["pos"]) - pose[n], 1) for n, p in ps.items()
+                if abs(counts_to_deg(joints[n], p["pos"]) - pose[n]) > 3}
+        if late:
+            print(f"\n  lagging: {late}", end="")
+        cur = pose
+    print()
+    if not a.hold:
+        for j in joints.values():
+            bus.torque(j["id"], False)
+        print("torque off")
 
 
 def cmd_wave(bus, a):
@@ -397,12 +485,19 @@ def main():
     sp = sub.add_parser("sweep", help="slow sweep of one or more joints together: 0 -> +amp -> -amp -> 0")
     sp.add_argument("joints", nargs="+")
     sp.add_argument("--amp", type=float, default=10.0)
+    sp.add_argument("--mid", type=float, default=0.0, help="sweep centre, deg (e.g. 30 for the knee)")
     sp.add_argument("--speed", type=float, default=10.0, help="deg/s")
     sp.add_argument("--cycles", type=int, default=1)
     sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
     sp.add_argument("--enable", action="store_true")
     sp = sub.add_parser("jog", help="nudge one joint from the keyboard, then zero it")
     sp.add_argument("joint")
+    sp.add_argument("--window", type=float, default=15.0, help="max deg from the start position")
+    sp.add_argument("--enable", action="store_true")
+    sp = sub.add_parser("routine", help="whole-leg routine: " + ROUTINE_HELP)
+    sp.add_argument("name", choices=sorted(ROUTINES))
+    sp.add_argument("--speed", type=float, default=1.0, help="tempo factor: 0.5 = half speed")
+    sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
     sp.add_argument("--enable", action="store_true")
     sp = sub.add_parser("wave")
     sp.add_argument("--amp", type=float, default=10.0)
@@ -412,7 +507,7 @@ def main():
     a = ap.parse_args()
     bus = Bus(load_cfg(a.config))
     {"scan": cmd_scan, "read": cmd_read, "set-id": cmd_set_id, "zero": cmd_zero, "torque-off": cmd_torque_off,
-     "move": cmd_move, "sweep": cmd_sweep, "jog": cmd_jog, "wave": cmd_wave}[a.cmd](bus, a)
+     "move": cmd_move, "sweep": cmd_sweep, "jog": cmd_jog, "routine": cmd_routine, "wave": cmd_wave}[a.cmd](bus, a)
 
 
 if __name__ == "__main__":

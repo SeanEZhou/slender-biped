@@ -33,8 +33,9 @@ PART_NO = {n: f"P{i + 1:02d}" for i, n in enumerate(PRINTED)}
 # print orientation: the part axis that faces DOWN onto the bed (README "Printing"); others are added as we print them
 PRINT_DOWN = {"yaw_bracket": (1, 0, 0),      # front web on the bed
               "roll_bracket": (-1, 0, 0),    # pitch-cradle back face on the bed, arms flat: horn holes print round
-              "thigh": (0, 1, 0)}            # lying on its side, one fork arm on the bed: layers run along the
+              "thigh": (0, 1, 0),            # lying on its side, one fork arm on the bed: layers run along the
                                              # tube (strong in bending), all horn/case holes print round
+              "shin": (0, 1, 0)}             # same as the thigh: one fork arm on the bed, tube along the bed
 BED_CENTER = (128.0, 128.0)                  # Bambu A1 (256 x 256)
 
 

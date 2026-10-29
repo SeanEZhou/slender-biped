@@ -145,13 +145,13 @@
    "yaw_bracket": 13.0,
    "roll_bracket": 13.2,
    "thigh": 28.3,
-   "shin": 17.9,
+   "shin": 34.9,
    "pad": 4.4
   },
-  "printed_total_g": 162.4,
+  "printed_total_g": 179.4,
   "servos_g": 220,
   "hardware_g_estimate": 25,
-  "leg_on_fixture_total_g": 407.4,
+  "leg_on_fixture_total_g": 424.4,
   "note": "printed mass = solid volume x 1.24 g/cm3 x fill 0.55 (rough)"
  },
  "meshes": {
@@ -206,9 +206,9 @@
    ]
   },
   "P06_shin.stl": {
-   "faces": 5646,
+   "faces": 5078,
    "watertight": true,
-   "volume_cm3": 26.55,
+   "volume_cm3": 52.48,
    "bbox_mm": [
     24.0,
     43.4,
@@ -223,6 +223,46 @@
     30.0,
     18.0,
     23.6
+   ]
+  },
+  "P03_yaw_bracket_print.stl": {
+   "faces": 8686,
+   "watertight": true,
+   "volume_cm3": 19.12,
+   "bbox_mm": [
+    60.6,
+    40.0,
+    42.8
+   ]
+  },
+  "P04_roll_bracket_print.stl": {
+   "faces": 7192,
+   "watertight": true,
+   "volume_cm3": 19.36,
+   "bbox_mm": [
+    60.5,
+    42.5,
+    60.8
+   ]
+  },
+  "P05_thigh_print.stl": {
+   "faces": 8154,
+   "watertight": true,
+   "volume_cm3": 41.81,
+   "bbox_mm": [
+    127.5,
+    35.8,
+    43.5
+   ]
+  },
+  "P06_shin_print.stl": {
+   "faces": 5078,
+   "watertight": true,
+   "volume_cm3": 52.48,
+   "bbox_mm": [
+    146.9,
+    24.0,
+    43.4
    ]
   },
   "P01_pelvis_plate_RIGHT.stl": {
@@ -266,9 +306,9 @@
    ]
   },
   "P06_shin_RIGHT.stl": {
-   "faces": 5646,
+   "faces": 5078,
    "watertight": true,
-   "volume_cm3": 26.55,
+   "volume_cm3": 52.48,
    "bbox_mm": [
     24.0,
     43.4,
@@ -291,5 +331,5 @@
   -0.0,
   -1.0
  ],
- "check_seconds": 44.7
+ "check_seconds": 34.7
 }

@@ -78,7 +78,8 @@ shin:
   mid: {w: 22.0, d: 21.0, n: 2.2}
   bot: {w: 17.0, d: 24.0, n: 2.2}      # flares fore-aft into the pad
   mid_frac: 0.45
-  wall: 2.2
+  wall: null                 # modelled solid; the slicer's walls + infill hollow it. A modelled 2.2 mm shell let the
+                               # pad socket break into the cavity (stem loose) and, printed lying, trapped tree supports inside
 pad:
   length: 30.0                 # fore-aft (sim P30)
   width: 18.0                  # lateral

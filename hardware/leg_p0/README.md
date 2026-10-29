@@ -110,8 +110,9 @@ leg. "Stance" = hip pitch 16°, knee 32°, where the pad is level.
    hip-pitch and knee ranges stop short of the sim's.
 4. **Wide knee.** The 31.8 mm servo thickness plus horns makes the knee about 43 mm wide in front
    view. It is an honest local bulge; the tube above and below stays slender.
-5. **Not load-bearing.** The 3.5 mm arms and the hollow 2.2–2.4 mm-wall tubes are sized for
-   unloaded motion and appearance, not for standing.
+5. **Not load-bearing.** The 3.5 mm arms, the hollow 2.4 mm-wall thigh tube and the shin (modelled
+   solid, hollowed by the slicer's walls and infill) are sized for unloaded motion and appearance,
+   not for standing.
 6. **Pad.** The pad is printed rigid. The underside is pitched 16° so it is flat at the stance pose.
    A TPU or rubber skin can be added later.
 
@@ -125,7 +126,7 @@ leg. "Stance" = hip pitch 16°, knee 32°, where the pad is level.
 | P03 yaw bracket | PETG preferred | front web face down | tree supports under the round boss and saddle | 4 / 40 % |
 | P04 roll bracket | PETG preferred | pitch-cradle back face (−X) down, arms flat so horn holes print round | tree supports under both arms | 4 / 40 % |
 | P05 thigh | PLA or PETG | on its side, one fork arm (+Y) on the bed; the body sits 0.9 mm up | tree supports under the body, tube and upper fork arm | 3 / 15 % (4 walls for loads) |
-| P06 shin | PLA or PETG | upright, tip on the bed, fork up | none | 3 / 15 % |
+| P06 shin | PLA or PETG | on its side, one fork arm (+Y) on the bed, tube along the bed | tree supports under the tube and upper fork arm | 3 / 15 % (4 walls for loads) |
 | P07 pad | PLA/PETG now, TPU 95A later | on its long side | none | 3 / 30 % |
 
 0.4 mm nozzle, 0.2 mm layers (0.16 mm for coupons and brackets if the hole fit is poor). Hide the
