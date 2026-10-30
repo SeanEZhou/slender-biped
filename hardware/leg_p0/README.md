@@ -4,7 +4,8 @@
 
 **Milestone P0:** print and assemble one leg (hip yaw, hip roll, hip pitch, direct-drive knee) on a
 desk-clamped pelvis fixture, and move each joint safely **unloaded**. Standing and walking are out of
-scope. Nothing here is load-bearing certified.
+scope. Nothing here is load-bearing certified. (Done, and exceeded: the printed PLA leg also stands
+and squats on its own pad; see the [main README §5](../../README.md#52-bench-tests).)
 
 - **Side:** this is the **left** leg. Mirrored right-leg STLs are in `exports/stl_right_mirror/` for
   later; no second-leg servos are assumed.
@@ -113,9 +114,10 @@ leg. "Stance" = hip pitch 16°, knee 32°, where the pad is level.
    hip-pitch and knee ranges stop short of the sim's.
 4. **Wide knee.** The 31.8 mm servo thickness plus horns makes the knee about 43 mm wide in front
    view. It is an honest local bulge; the tube above and below stays slender.
-5. **Not load-bearing.** The 3.5 mm arms, the hollow 2.4 mm-wall thigh tube and the shin (modelled
-   solid, hollowed by the slicer's walls and infill) are sized for unloaded motion and appearance,
-   not for standing.
+5. **Load-bearing (tested).** The 3.5 mm arms, the hollow 2.4 mm-wall thigh tube and the shin (modelled
+   solid, hollowed by the slicer's walls and infill) were sized for unloaded motion and appearance.
+   Printed in PLA, the leg nonetheless stands on its pad and squats and rises by itself without
+   visible flex, so it is strong enough to bear its own share of the robot.
 6. **Pad.** The pad is printed rigid. The underside is pitched 16° so it is flat at the stance pose.
    A TPU or rubber skin can be added later.
 

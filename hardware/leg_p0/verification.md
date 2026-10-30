@@ -65,8 +65,10 @@ Coupons are described in [`assembly.md` step 1](assembly.md#1-print-the-coupons-
    Don't overtighten. Rebuilding many times may strip them.
 3. **Connector plugs.** On the hip-pitch and knee servos the inner arm passes within about 1–3 mm of
    the plug at the range limits. Check by hand with power off.
-4. **Weak arms.** 3.5 mm arms on a 55 g knee servo plus the shin are adequate for unloaded motion.
-   Expect flex. Don't hang weight on the leg.
+4. **Weak arms (retired by test).** 3.5 mm arms on a 55 g knee servo plus the shin were sized for unloaded
+   motion. On the bench, the assembled PLA leg stands on its pad, carries the hip and pelvis fixture,
+   and squats and rises by itself with no visible flex or horn slip, so the parts are strong enough
+   to bear load.
 5. **Slow servo.** The C001 (1:345) is about half the speed of the C046 the simulation assumed.
    Unloaded tests are fine; the RL policies are not transferable.
 

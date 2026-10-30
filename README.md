@@ -26,6 +26,16 @@ An end-to-end robotics design study:
 </tr>
 </table>
 
+<p><b>Real hardware:</b> the printed P0 left leg (§5), bench-tested on a 5 V supply: sit-up on its own pad, kick, hip yaw.</p>
+<p>
+<img src="assets/photos/p0_leg_assembled.jpg" width="732" alt="Assembled P0 leg">
+</p>
+<p>
+<img src="assets/gifs/bench_sit_up.gif" width="240" height="426" alt="Sit-up on the pad">
+<img src="assets/gifs/bench_kick.gif" width="240" height="426" alt="Kick">
+<img src="assets/gifs/bench_yaw.gif" width="240" height="426" alt="Hip yaw">
+</p>
+
 **TL;DR**
 - **The ball-tip design works dynamically.** A 38 cm, 0.85 kg biped on two 16 mm rubber balls,
   driven by eight off-the-shelf hobby servos (~$180 in total), stands indefinitely, walks straight and stops on command in
@@ -41,7 +51,8 @@ An end-to-end robotics design study:
   stopping on command 98 % of the time. Walking draws about 1.5 A at 7.4 V, with ~9 A peaks.
 
 > **Status: simulation, plus a first printed leg.** One P0 leg is printed, assembled and bench-tested
-> (servos calibrated, whole-leg routines); the two-leg robot has not walked yet. All standing and walking
+> (servos calibrated, whole-leg routines, and it stands and squats on its own pad, §5); the two-leg robot
+> has not walked yet. All standing and walking
 > numbers come from held-out evaluation seeds in an independent simulator. Simulated feasibility is not
 > validated hardware capability.
 
@@ -365,25 +376,71 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 
 ## 5. Toward hardware: the P0 printable leg
 
+<img src="assets/photos/p0_leg_assembled.jpg" width="720"><br>
+<sub>The assembled P0 left leg, printed in PLA: pelvis fixture and hip yaw (right), hip roll and pitch, thigh, knee and shin with the pad (left).</sub>
+
 <img src="hardware/leg_p0/renders/leg_silhouette_dimensioned.png" width="620">
 
 The next step is a real leg. [`hardware/leg_p0/`](hardware/leg_p0/) contains a parametric,
 print-ready CAD of one 4-DoF leg on a desk-clamped pelvis fixture:
 - **Build123d source:** regenerate with one command.
-- **Exports:** STL, 3MF and STEP for every part, plus mirrored right-leg parts.
-- **Servos:** four Feetech STS3215-C001, with a **direct-drive knee** (no belt).
+- **Exports:** STL, 3MF and STEP for every part, plus mirrored right-leg parts and print-oriented copies.
+- **Servos:** Feetech STS3215s with a **direct-drive knee** (no belt): C001 (1:345) at the hips and a
+  faster C044 (1:191) at the knee.
 - **Pad:** the 30 × 18 mm flat pad from the control experiments.
 
 The CAD is checked automatically before printing: interference and range-of-motion sweeps include
 servo dummies, screw heads and connector keep-outs. Calibration coupons, a BOM, a beginner assembly
-guide and a cautious bench-test script are included.
+guide and a bench tool ([`software/feetech_bench.py`](hardware/leg_p0/software/feetech_bench.py)) are
+included.
 
-It's built for unloaded bench testing only; standing and walking come later.
+### 5.1 From a first print that didn't fit to a full leg
 
-**Status:** the left leg is printed (PLA), assembled and calibrated. All four joints run whole-leg
-routines on the bench ([`software/feetech_bench.py`](hardware/leg_p0/software/feetech_bench.py)). The knee
-uses an STS3215-C044 (1:191) instead of the C001. **P08**, a one-piece two-leg pelvis with 80 mm hips, is
-designed and print-ready; the right leg is the mirrored part set.
+**The first test print didn't fit.** The yaw bracket was built from the servo's datasheet drawing, and:
+- **Screws:** the horn screw holes were sized for M2, but the STS3215 horns take M3, so no screw went in.
+- **Pocket:** the case pocket was the wrong shape. The recess for the bump around the idler horn was too
+  narrow and jammed the servo.
+- **Counterbores:** one bracket arm was counterbored all the way through, which left the screw heads
+  nothing to bear on.
+
+**The fix was to borrow from an arm that already works.** The open-source
+[SO-101 / SO-ARM100](https://github.com/TheRobotStudio/SO-ARM100) robot arm uses the same STS3215 servo.
+Its follower-arm STEP files give the real case geometry, and its build guide gives the screw sizes.
+- **Pocket:** I measured the case-bump widths from that STEP (horn side 7.0 mm, idler side 9.1 mm
+  half-width) and checked every joint against the real servo shape: zero overlap in all four.
+- **Screws:** M3×6 horn screws through 3.4 mm holes, and M2×6 self-tappers into the case, as on the
+  SO-101. Each counterbore leaves 2 mm of wall under the head.
+
+After that one correction, every part printed afterwards (P03–P07, the pad and the P08 pelvis) fit the
+servos and screws first time, and the full leg went together without rework. The only other print change
+was a solid shin: the hollow version let the pad socket break into the cavity.
+
+### 5.2 Bench tests
+
+Each servo was zeroed with the leg square, given its direction, and then swept on its own and with its
+neighbours. After that, the whole leg ran keyframe routines. In the clips below, the hand only steadies the
+pelvis fixture.
+
+<p>
+<img src="assets/gifs/bench_sit_up.gif" width="240" height="426" alt="Sit-up on the pad">
+<img src="assets/gifs/bench_kick.gif" width="240" height="426" alt="Kick">
+<img src="assets/gifs/bench_yaw.gif" width="240" height="426" alt="Hip yaw">
+</p>
+
+- **Sit-up (left):** the leg stands on its pad, squats and rises under its own power, without being lifted.
+- **Kick (middle):** hip pitch and knee swing the shin through a kick.
+- **Hip yaw (right, the `look` routine):** turns the leg to both yaw limits while it stands on the pad.
+
+**The leg is ready to bear load.** P0 was designed for unloaded bench motion, with weak brackets as a flagged
+risk. In practice the PLA parts are strong enough to stand on: in the sit-up the leg carries the hip and
+pelvis fixture on its pad and pushes back up to standing by itself, with no visible flex at the brackets
+and no slipping at the horns. That is on a 5 V bench supply, where the servos are slower and weaker than at their
+rated 7.4 V.
+
+**Status:**
+- **Left leg:** printed in PLA, assembled, calibrated (all four joints) and load-tested.
+- **P08 pelvis:** a one-piece two-leg pelvis with 80 mm hips, designed and print-ready.
+- **Right leg:** the mirrored part set, print-ready.
 
 ## 6. Training on the as-built model
 

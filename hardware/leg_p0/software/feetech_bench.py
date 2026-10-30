@@ -16,6 +16,7 @@ Software stop is NOT an emergency stop: keep a hand on the hardware power switch
     python feetech_bench.py sweep knee --mid 30 --amp 20 --enable      # 0 -> 50 -> 10 -> 0 (knee range is 0..105)
     python feetech_bench.py routine check --enable   # whole-leg routines: check, stance, squat, knee_lift, kick,
     python feetech_bench.py routine squat --enable --speed 0.5   #   step, circle, look (--speed = tempo factor)
+    python feetech_bench.py routine kick --enable --demo         # demo mode: 2.5x tempo, sharp acceleration
     python feetech_bench.py wave --amp 10 --cycles 2 --enable   # low-amplitude 4-joint test, logged to CSV
 
 Every command that moves a motor requires --enable and refuses targets outside the configured limits.
@@ -42,7 +43,7 @@ except ImportError:  # pragma: no cover
 # STS3215 control table (Feetech STS/SMS series; same addresses as the LeRobot STS3215 table)
 ADDR = dict(ID=5, BAUD=6, MIN_ANGLE=9, MAX_ANGLE=11, OFFSET=31, TORQUE_ENABLE=40, ACCEL=41, GOAL_POS=42, GOAL_TIME=44,
             GOAL_SPEED=46, LOCK=55, PRESENT_POS=56, PRESENT_SPEED=58, PRESENT_LOAD=60, PRESENT_VOLT=62,
-            PRESENT_TEMP=63, STATUS=65, MOVING=66, PRESENT_CURRENT=69)
+            PRESENT_TEMP=63, TORQUE_LIMIT=48, STATUS=65, MOVING=66, PRESENT_CURRENT=69)
 COUNTS_PER_DEG = 4096 / 360.0
 HERE = Path(__file__).resolve().parent
 
@@ -232,9 +233,9 @@ def cmd_torque_off(bus, a):
         print("torque off:", name)
 
 
-def goto(bus, name, j, deg, speed=None):
+def goto(bus, name, j, deg, speed=None, accel=None):
     check_target(name, j, deg)
-    bus.w1(j["id"], ADDR["ACCEL"], bus.cfg["acceleration"])
+    bus.w1(j["id"], ADDR["ACCEL"], bus.cfg["acceleration"] if accel is None else accel)
     bus.w2(j["id"], ADDR["GOAL_SPEED"], speed or bus.cfg["speed_counts_per_s"])
     bus.w2(j["id"], ADDR["GOAL_POS"], deg_to_counts(j, deg))   # goal first: torque-on never jumps to a stale goal
     if bus.r1(j["id"], ADDR["TORQUE_ENABLE"]) != 1:  # re-sending torque-on can reset the goal to the present position
@@ -380,8 +381,11 @@ ROUTINES = {
     "circle": [({P_: 16, K: 32, R: 0}, 2.0)] + [
         ({P_: 16 + 10 * math.cos(t), R: 8 + 8 * math.sin(t)}, 0.4)
         for t in [2 * math.pi * i / 12 for i in range(1, 13)] * 2],
-    "look": [({P_: 16, K: 32}, 2.0)] + [({Y: 20}, 2.0), ({Y: -12}, 2.5), ({Y: 0}, 1.5)] * 2,
+    "look": [({P_: 16, K: 32}, 2.0)] + [({Y: 25}, 1.25), ({Y: -15}, 1.6), ({Y: 0}, 0.95)] * 2,   # yaw to its limits
 }
+# --demo: faster tempo and a much sharper acceleration ramp (the default ramp, ~180 deg/s^2, is what made the
+# routines look sluggish), with the torque limit at its maximum. Same poses and joint limits as normal mode.
+DEMO_TEMPO, DEMO_ACCEL = 2.5, 150          # accel register x100 counts/s^2: 150 ~ 1300 deg/s^2
 ROUTINE_HELP = "check (one joint at a time, verify directions), stance, squat, knee_lift, kick, step, circle, look"
 
 
@@ -393,13 +397,19 @@ def cmd_routine(bus, a):
     frames, pose = [], {n: 0.0 for n in joints}
     for target, dur in ROUTINES[a.name] + [({n: 0.0 for n in joints}, 2.5)]:   # always end at neutral
         pose = {**pose, **target}
-        frames.append((dict(pose), dur / a.speed))
+        frames.append((dict(pose), dur / (a.speed * (DEMO_TEMPO if a.demo else 1.0))))
     for pose, _ in frames:                                   # pre-check the whole routine before moving anything
         for n, deg in pose.items():
             check_target(n, joints[n], deg)
     missing = [n for n, j in joints.items() if bus.ping(j["id"]) is None]
     if missing:
         sys.exit(f"no answer from {missing}: connect all four servos (and power) first")
+    if a.demo:
+        for j in joints.values():
+            bus.w2(j["id"], ADDR["TORQUE_LIMIT"], 1000)          # RAM register: 1000 = 100 % (the power-on default)
+        volts = bus.r1(next(iter(joints.values()))["id"], ADDR["PRESENT_VOLT"]) / 10
+        print(f"DEMO mode: {DEMO_TEMPO:g}x tempo, sharp acceleration, full torque. Supply {volts:.1f} V"
+              + ("  (7.4 V gives ~45 % more speed than this)" if volts < 6.5 else ""))
     stop = install_stop(bus)
     try:
         _play(bus, a, joints, frames)
@@ -415,7 +425,8 @@ def _play(bus, a, joints, frames):
     for k, (pose, dur) in enumerate(frames):
         for n, j in joints.items():                          # speed per joint so all arrive together
             counts = abs(pose[n] - cur[n]) * COUNTS_PER_DEG
-            goto(bus, n, j, pose[n], speed=max(20, int(counts / dur)))   # 0 would mean full speed: never send it
+            goto(bus, n, j, pose[n], speed=max(20, int(counts / dur)),   # 0 would mean full speed: never send it
+                 accel=DEMO_ACCEL if a.demo else None)
         t0 = time.time()
         while time.time() - t0 < dur + 0.3:
             ps = {n: bus.present(j["id"]) for n, j in joints.items()}
@@ -497,6 +508,8 @@ def main():
     sp = sub.add_parser("routine", help="whole-leg routine: " + ROUTINE_HELP)
     sp.add_argument("name", choices=sorted(ROUTINES))
     sp.add_argument("--speed", type=float, default=1.0, help="tempo factor: 0.5 = half speed")
+    sp.add_argument("--demo", action="store_true",
+                    help=f"demo mode: {DEMO_TEMPO:g}x tempo, sharp acceleration, full torque limit (hold the leg firmly)")
     sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
     sp.add_argument("--enable", action="store_true")
     sp = sub.add_parser("wave")
