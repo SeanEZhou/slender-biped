@@ -76,7 +76,8 @@ class EnvConfig:
         track_lin=1.0, track_ang=0.5, upright=1.0, height=0.5, lin_vel_z=-1.0, ang_vel_xy=-0.05,
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
-        both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, alive=0.5, termination=-20.0))
+        both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
+        alive=0.5, termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
     track_ang_sigma: float = 0.05      # yaw-rate tracking kernel width (rad/s)^2
@@ -86,6 +87,15 @@ class EnvConfig:
     swing_height: float = 0.025
     air_time_target: float = 0.2
     stride_target: float = 0.06        # m, forward tip travel per step rewarded up to this (stride term)
+    # reference gait (round 4, slender_biped/ref_gait.py): imitation terms and optional residual action
+    ref_table: str = ""                # models/ref/<name>.npz; "" = off
+    ref_residual: bool = False         # q_cmd = q_ref(phase, vx cmd) + action_scale * action
+    ref_sigma_q: float = 0.1           # joint-tracking kernel width (rad^2, summed over joints)
+    ref_sigma_tip: float = 0.0002      # tip-height tracking kernel width (m^2, summed over tips)
+    ref_yaw_weight: float = 1.0        # weight of the hip-yaw joints in ref_q (0 = free for steering)
+    width_target: float = 0.08         # m, lateral tip separation (body frame) above which the width term penalizes
+    tip_condim: int = 3                # tip-floor contact dims; 4 adds the pad's torsional (yaw) friction, which the
+                                       # model specifies (0.004) but condim 3 ignores
 
 
 def _quat_rot_t(q, v):
@@ -108,6 +118,12 @@ class SlenderBipedEnv(Env):
         m.opt.timestep = cfg.sim_dt
         m.opt.iterations = cfg.solver_iterations
         m.opt.ls_iterations = 2 * cfg.solver_iterations
+        if cfg.tip_condim != 3:
+            for i in range(m.npair):
+                names = {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, m.pair_geom1[i]),
+                         mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, m.pair_geom2[i])}
+                if names in ({"floor", "L_tip"}, {"floor", "R_tip"}):
+                    m.pair_dim[i] = cfg.tip_condim
         self.mj_model = m
         self.sys = mjx.put_model(m)
         self.n_sub = int(round(cfg.ctrl_dt / cfg.sim_dt))
@@ -147,6 +163,12 @@ class SlenderBipedEnv(Env):
                                    ({"floor", "L_tip"}, {"floor", "R_tip"})])
         assert len(self.tip_pairs) == 2, self.tip_pairs
         TIP_PAIRS = jp.array(self.tip_pairs)
+        self.ref = None
+        if cfg.ref_table:
+            from .ref_gait import load
+            self.ref = load(cfg.ref_table, jp)
+            self.ref_w = jp.array([cfg.ref_yaw_weight if j.endswith("hip_yaw") else 1.0 for j in self.joints])
+            assert abs(self.ref["gait_hz"] - cfg.gait_hz) < 1e-6, (self.ref["gait_hz"], cfg.gait_hz)
         # obs sizes
         self._state_size = 3 + 3 + 3 * self.nj + 3 + 2
         self._priv_size = self._state_size + 3 + 1 + 2 + 6 + 2 + 4 + 3 * self.nj
@@ -241,7 +263,12 @@ class SlenderBipedEnv(Env):
     def step(self, state: State, action):
         c, s_ = self.cfg, state.info["servo"]
         action = jp.clip(action, -1, 1)
-        q_cmd = jp.clip(self.q_nom + c.action_scale * action, self.q_lo, self.q_hi)
+        phase_next = jp.mod(state.info["phase"] + 2 * jp.pi * c.gait_hz * c.ctrl_dt, 2 * jp.pi)
+        if self.ref is not None:
+            from .ref_gait import lookup
+            q_ref, z_ref, st_ref = lookup(self.ref, jp.maximum(state.info["cmd"][0], 0.0), phase_next, jp)
+        q_base = q_ref if (self.ref is not None and c.ref_residual) else self.q_nom
+        q_cmd = jp.clip(q_base + c.action_scale * action, self.q_lo, self.q_hi)
         ts = self.ts * s_["strength"]
         w0 = self.w0 * s_["speed"]
         kp = c.kp * s_["kp"]
@@ -298,7 +325,7 @@ class SlenderBipedEnv(Env):
         air = info["air_time"] + c.ctrl_dt
         air_rew = jp.sum(jp.where(touchdown, jp.clip(air - c.air_time_target, -0.3, 0.3), 0.0))
         air = jp.where(contact, 0.0, air)
-        info["phase"] = jp.mod(info["phase"] + 2 * jp.pi * c.gait_hz * c.ctrl_dt, 2 * jp.pi)
+        info["phase"] = phase_next
         # left stance when sin(phase) >= 0, right when < 0
         s = jp.sin(info["phase"])
         want_contact = jp.array([s >= 0, s < 0])
@@ -318,6 +345,13 @@ class SlenderBipedEnv(Env):
         stride = jp.sum(jp.where(touchdown, jp.clip(step_len, 0.0, c.stride_target) / c.stride_target, 0.0))
         rw = c.rw
         tilt2 = jp.sum(g_body[:2] ** 2)
+        if self.ref is not None:
+            ref_terms = dict(
+                ref_q=jp.exp(-jp.sum(self.ref_w * (data.qpos[7:] - q_ref) ** 2) / c.ref_sigma_q),
+                ref_tip=jp.exp(-jp.sum((jp.maximum(low, 0.0) - z_ref) ** 2) / c.ref_sigma_tip),
+                ref_contact=jp.mean(contact == st_ref))
+        else:
+            ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0)
         terms = dict(
             track_lin=jp.exp(-jp.sum((cmd[:2] - v_body[:2]) ** 2) / c.track_sigma),
             track_ang=jp.exp(-(cmd[2] - w_body[2]) ** 2 / c.track_ang_sigma),
@@ -342,6 +376,9 @@ class SlenderBipedEnv(Env):
             touchdown=jp.sum(touchdown).astype(float) * (1 - moving),
             liftoff=jp.sum(liftoff).astype(float) * (1 - moving),
             stride=stride * moving,
+            **ref_terms,
+            width=jp.where(moving, jp.maximum(jp.abs(_quat_rot_t(quat, centre[0] - centre[1])[1]) - c.width_target, 0.0) ** 2
+                           * 1e4, 0.0),
             alive=1.0,
             termination=0.0,
         )

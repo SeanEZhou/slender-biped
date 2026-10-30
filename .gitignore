@@ -42,6 +42,11 @@ runs/*/*
 !runs/hw_walk_scratch_stride2/params_0020M.pkl
 !runs/hw_walk_best_push/params_0010M.pkl
 !runs/hw_walk_c046s60_ft_s2/params_0012M.pkl
+# round 4 (reference-gait imitation): catwalk showcase, normal-track walker, 4.2 steps/s walker, 60 mm-hip walker
+!runs/r4k_cat2_ft/params_0030M.pkl
+!runs/r4j_d65_30_c4/params_0060M.pkl
+!runs/r4i_ref42_c4/params_0060M.pkl
+!runs/r4n_s60_d65/params_0060M.pkl
 *.log
 checkpoints/
 *.zip

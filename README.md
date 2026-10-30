@@ -22,7 +22,7 @@ An end-to-end robotics design study:
 <tr>
 <th>As built<br><sub>model from the printed CAD<br>and the real servos (§6)</sub></th>
 <td valign="top"><img src="assets/gifs/hw_p0_stand_push.gif" width="360"><br><sub>stands still and recovers from 0.3 m/s shoves</sub></td>
-<td valign="top"><img src="assets/gifs/hw_p0_walk.gif" width="360"></td>
+<td valign="top"><img src="assets/gifs/hw_p0_walk_r4.gif" width="360"><br><sub>real steps, narrow "catwalk" track (§7)</sub></td>
 </tr>
 </table>
 
@@ -49,6 +49,10 @@ An end-to-end robotics design study:
 - **The as-built robot works too (§6).** Retrained on a model generated from the printable CAD and the servos
   actually bought, it stands still (98 % without lifting a pad), survives shoves, and walks at 0.18 m/s while
   stopping on command 98 % of the time. Walking draws about 1.5 A at 7.4 V, with ~9 A peaks.
+- **Real steps instead of a skitter (§7).** Every earlier walker took 5–7 tiny hops a second (2 cm, 60 ms in the
+  air). Imitating a reference gait, with more double support, gives a straight walk with 6 cm steps, 160 ms of
+  swing and 2 cm of foot clearance at 0.16 m/s, reproduced on 2 of 2 seeds; a curriculum narrows it into an
+  elegant catwalk line. The cost: ~2.2 A instead of 1.5 A, with the hip servos at their rated torque.
 
 > **Status: simulation, plus a first printed leg.** One P0 leg is printed, assembled and bench-tested
 > (servos calibrated, whole-leg routines, and it stands and squats on its own pad, §5); the two-leg robot
@@ -367,9 +371,9 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | path | contents |
 |---|---|
 | `configs/` | parametric morphology including the control frames (`geometry.yaml`); servo catalogue with sources (`actuators.yaml`) |
-| `models/generate_model.py` | MJCF generator: exterior shells, servo envelopes, collision primitives, training and evaluation contact sets |
-| `slender_biped/` | servo model, MJX training env, CPU evaluator, morphology tools, renderer |
-| `scripts/` | training, evaluation, gait anatomy, audits, renders, figures, GPU queue and watchdogs |
+| `models/generate_model.py` | MJCF generator: exterior shells, servo envelopes, collision primitives, training and evaluation contact sets; `models/ref/` reference-gait tables |
+| `slender_biped/` | servo model, MJX training env, CPU evaluator, reference gait (`ref_gait.py`), morphology tools, renderer |
+| `scripts/` | training, evaluation, gait anatomy and gait quality, walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
@@ -482,6 +486,56 @@ What the 23 runs showed ([experiment log](docs/experiments.md), E40–E45):
   *and* 60 mm hips (0.15–0.17 m/s on 3 of 3 seeds). Either alone did nothing: narrower hips only pay off
   once the hips are fast enough.
 
+## 7. Walking with real steps (round 4)
+
+<table>
+<tr><th>Before: the round-3 walker</th><th>After: side</th><th>After: facing (catwalk line)</th></tr>
+<tr>
+<td><img src="assets/gifs/hw_p0_walk.gif" width="260"></td>
+<td><img src="assets/gifs/hw_p0_walk_r4.gif" width="260"></td>
+<td><img src="assets/gifs/hw_p0_walk_r4_front.gif" width="260"></td>
+</tr>
+</table>
+
+The round-3 walker reached 0.178 m/s, but it **skittered**: 5–7 tiny hops a second, 60 ms in the air, 2 cm per
+step and ~5 mm of foot clearance. Reward shaping alone kept finding that gait. Round 4 (11 GPU-hours, 28 runs,
+[E46–E56](docs/experiments.md)) gives the policy a *reference gait* to imitate instead:
+[`ref_gait.py`](slender_biped/ref_gait.py) computes a walking pattern for the as-built leg by inverse kinematics on
+the CAD model, and the policy outputs corrections around it.
+
+| at a 0.15 m/s command, as-built model | round-3 best (skitter) | **round 4, catwalk** (`r4k_cat2_ft`) |
+|---|---|---|
+| foot travel per step | 2.4 cm | **6.2 cm** |
+| time in the air per step | 60 ms | **160 ms** |
+| swing clearance | 5 mm | **19 mm** |
+| share of foot travel spent sliding | 22 % | **9 %** |
+| step width (feet side to side) | 189 mm | **72 mm** (inside the 80 mm hips) |
+| reach 2 m in 40 s / speed | 98 % / 0.178 m/s | **100 % / 0.162 m/s** |
+| supply current, mean | 1.5 A | 2.2 A |
+| hip servos, RMS torque / rated | 0.83 | **1.0** |
+
+What made it work, and what didn't:
+- **Imitation gives real steps; it does not move an existing gait.** From scratch, the reference produced
+  real 200 ms swings within 20 M steps. Fine-tuning the skitter with the same rewards kept the skitter.
+- **The "marching in place" was walking in circles.** The first imitation walkers moved forward at
+  0.09 m/s but turned 3–4° a second, so they went nowhere. With 80 % of the time on one small, edge-loaded
+  pad, a footless leg has almost no grip in yaw. Stronger heading rewards and freeing the hip-yaw joints
+  didn't help; **more double support did** (both pads down ~30 % of the cycle), and so did a faster
+  3.6–4.2 steps/s reference.
+- **A modelling fix:** the pad's twisting friction was defined in the CAD-derived model but switched off by a
+  contact setting. Turning it on halved stop failures and cut hip overspeed 10× for the same recipe; the
+  round-3 walker is unaffected.
+- **Elegance by curriculum.** A narrow track can't be learned from scratch. Narrowing the reference in stages,
+  then penalizing wide feet, took the stance from 116 mm (the skitter: 189 mm) to 72 mm, with a slight pelvis
+  twist and a higher swing.
+- **Standing:** no walker learned to stand still at zero command. Handing over to the round-3 standing
+  policy does: walk → stop → walk succeeds 85–88 % of the time with 0–5 % falls
+  ([`switch_eval.py`](scripts/switch_eval.py)).
+- **Didn't help:** sharper tracking or slip penalties from scratch (no learning), push training (more robust,
+  but the gait reverted to a skitter), stronger torque penalties and 60 mm hips (the hip servos stay at
+  their rated torque). **Real steps on the C001 hip servos mean warm hips**; see
+  [power and wiring](hardware/leg_p0/power.md).
+
 ## Limitations and next steps
 
 - **Simulation only.**
@@ -489,12 +543,14 @@ What the 23 runs showed ([experiment log](docs/experiments.md), E40–E45):
     are estimates.
   - Real rubber pads, floor compliance and belt backlash will differ from MuJoCo's soft contacts.
 - **Seeds.** Most results come from one training seed per configuration. The pad's quiet stance
-  reproduced on 1 of 2.
+  reproduced on 1 of 2; the round-4 walking and catwalk results on 2 of 2.
 - **Robustness.** Large pushes (0.5 m/s) and slippery floors (μ ≤ 0.35) still break walking.
   Turning works only through an outer heading loop.
 - **Next steps:**
-  1. make the pad's quiet stance reproducible and merge standing and walking into one policy;
-  2. longer strides via motion priors;
-  3. bench-test servo torque-speed curves, pad friction and IMU noise;
-  4. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
+  1. merge standing and walking into one policy (today: a hand-over between two);
+  2. walking under pushes without losing the stepping gait (push training reverted it to a skitter);
+  3. hip load: the imitation gait runs the C001 hip servos at rated torque; faster hip servos (C046) or
+     shorter walking bouts with temperature monitoring;
+  4. bench-test servo torque-speed curves, pad friction (including twisting friction) and IMU noise;
+  5. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
      under load) and refit the as-built model before trying a trained policy on it.

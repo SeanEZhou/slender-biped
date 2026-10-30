@@ -21,9 +21,18 @@ PWM duty into supply current using the same DC-motor model the simulation uses.
 | … same walker at 0.05 / 0.10 / 0.20 m/s commands (`hw_walk_scratch_stride`) | 0.7 / 1.1 / 1.6 A | 2.6 / 4.0 / 5.4 A | 8.9–9.6 A | ≤ 10.5 A | 5 / 8 / 12 W |
 | walking, warm-started walkers (round-2 gait transferred, 0.07–0.12 m/s) | 1.8–2.2 A | 5.6–6.4 A | 7.7–9.2 A | 9.9–11.7 A | 13–16 W |
 | walking, shuffle gait (`hw_walk_scratch`) | 1.1 A | 3.5 A | 8.8 A | 9.5 A | 8 W |
+| **walking with real steps, round 4** (`r4j_d65_c4_cont`, 0.15 m/s command) | 2.15 A | 6.5 A | 9.0 A | 13 A | 16 W |
+| … catwalk style (`r4k_cat2_ft`) / 60 mm hips (`r4n_s60_d65`) | 2.2 / 2.0 A | 6.8 / 6.5 A | 14.6† / 9.0 A | 15.6 / 12.7 A | 16 / 15 W |
 | all 8 servos stalled at once (bound, never seen) | | | 22.6 A | | 167 W |
 
 \* The quiet-stand peaks happen while the robot settles in the first second after the start pose.
+† One rare event in 20 episodes; 99 % of 20 ms windows stay below 5.5 A.
+
+**Round 4 (real steps instead of the skitter, docs/experiments.md E46–E56) costs about 45 % more current:** ~2.2 A
+mean (16 W) instead of ~1.5 A, because every step lifts the leg ~2 cm and swings it ~6 cm. The hip-roll and
+hip-pitch servos run at their rated torque (RMS ≈ 1.0 × rated, vs 0.83 for the skitter) and this did not come down
+with stronger torque penalties or 60 mm hips: **expect the hips to get warm in long walking sessions**; watch the
+servo temperature register and walk in bouts.
 
 How much walking costs depends on the gait more than on the speed. The best walker (learned natively on
 the hardware model) scales with speed: 0.7 A at 0.05 m/s up to 1.6 A at 0.2 m/s, and it stops and stands at
@@ -49,7 +58,7 @@ real knee is at the pessimistic end of its torque estimate), so **knees will run
 
 | item | recommendation | why |
 |---|---|---|
-| **supply** | 7.4 V, **≥ 10 A peak**, ≥ 3 A continuous | walking: 2 A mean, ~9 A peaks over 20 ms. A bench supply in CC mode should be set to 8–10 A, not 3 A, or it will sag on every step. |
+| **supply** | 7.4 V, **≥ 10 A peak** (15 A gives margin for rare round-4 transients), ≥ 3 A continuous | walking: 2 A mean, ~9 A peaks over 20 ms. A bench supply in CC mode should be set to 8–10 A, not 3 A, or it will sag on every step. |
 | **5 V bench supply (now)** | fine for setup and slow routines | the servos run slower and weaker on 5 V; a walking policy trained for 7.4 V won't behave the same on it |
 | **bulk capacitor at the robot** | 1000–2200 µF, ≥ 16 V, low-ESR, across the servo power input near the pelvis | absorbs the 2 ms peaks (10–12 A) that the tether wire can't deliver without dropping the voltage |
 | **tether** (supply → robot) | 18 AWG (or thicker) pair, ≤ 1.5 m | at 10 A peaks, 1.5 m of 18 AWG (both conductors, ~0.06 Ω) drops ~0.6 V; 22 AWG would drop ~1.5 V |

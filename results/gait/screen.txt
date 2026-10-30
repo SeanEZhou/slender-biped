@@ -1,0 +1,49 @@
+r4b_ref30_res params_0060M.pkl vx_cmd 0.15: survived_s 20 | vx 0.0153 | cadence 3.25 | air_ms 220 | step_cm 0.943 | clear_mm 18.8 | slide_frac 0.178 | double_support 0.278 | sway_mm 64 | tilt_rms_deg 2.59
+r4b_ft_abs params_0030M.pkl vx_cmd 0.15: survived_s 20 | vx 0.147 | cadence 4.4 | air_ms 60 | step_cm 2.3 | clear_mm 5.02 | slide_frac 0.221 | double_support 0.501 | sway_mm 13.4 | tilt_rms_deg 2.18
+r4b_ft_abs params_0040M.pkl vx_cmd 0.15: survived_s 20 | vx 0.141 | cadence 3.85 | air_ms 60 | step_cm 2.17 | clear_mm 4.59 | slide_frac 0.238 | double_support 0.508 | sway_mm 15.6 | tilt_rms_deg 2.38
+r4c_march_ft params_0010M.pkl vx_cmd 0.15: survived_s 20 | vx 0.0282 | cadence 3.45 | air_ms 230 | step_cm 2.36 | clear_mm 19 | slide_frac 0.117 | double_support 0.217 | sway_mm 61.6 | tilt_rms_deg 2.4
+r4c_march_ft params_0030M.pkl vx_cmd 0.15: survived_s 20 | vx 0.0225 | cadence 3.4 | air_ms 220 | step_cm 0.943 | clear_mm 19.3 | slide_frac 0.097 | double_support 0.152 | sway_mm 71.2 | tilt_rms_deg 2.55
+r4c_nar30_res did not finish
+r4c_nar36_res did not finish
+r4c_ref30_res did not finish
+r4c_ref30_abs did not finish
+r4d_nar30_res did not finish
+r4d_ref30_res did not finish
+r4e_ref36_res did not finish
+r4e_ref42_res did not finish
+r4f_ref36_res did not finish
+r4f_ref42_res did not finish
+r4f_march_yaw_ft params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.121 | yaw_drift_dps 3.34 | vx 0.0307 | cadence 3.55 | air_ms 220 | step_cm 1.09 | clear_mm 19.8 | slide_frac 0.143 | double_support 0.235 | sway_mm 67.2 | tilt_rms_deg 2.58
+r4g_march_yaw6_ft did not finish
+r4g_ref42_res did not finish
+r4g_ref36_res did not finish
+r4h_d65_30_res params_0040M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.112 | yaw_drift_dps 0.0803 | vx 0.111 | cadence 4.4 | air_ms 160 | step_cm 5.89 | clear_mm 18 | slide_frac 0.206 | double_support 0.326 | sway_mm 60 | tilt_rms_deg 2.94
+r4h_d65_30_res params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.147 | yaw_drift_dps -0.259 | vx 0.142 | cadence 5.4 | air_ms 120 | step_cm 5.49 | clear_mm 16.3 | slide_frac 0.123 | double_support 0.234 | sway_mm 59.1 | tilt_rms_deg 3.07
+r4i_ft_c4 params_0010M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.0803 | yaw_drift_dps -1.07 | vx 0.0252 | cadence 3.4 | air_ms 220 | step_cm 2.38 | clear_mm 19.2 | slide_frac 0.145 | double_support 0.249 | sway_mm 64.7 | tilt_rms_deg 2.31
+r4i_ft_c4 params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.117 | yaw_drift_dps 1.15 | vx 0.021 | cadence 3.5 | air_ms 220 | step_cm 3.61 | clear_mm 20.1 | slide_frac 0.145 | double_support 0.227 | sway_mm 62.6 | tilt_rms_deg 2.66
+r4j_d65_30_c4 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.0906 | yaw_drift_dps -0.0335 | vx 0.0874 | cadence 4.4 | air_ms 160 | step_cm 5.68 | clear_mm 17 | slide_frac 0.163 | double_support 0.271 | sway_mm 52.4 | tilt_rms_deg 2.84
+r4h_d65_30_s1 params_0050M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.121 | yaw_drift_dps -0.0222 | vx 0.117 | cadence 4.3 | air_ms 160 | step_cm 5.85 | clear_mm 18.6 | slide_frac 0.172 | double_support 0.322 | sway_mm 54.8 | tilt_rms_deg 2.85
+r4h_d65_30_s1 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.0874 | yaw_drift_dps -0.407 | vx 0.0841 | cadence 4.4 | air_ms 160 | step_cm 4.46 | clear_mm 17.2 | slide_frac 0.177 | double_support 0.321 | sway_mm 50.3 | tilt_rms_deg 2.52
+r4h_d65_30_cont did not finish
+r4j_d65_c4_cont params_0020M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.11 | yaw_drift_dps 0.0894 | vx 0.11 | cadence 4.15 | air_ms 160 | step_cm 7.63 | clear_mm 17.2 | slide_frac 0.141 | double_support 0.265 | sway_mm 53 | tilt_rms_deg 2.78
+r4j_d65_c4_cont params_0040M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.111 | yaw_drift_dps 0.0475 | vx 0.106 | cadence 4.3 | air_ms 160 | step_cm 6.18 | clear_mm 16.5 | slide_frac 0.168 | double_support 0.302 | sway_mm 51.3 | tilt_rms_deg 2.85
+r4l_polish params_0020M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.111 | yaw_drift_dps -0.0444 | vx 0.106 | cadence 3.7 | air_ms 160 | step_cm 7.47 | clear_mm 16.6 | slide_frac 0.203 | double_support 0.365 | sway_mm 51.5 | tilt_rms_deg 2.92
+r4l_polish params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.0772 | yaw_drift_dps -0.355 | vx 0.0751 | cadence 4.2 | air_ms 160 | step_cm 5.46 | clear_mm 16 | slide_frac 0.174 | double_support 0.312 | sway_mm 53.1 | tilt_rms_deg 2.79
+r4k_w60_ft params_0020M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.101 | yaw_drift_dps -0.158 | vx 0.102 | cadence 4.45 | air_ms 160 | step_cm 6.43 | clear_mm 16.1 | slide_frac 0.155 | double_support 0.289 | sway_mm 52 | tilt_rms_deg 2.76
+r4k_w60_ft params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.112 | yaw_drift_dps -0.206 | vx 0.11 | cadence 4.45 | air_ms 160 | step_cm 6.98 | clear_mm 16 | slide_frac 0.162 | double_support 0.286 | sway_mm 56 | tilt_rms_deg 2.55
+r4k_cat_ft params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.124 | yaw_drift_dps -0.329 | vx 0.121 | cadence 4.65 | air_ms 180 | step_cm 7.41 | clear_mm 19.6 | width_mm 98.5 | slide_frac 0.132 | double_support 0.207 | sway_mm 50.6 | tilt_rms_deg 2.75
+r4i_ref36_c4 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.11 | yaw_drift_dps 0.398 | vx 0.109 | cadence 3.7 | air_ms 200 | step_cm 5.92 | clear_mm 19.8 | width_mm 119 | slide_frac 0.136 | double_support 0.242 | sway_mm 46.4 | tilt_rms_deg 2.54
+r4k_cat2_ft params_0020M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.121 | yaw_drift_dps 0.00357 | vx 0.113 | cadence 4.95 | air_ms 180 | step_cm 5.13 | clear_mm 18.9 | width_mm 80.4 | slide_frac 0.124 | double_support 0.205 | sway_mm 51.6 | tilt_rms_deg 2.98
+r4k_cat2_ft params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.138 | yaw_drift_dps -0.112 | vx 0.126 | cadence 5.05 | air_ms 160 | step_cm 6.38 | clear_mm 18.9 | width_mm 72.3 | slide_frac 0.0993 | double_support 0.173 | sway_mm 47.8 | tilt_rms_deg 3.16
+r4m_push did not finish
+r4i_ref42_c4 params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.091 | yaw_drift_dps 0.662 | vx 0.0856 | cadence 4.2 | air_ms 200 | step_cm 4.99 | clear_mm 22.3 | width_mm 121 | slide_frac 0.104 | double_support 0.17 | sway_mm 41.2 | tilt_rms_deg 2.89
+r4i_ref42_c4 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.13 | yaw_drift_dps 0.047 | vx 0.128 | cadence 4.2 | air_ms 200 | step_cm 6.43 | clear_mm 18.4 | width_mm 124 | slide_frac 0.106 | double_support 0.177 | sway_mm 41.7 | tilt_rms_deg 2.7
+r4m_cat_push params_0010M.pkl vx_cmd 0.15: survived_s 14.4 | body_vx 0.181 | yaw_drift_dps -4.02 | vx 0.153 | cadence 5.33 | air_ms 110 | step_cm 4.22 | clear_mm 15.8 | width_mm 64.4 | slide_frac 0.0938 | double_support 0.147 | sway_mm 61.3 | tilt_rms_deg 5.47
+r4m_cat_push params_0020M.pkl vx_cmd 0.15: survived_s 15.9 | body_vx 0.231 | yaw_drift_dps -2.37 | vx 0.187 | cadence 5.28 | air_ms 140 | step_cm 5.09 | clear_mm 19.1 | width_mm 59.6 | slide_frac 0.11 | double_support 0.185 | sway_mm 53.2 | tilt_rms_deg 5.15
+r4j_d65_30_c4_s1 params_0040M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.0911 | yaw_drift_dps 0.00764 | vx 0.093 | cadence 3.65 | air_ms 160 | step_cm 6.64 | clear_mm 19.4 | width_mm 128 | slide_frac 0.192 | double_support 0.331 | sway_mm 59.3 | tilt_rms_deg 2.72
+r4j_d65_30_c4_s1 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.106 | yaw_drift_dps -0.0549 | vx 0.104 | cadence 4.3 | air_ms 160 | step_cm 5.42 | clear_mm 16.8 | width_mm 116 | slide_frac 0.172 | double_support 0.304 | sway_mm 59 | tilt_rms_deg 2.35
+r4n_s60_d65 params_0060M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.144 | yaw_drift_dps 0.358 | vx 0.141 | cadence 3.8 | air_ms 180 | step_cm 8.42 | clear_mm 18.4 | width_mm 107 | slide_frac 0.145 | double_support 0.285 | sway_mm 49.6 | tilt_rms_deg 2.73
+r4o_cat_cool params_0010M.pkl vx_cmd 0.15: survived_s 12.6 | body_vx 0.203 | yaw_drift_dps -2.89 | vx 0.177 | cadence 5.25 | air_ms 140 | step_cm 5.11 | clear_mm 17 | width_mm 70.5 | slide_frac 0.0893 | double_support 0.186 | sway_mm 39.3 | tilt_rms_deg 5.6
+r4o_cat_cool params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.123 | yaw_drift_dps -0.137 | vx 0.116 | cadence 5.2 | air_ms 160 | step_cm 6.19 | clear_mm 18.7 | width_mm 81.2 | slide_frac 0.123 | double_support 0.196 | sway_mm 51.6 | tilt_rms_deg 2.86
+r4k_cat2_s1 params_0020M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.103 | yaw_drift_dps 0.247 | vx 0.0963 | cadence 5.3 | air_ms 160 | step_cm 4.77 | clear_mm 18.6 | width_mm 75.4 | slide_frac 0.123 | double_support 0.192 | sway_mm 48.3 | tilt_rms_deg 3.02
+r4k_cat2_s1 params_0030M.pkl vx_cmd 0.15: survived_s 20 | body_vx 0.147 | yaw_drift_dps 0.193 | vx 0.146 | cadence 5.12 | air_ms 180 | step_cm 7.39 | clear_mm 19.8 | width_mm 73.4 | slide_frac 0.109 | double_support 0.174 | sway_mm 46.6 | tilt_rms_deg 3.56

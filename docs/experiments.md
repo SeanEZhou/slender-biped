@@ -1050,3 +1050,184 @@ expensive (training/settings → parts → stronger servos)?
 completed. The queue runner's 20-minute stall watchdog never fired; `scripts/health_watch.sh` reported every
 30 min (re-armed after each heartbeat). Evaluation (`scripts/eval_hw.sh`) ran on the CPU in parallel, so the
 GPU never waited for it. One mid-run reprioritization (17:05) replaced four queued runs after E44's first result.
+
+---
+
+# Round 4 — walking that isn't a skitter (2026-10-29/30, `hw_p0_8dof`)
+
+**Goal.** Every walker so far, including the round-3 best (`hw_walk_scratch_stride2`, 0.178 m/s), *skitters*:
+5–7 touchdowns per second, 45–60 ms in the air, 1–3 cm of foot travel per step and ~5 mm of swing clearance.
+Round 4 asks for a normal walk on the as-built (CAD-derived) model, and as a stretch an elegant, narrow,
+"catwalk" one. 11 GPU-hours, one job at a time, same queue/watchdog as round 3.
+
+**How gaits are judged.** Reward does not say whether a gait looks like walking, so round 4 adds
+`scripts/gait_quality.py`: at a 0.15 m/s command with the heading-hold loop on, per step (touchdown after
+≥ 60 ms of air) it measures air time, foot travel (lift-off → touchdown), swing clearance, step width; plus
+the share of foot travel spent sliding, double-support fraction, pelvis sway, speed along the starting heading
+(`vx`) and in the body frame (`body_vx`), and heading drift. `scripts/screen_r4.sh` ran it on every finished run.
+Gates (walk40, startstop, …) are the usual 100-seed CPU evaluations.
+
+## E46 — Reference gait for imitation (`slender_biped/ref_gait.py`)
+- A kinematic walking pattern for the as-built leg, solved once by IK on the MuJoCo model into a lookup table
+  over (forward speed command, gait phase): stance tip moves back at the walking speed, swing is a cycloid with a
+  smooth 2–2.5 cm lift, lateral sway from the linear inverted pendulum's periodic orbit, optional narrower track
+  and pelvis twist. Zero command = the standing pose. Step length = speed × stance time, so cadence and duty
+  factor are parameters: tables `ref30/36/42` (3.0/3.6/4.2 steps/s, duty 0.55), `d65_30` (duty 0.65), `nar30/36`
+  and `d65_w60` / `d65_cat` (40–60 mm tracks), `d65_30_s60` (60 mm-hip model).
+- The table is checked against the servos when built: peak joint speed ≤ 0.8 × no-load at 0.15 m/s for the tables
+  used (the 3.6 steps/s duty-0.65 table needed 0.9 and was not used).
+- Env support (both the MJX trainer and the CPU evaluator): `ref_table`, `ref_residual` (action = correction around
+  the reference instead of around the standing pose, action scale 0.25), imitation rewards `ref_q` (joint
+  tracking), `ref_tip` (tip height), `ref_contact` (contact schedule); `ref_yaw_weight` (hip-yaw joints in
+  `ref_q`); `width` (penalty on lateral tip separation above `width_target`); `tip_condim` (E51).
+
+## E47 — First imitation runs: real steps, but "marching in place" (`r4_ref30_res`, `r4b_*`)
+- `walk_ref` (3.0 steps/s, residual): from scratch it learned real stepping — **220 ms air time, 22 mm clearance**
+  — but at a 0.15 m/s command it moved 0.005 m/s. Cause: with `track_sigma` 0.02, standing still still earned 32 %
+  of the tracking reward while the imitation terms paid in full. Stopped at 30 M.
+- `walk_ref2` (sharper/heavier tracking): same picture at 60 M (0.015 m/s along the heading).
+- **Fine-tuning the skitter with imitation rewards keeps the skitter** (`r4b_ft_abs`, from the round-3 best, 40 M):
+  0.14 m/s, but still 60 ms air, 2.2 cm, 5 mm clearance. A converged gait does not move to a loose imitation term.
+
+## E48 — Harder rules from scratch don't learn (`r4c_*`, `r4d_*`)
+- Tight joint kernel (`ref_sigma_q` 0.02) + slip −30 (`walk_ref3`): 52-step episodes at 10 M from scratch; as a
+  fine-tune of the marcher it kept marching (0.02 m/s).
+- `walk_ref2` + slip −30 + easier speed range (`walk_ref4`): also 60–70-step episodes at 10 M, on both the normal and
+  a 40 mm "catwalk" track. Leg–leg collision in the narrow reference was ruled out (no contacts in the table).
+  **Slip −30 blocks learning from scratch; the narrow track is not the cause.** Runs stopped at 10 M.
+
+## E49 — The "marcher" was walking in circles
+- A rollout in the MJX training env itself gave 0.094 m/s for the same policy that the CPU screen measured at
+  ~0. Not a simulator mismatch: without the heading-hold loop the CPU also sees 0.04–0.13 m/s. **The policy walks
+  forward in its body frame (0.08–0.09 m/s) but turns 3–4°/s**; progress along any heading is ~0.
+  (`gait_quality.py` now reports `body_vx` and heading drift.)
+- Mechanism: with duty 0.55 it is 80 % of the time on one small, edge-loaded pad, which gives almost no grip in yaw,
+  so every swing twists the body. It spun ~160° while starting to walk and then ignored the saturated turn
+  command. The skitter steers fine because it keeps both pads down half the time.
+- Stronger heading rewards (`walk_ref5`, heading 3, yaw-rate 2): drift 1–4.5°/s, not fixed. Freeing the hip-yaw
+  joints from `ref_q` (`walk_ref6`): not fixed either (4.8°/s).
+
+## E50 — More double support: **straight walking with real steps** (`r4h_d65_30_res`, seed 1 `r4h_d65_30_s1`)
+- Reference with duty 0.65 (both pads down ~30 % of the cycle; swing still 0.23 s at 3 steps/s), `walk_ref6`.
+- Seed 0 @60 M: heading held (0.26°/s), 0.142 m/s along the heading, 5.5 cm foot travel, 120 ms air, 16 mm clearance.
+  100-seed gates: walk40 99 % reach 2 m, 0.164 m/s; **but** start/stop 51 %, it steps in place at zero command, the hip
+  roll/pitch servos run at ~1.0 × rated RMS torque and there were 7 513 overspeed events.
+- **Reproduced** on seed 1 (@50 M: 0.117 m/s straight, 5.9 cm, 160 ms air, 19 mm clearance) — unlike the round-3 best
+  walker (1 of 2 seeds).
+
+## E51 — Pad yaw friction was switched off in the model (`tip_condim`)
+- The CAD-derived model gives the pad a torsional friction coefficient (0.004), but the tip contacts used
+  `condim="3"`, which ignores it: yaw resistance came only from box-corner contacts. `tip_condim=4` turns it on
+  (MJX and CPU). This is a modelling correction, not a tuning knob: the old skitter is unaffected (still holds
+  heading within 3°, 0.16–0.18 m/s).
+- Effect on the 0.55-duty marcher (fine-tune `r4i_ft_c4`): still wanders (0.02 m/s along the heading) — pad grip
+  alone is not enough; the duty factor is the main lever.
+- Duty 0.65 + condim 4 from scratch (`r4j_d65_30_c4` @60 M, 100 seeds): walk40 **100 %** reach 2 m, 0.130 m/s,
+  start/stop **84 %** (vs 51 %), overspeed events **715** (vs 7 513), max RMS/rated 0.98.
+- 3.6 steps/s, duty 0.55, condim 4 (`r4i_ref36_c4` @60 M): also walks straight-ish (0.4°/s), 0.109 m/s, and is the
+  calmest gait of the round: 3.7 steps/s, 200 ms air, 5.9 cm, 20 mm clearance, 14 % sliding — but a 119 mm stance.
+
+## E52 — Polishing, and standing by handing over to the stander (`r4j_d65_c4_cont`, `r4l_polish`, `scripts/switch_eval.py`)
+- Continuing the condim-4 walker (+40 M, rule → 20 M): 7.6 cm foot travel, 0.11 m/s; gates: 100 % reach 2 m,
+  0.134 m/s, start/stop 71 %, max RMS/rated 0.98, 2.15 A mean / 8.95 A 20 ms peak.
+- `walk_ref7` polish (quiet-stance terms at zero command, 2× torque/overspeed pressure, 30 M, rule → 20 M):
+  overspeed events 2 588 → 1 590, otherwise the same (start/stop 68 %, hip roll still ~0.97 × rated).
+  **It still steps at zero command** (≈ 290 lift-offs in 30 s) — the same wall as rounds 2–3: quiet stance only
+  came from a dedicated standing policy.
+- So stand with the stander: `switch_eval.py` runs the walker while the command is non-zero and hands over to
+  `hw_stand_push2` (E41) after the command drops to zero; walk 6 s → stop 6 s → walk 6 s, 100 seeds:
+
+| walker (+ `hw_stand_push2`) | success | falls | quiet stop (no lift-off, last 3 s) | walked per phase |
+|---|---|---|---|---|
+| `r4j_d65_30_c4` @60 M, 0.3 s hand-over delay | **88 %** | **0 %** | 99 % | 0.55 / 0.61 m |
+| `r4k_cat2_ft` @30 M (E53), 0.0 / 0.3 / 0.6 / 1.0 s | 78 / 85 / **85** / 85 % | 12 / 7 / **5** / 5 % | 83 / 91 / 92 / 91 % | ~0.71 m |
+
+  Residual sway after the hand-over is 0.022 m/s RMS (the stander alone: 0.015). Handing over in a double-support
+  window of the walker's clock changed nothing here (the schedule is deterministic, so every stop already lands in
+  one). The single walking policies manage only 15–84 % start/stop and never stand still.
+
+## E53 — Elegant "catwalk" walking by curriculum (`r4k_w60_ft` → `r4k_cat_ft` → `r4k_cat2_ft`)
+- A narrow track could not be learned from scratch (E48), so narrow it step by step from the condim-4 walker, each
+  stage 30 M, lr 1e-4: 60 mm reference track → `d65_cat` (45 mm track, ±4° pelvis twist through the hip-yaw
+  joints, 30 mm lift with a rounder swing) → the same plus a penalty on lateral tip separation above 60 mm
+  (`walk_ref8`; the hip-roll correction kept pushing the feet back out).
+- Measured step width (lateral gap between consecutive touchdowns): **116 mm** (condim-4 walker, wider than the
+  80 mm hips) → 109 → 98.5 → **72 mm** (inside the hip width).
+- `r4k_cat2_ft` @30 M is the best walking result of the round: 100 % reach 2 m in 40 s at **0.162 m/s**, 6.2–6.4 cm
+  foot travel, 160 ms air, 19 mm clearance, **9–10 % sliding**, heading drift 0.1°/s. Start/stop on its own 15 %
+  (it does not slow down; use the hand-over, E52). Max RMS/rated 1.0 (hip roll), overspeed 3 077.
+
+## E54 — Push robustness costs the gait (`r4m_cat_push`, 0.2 m/s kicks, 20 M from E53, rule → 10 M)
+- Walking under 0.2 m/s kicks every 2–4 s (`walkpush`, 40 s, 100 seeds): alive 53 → 62 %, reach 2 m 72 → 77 %.
+- But the gait slid back toward a skitter: 6.2 steps/s, 100 ms air, 2.9 cm, 12 mm clearance. Not adopted; the
+  round-3 push walker (`hw_walk_best_push`, 87 % alive) remains the robustness reference.
+
+## E55 — Cadence with pad yaw friction on (`r4i_ref36_c4`, `r4i_ref42_c4`, duty 0.55, from scratch, 60 M)
+- With condim 4, faster references also walk straight without the 0.65 duty factor:
+
+| reference | steps/s (measured) | air | foot travel | clearance | sliding | sway | width | vx (heading) |
+|---|---|---|---|---|---|---|---|---|
+| 3.6 steps/s | 3.7 | 200 ms | 5.9 cm | 20 mm | 14 % | 46 mm | 119 mm | 0.109 |
+| 4.2 steps/s | 4.2 | 200 ms | 6.4 cm | 18 mm | 11 % | 42 mm | 124 mm | 0.128 |
+
+- These hold their reference cadence (the duty-0.65 walkers drift up to 4.4–5.4 steps/s) and have the calmest
+  bodies (least sway), but a wide stance.
+
+## E56 — Reproducibility and the last hardware questions
+- **Seed 1, duty 0.65:** condim 3 (`r4h_d65_30_s1` @50 M: 0.117 m/s straight, 5.9 cm, 160 ms air) and condim 4
+  (`r4j_d65_30_c4_s1` @40 M: 0.109 m/s straight, 6.6 cm, 180 ms air, 19 mm clearance). **2 of 2 seeds** for both.
+- **Seed 1, style curriculum** (`r4k_w60_s1` → `r4k_cat_s1` → `r4k_cat2_s1`, from the seed-1 condim-4 walker):
+  step width 114 → 92 → 96.5 → **73 mm** (seed 0: 116 → 109 → 98.5 → 72); final @30 M: 0.144 m/s straight,
+  4.7 cm, 160 ms air, 19 mm clearance, 10 % sliding. **Reproduced.**
+- **60 mm hips** (`r4n_s60_d65`, same recipe on `hw_p0s60_8dof` with a re-solved reference): longest steps of the round
+  (8.4 cm, 180 ms air), 99 % reach 2 m at 0.135 m/s, start/stop 65 %, overspeed 581 — but hip roll still 0.95–0.99 ×
+  rated and 2.0 A mean. **Narrower hips do not cool the hips.**
+- **Stronger torque penalties** (`r4o_cat_cool`, torque −0.4, over-rated −6, overspeed −4, 30 M from E53): hip roll
+  0.98–1.04 × rated, unchanged; the early checkpoint slid toward faster, shorter steps. With the C001 hip servos a
+  real-step gait at ~0.15 m/s needs about rated torque at the hips.
+- **Power** (`scripts/power_audit.py`, 20 episodes): real steps cost ~2.2 A mean (16 W) vs 1.5 A for the skitter;
+  20 ms peaks ~9 A as before, with one rare 14.6 A event for the catwalk walker (99 % of 20 ms windows < 5.5 A).
+  `hardware/leg_p0/power.md` updated.
+
+## Round 4 summary
+**Run index** (28 runs; 22 completed, 6 stopped early once their question was answered; gait metrics from
+`scripts/gait_quality.py` at a 0.15 m/s command, 3–5 seeds; gates 100 seeds)
+
+| # | runs | what | outcome |
+|---|---|---|---|
+| E46 | — | reference gait by IK on the CAD model; imitation + residual actions | tables for 3.0–4.2 steps/s, duty 0.55/0.65, 40–80 mm tracks |
+| E47 | `r4_ref30_res`, `r4b_*` | imitation from scratch; skitter fine-tune | real steps (220 ms air) but no progress; skitter fine-tune stays a skitter |
+| E48 | `r4c_*`, `r4d_*` | tight kernel, slip −30, narrow track from scratch | does not learn |
+| E49 | `r4f_*`, `r4g_*` | heading rewards, free hip yaw | the "marcher" walks in circles; rewards don't fix it |
+| E50 | `r4h_d65_30_res`, `_s1` | duty 0.65 | **straight walking with real steps, 2/2 seeds** |
+| E51 | `r4i_ft_c4`, `r4j_d65_30_c4`, `_s1` | pad torsional friction on (model fix) | start/stop 51 → 84 %, overspeed ÷10; 2/2 seeds |
+| E52 | `r4j_d65_c4_cont`, `r4l_polish` | polish; stand via hand-over | still steps at zero command; walker + stander 85–88 % walk/stop/walk, 0–5 % falls |
+| E53 | `r4k_w60_ft` → `r4k_cat_ft` → `r4k_cat2_ft` | catwalk curriculum + width penalty | **72 mm stance, 6.2 cm steps, 0.162 m/s**; reproduced on seed 1 (73 mm) |
+| E54 | `r4m_cat_push` | push training | more robust, gait reverts toward a skitter |
+| E55 | `r4i_ref36_c4`, `r4i_ref42_c4` | faster references, condim 4 | straight, calmest gaits (3.7/4.2 steps/s, 200 ms air), wide stance |
+| E56 | `r4n_s60_d65`, `r4o_cat_cool`, seed-1 replicas | 60 mm hips, torque pressure, replication | hips stay at rated torque; results reproduce |
+
+**Answers**
+1. *Can it walk normally instead of skittering?* **Yes, in simulation on the as-built model.** Foot travel 2.4 → 6–7 cm per
+   step, air time 60 → 160–200 ms, clearance 5 → 17–20 mm, sliding 22 → 9–14 %, straight, 0.13–0.16 m/s, on 2 of 2 seeds.
+2. *Elegant?* A curriculum narrows the walk to a 72–73 mm "catwalk" line (the skitter: 189 mm) with a slight pelvis
+   twist and a higher swing (2/2 seeds).
+3. *What it costs:* ~45 % more current (2.2 A mean), hip servos at rated torque (warm hips), and stopping needs the
+   hand-over to the round-3 stander. Push robustness is below the round-3 push walker.
+
+**Lessons (round 4)**
+1. **Measure the gait, not the reward.** The decisive bug ("marching in place" was walking in circles) was invisible in
+   reward and in progress-along-heading; body-frame speed and heading drift exposed it in minutes.
+2. **Imitation shapes a gait from scratch; it does not reshape a converged one.** Fine-tuning the skitter with imitation
+   rewards kept the skitter; push training on the new gait pulled it back toward one.
+3. **For a footless leg, double support is the steering wheel.** On one small, edge-loaded pad there is almost no yaw
+   grip; reward terms could not buy heading control that the contact physics did not offer. Changing the gait (duty
+   factor, cadence) did.
+4. **Check the model's defaults.** A torsional friction coefficient sat in the CAD-derived model for a whole round, inactive
+   because of `condim="3"`. Turning it on changed start/stop by 33 points and did not affect the old results.
+5. **Curricula for style.** A narrow track from scratch never learned; three short fine-tunes from a working walker did,
+   and reproduced.
+
+**GPU-time accounting (22:27 – 07:58, one job at a time):** 28 runs, about 9.5 h of the 11 h budget. The queue runner's
+stall watchdog never fired; `scripts/health_watch.sh` reported every 30 min. Six runs were stopped by hand as soon as
+their question was answered (marching, no learning, known heading flaw). Evaluation ran on the CPU in parallel.

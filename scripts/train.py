@@ -97,6 +97,76 @@ TASKS = {
                                  slip=-10.0, contact_phase=3.0, swing_height=-100.0, ang_vel_xy=-0.02, pose=-0.2,
                                  termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
                                  saturation=-1.0, action_rate=-0.05)),
+    # round 4: imitation of a kinematic reference gait (slender_biped/ref_gait.py) to replace the skitter (5-7 steps/s,
+    # 1-3 cm) with real steps. ref_q/ref_tip/ref_contact shape the gait; tracking, stop and hardware terms as before.
+    "walk_ref": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                     phase_when_still=False, track_sigma=0.02, heading_cmd=True, track_ang_sigma=0.25,
+                     gait_hz=1.5, ref_table="ref30",
+                     rw=dict(track_lin=2.0, track_ang=1.0, heading=1.0, stop=2.0, ref_q=1.5, ref_tip=1.5,
+                             ref_contact=1.0, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                             torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref2: walk_ref marched in place (vx ~0 at a 0.15 command): with track_sigma 0.02 standing still still
+    # earned 32 % of the tracking reward while the imitation terms paid in full. Sharper, heavier tracking.
+    "walk_ref2": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.25,
+                      gait_hz=1.5, ref_table="ref30",
+                      rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref3: walk_ref2 (residual) marched in place at 3.4 steps/s, 22 mm clearance, vx ~0: with ref_sigma_q 0.1 the
+    # policy could cancel the stance sweep for ~30 % of ref_q. Tight joint kernel: in the reference's kinematics a
+    # non-slipping stance foot that sweeps back carries the pelvis forward. slip -30: at -10 a 0.15 m/s stance slide cost
+    # only ~0.2 per step, so the marching policy let the stance foot slide 14-18 % of its travel instead of walking.
+    "walk_ref3": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.25,
+                      gait_hz=1.5, ref_table="ref30", ref_sigma_q=0.02,
+                      rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, ref_q=2.0, ref_tip=1.0,
+                              ref_contact=0.5, slip=-30.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref4: walk_ref3 from scratch never survived (52-step episodes at 10 M) and as a fine-tune of the marcher it
+    # still marched. Back to walk_ref2's learnable imitation kernel, keep slip -30, and an easier speed range first.
+    "walk_ref4": dict(cmd_vx=(0.05, 0.15), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.25,
+                      gait_hz=1.5, ref_table="ref30",
+                      rw=dict(track_lin=3.0, track_ang=1.0, heading=1.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, slip=-30.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref5: the walk_ref2 "marcher" actually walks (0.08-0.09 m/s in the body frame, MJX and CPU agree) but turns
+    # steadily (yaw-rate command pinned at +-0.3 by the heading loop), so net progress along a heading is ~0.
+    # walk_ref2 + strong heading hold: heading 3, yaw-rate tracking 2 with a sharper kernel.
+    "walk_ref5": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.5, ref_table="ref30",
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref6: walk_ref5 still spun ~160 deg while starting to walk, then ignored the saturated turn command: 80 % single
+    # support on a small pad leaves the hip-yaw joints as the only steering, and ref_q pulled them to 0. Free them.
+    "walk_ref6": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.5, ref_table="ref30", ref_yaw_weight=0.0,
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref7 (polish, fine-tune only): the d65 walker (99 % reach 2 m, 5.5 cm foot travel) kept stepping at zero command
+    # (start/stop 51 %) and ran the hips at ~1.0x rated RMS with 7500 overspeed events. Quiet-stance terms from
+    # stand_quiet2 at zero command and twice the torque pressure.
+    "walk_ref7": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.25,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.5, ref_table="d65_30", ref_yaw_weight=0.0,
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=3.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, both_feet=0.5, touchdown=-0.3, liftoff=-0.5, slip=-10.0,
+                              ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5, torque=-0.4, over_rated=-6.0,
+                              overspeed=-4.0, saturation=-1.0, action_rate=-0.05)),
+    # walk_ref8 (style fine-tune): the catwalk reference (45 mm track) only narrowed the stance from 116 to 98 mm; the
+    # hip-roll residual pushes the feet back out. Penalize lateral tip separation above width_target (cm^2 units).
+    "walk_ref8": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.03, 0.03), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.5, ref_table="d65_cat", ref_yaw_weight=0.0, width_target=0.06,
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, width=-0.05, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0,
+                              alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
+                              action_rate=-0.05)),
     "walk_v1": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
                  phase_when_still=True,
                  rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,

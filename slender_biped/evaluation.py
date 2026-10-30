@@ -77,6 +77,9 @@ class EvalConfig:
     friction: float | None = None      # override tip friction
     mass_scale: float | None = None    # uniform mass scale override
     slope_deg: float = 0.0             # floor pitch about Y (positive = uphill when walking +x)
+    ref_table: str = ""                # reference gait (round 4): residual action base, see mjx_env
+    ref_residual: bool = False
+    tip_condim: int = 3                # 4 = pad torsional friction on (see mjx_env)
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
@@ -126,6 +129,9 @@ class CpuBiped:
         self.tip_pairs = [i for i in range(m.npair)
                           if {mujoco.mj_id2name(m, 5, m.pair_geom1[i]), mujoco.mj_id2name(m, 5, m.pair_geom2[i])}
                           in ({"floor", "L_tip"}, {"floor", "R_tip"})]
+        if cfg.tip_condim != 3:
+            for i in self.tip_pairs:
+                m.pair_dim[i] = cfg.tip_condim
         self.pf0 = m.pair_friction.copy()
         self.floor_gid = g("floor")
         self.foot_gids = set(self.tip_gid.tolist())
@@ -133,6 +139,10 @@ class CpuBiped:
         self.knee_r = float(m.geom_size[g("L_knee_col")][0])
         self.rng = np.random.default_rng(seed)
         self.kid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_KEY, "stand")
+        self.ref = None
+        if cfg.ref_table:
+            from .ref_gait import load
+            self.ref = load(cfg.ref_table)
 
     def tip_low(self):
         d = self.d
@@ -217,7 +227,12 @@ class CpuBiped:
     def step(self, action):
         c, m, d, s_ = self.cfg, self.m, self.d, self.servo
         action = np.clip(action, -1, 1)
-        q_cmd = np.clip(self.q_nom + c.action_scale * action, self.q_lo, self.q_hi)
+        q_base = self.q_nom
+        if self.ref is not None and c.ref_residual:
+            from .ref_gait import lookup
+            phase_next = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
+            q_base = lookup(self.ref, max(self.cmd[0], 0.0), phase_next)[0]
+        q_cmd = np.clip(q_base + c.action_scale * action, self.q_lo, self.q_hi)
         ts = self.ts0 * s_["strength"]
         w0 = self.w00 * s_["speed"]
         kp = c.kp * s_["kp"]
