@@ -1,0 +1,23 @@
+run hw_walk_scratch_s1  checkpoint params_0020M.pkl
+hw_walk_scratch_s1__stand_params_0020M.pkl {'alive_30s': 1.0, 'nolift_frac': 0.0, 'quiet_frac': 0.0, 'liftoffs_median': 322.5, 'tip_travel_median_m': 9.459, 'steps_per_s_median': 4.833, 'step_length_median_m': -0.0, 'mean_vx_median': 0.009, 'base_speed_rms_median': 0.088, 'drift_median_m': 0.217, 'max_tilt_median': 7.907, 'rms_over_rated_median': [0.569, 0.726, 0.904, 0.843, 0.503, 0.813, 0.91, 0.83], 'overspeed_events_total': 22, 'heading_abs_deg': 85.672}
+hw_walk_scratch_s1__startstop_params_0020M.pkl {'alive_30s': 0.0, 'nolift_frac': 0.0, 'quiet_frac': 0.0, 'liftoffs_median': 191.0, 'tip_travel_median_m': 6.055, 'steps_per_s_median': 5.556, 'step_length_median_m': 0.009, 'mean_vx_median': 0.053, 'startstop_success': 0.81, 'base_speed_rms_median': 0.106, 'drift_median_m': 0.893, 'max_tilt_median': 8.423, 'rms_over_rated_median': [0.547, 0.777, 0.924, 0.853, 0.495, 0.849, 0.927, 0.805], 'overspeed_events_total': 112, 'heading_abs_deg': 11.516}
+hw_walk_scratch_s1__walk40_params_0020M.pkl {'alive_30s': 0.99, 'nolift_frac': 0.0, 'quiet_frac': 0.0, 'liftoffs_median': 460.0, 'tip_travel_median_m': 15.467, 'steps_per_s_median': 6.0, 'step_length_median_m': 0.012, 'mean_vx_median': 0.08, 'walk_1.0m': 0.99, 'walk_2.0m': 0.99, 'base_speed_rms_median': 0.12, 'drift_median_m': 3.035, 'max_tilt_median': 9.307, 'rms_over_rated_median': [0.541, 0.798, 0.941, 0.855, 0.491, 0.868, 0.949, 0.8], 'overspeed_events_total': 196, 'heading_abs_deg': 11.109}
+hw_walk_scratch_s1 params_0020M.pkl walk40 (20 s, 3 seeds, medians): airborne travel 4.37 m | ground (sliding) travel 1.68 m | lift-offs 201 | mean air time 51 ms | airborne step 1.0 cm | base displacement 1.04 m
+hw_walk_scratch_s1__walk40: n=20 alive 1.00 vx 0.080 | total @ 7.4 V: mean 2.01 A (14.9 W), RMS 2.33 A, p99 5.77 A, peak 20 ms 9.79 A, peak 2 ms 11.65 A (all-stall 22.6 A); mech 2.17 W
+   L_hip_yaw    mean 0.12  rms 0.20  p99 0.69  peak 1.22 A (stall 2.5)
+   L_hip_roll   mean 0.23  rms 0.37  p99 1.33  peak 2.53 A (stall 2.5)
+   L_hip_pitch  mean 0.29  rms 0.45  p99 1.51  peak 2.53 A (stall 2.5)
+   L_knee       mean 0.36  rms 0.68  p99 2.99  peak 3.83 A (stall 3.8)
+   R_hip_yaw    mean 0.10  rms 0.17  p99 0.61  peak 1.05 A (stall 2.5)
+   R_hip_roll   mean 0.27  rms 0.43  p99 1.46  peak 2.51 A (stall 2.5)
+   R_hip_pitch  mean 0.30  rms 0.48  p99 1.59  peak 2.53 A (stall 2.5)
+   R_knee       mean 0.34  rms 0.65  p99 2.93  peak 3.83 A (stall 3.8)
+hw_walk_scratch_s1__stand: n=20 alive 1.00 vx 0.010 | total @ 7.4 V: mean 1.93 A (14.3 W), RMS 2.25 A, p99 5.65 A, peak 20 ms 10.38 A, peak 2 ms 12.09 A (all-stall 22.6 A); mech 1.94 W
+   L_hip_yaw    mean 0.13  rms 0.21  p99 0.71  peak 1.06 A (stall 2.5)
+   L_hip_roll   mean 0.19  rms 0.31  p99 1.16  peak 2.53 A (stall 2.5)
+   L_hip_pitch  mean 0.26  rms 0.42  p99 1.46  peak 2.53 A (stall 2.5)
+   L_knee       mean 0.36  rms 0.69  p99 3.04  peak 3.83 A (stall 3.8)
+   R_hip_yaw    mean 0.11  rms 0.17  p99 0.63  peak 1.17 A (stall 2.5)
+   R_hip_roll   mean 0.23  rms 0.37  p99 1.32  peak 2.53 A (stall 2.5)
+   R_hip_pitch  mean 0.27  rms 0.44  p99 1.52  peak 2.53 A (stall 2.5)
+   R_knee       mean 0.37  rms 0.68  p99 2.88  peak 3.83 A (stall 3.8)

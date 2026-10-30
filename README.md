@@ -19,6 +19,11 @@ An end-to-end robotics design study:
 <td valign="top"><img src="assets/gifs/pad30_stand.gif" width="360"><br><sub>stands still</sub></td>
 <td valign="top"><img src="assets/gifs/pad30_walk.gif" width="360"></td>
 </tr>
+<tr>
+<th>As built<br><sub>model from the printed CAD<br>and the real servos (§6)</sub></th>
+<td valign="top"><img src="assets/gifs/hw_p0_stand_push.gif" width="360"><br><sub>stands still and recovers from 0.3 m/s shoves</sub></td>
+<td valign="top"><img src="assets/gifs/hw_p0_walk.gif" width="360"></td>
+</tr>
 </table>
 
 **TL;DR**
@@ -31,10 +36,14 @@ An end-to-end robotics design study:
   stepping. An ankle is not needed. Feet did not, however, fix the short walking steps.
 - **A 30 × 18 mm flat pad at the shin tip is a viable compromise.** It keeps the silhouette and
   stood without lifting a tip in 85 % of runs. Training found that stance on 1 of 2 seeds.
+- **The as-built robot works too (§6).** Retrained on a model generated from the printable CAD and the servos
+  actually bought, it stands still (98 % without lifting a pad), survives shoves, and walks at 0.18 m/s while
+  stopping on command 98 % of the time. Walking draws about 1.5 A at 7.4 V, with ~9 A peaks.
 
-> **Status: simulation only (MuJoCo).** No hardware has been built. All numbers come from held-out
-> evaluation seeds in an independent simulator. Simulated feasibility is not validated hardware
-> capability.
+> **Status: simulation, plus a first printed leg.** One P0 leg is printed, assembled and bench-tested
+> (servos calibrated, whole-leg routines); the two-leg robot has not walked yet. All standing and walking
+> numbers come from held-out evaluation seeds in an independent simulator. Simulated feasibility is not
+> validated hardware capability.
 
 ---
 
@@ -371,6 +380,51 @@ guide and a cautious bench-test script are included.
 
 It's built for unloaded bench testing only; standing and walking come later.
 
+**Status:** the left leg is printed (PLA), assembled and calibrated. All four joints run whole-leg
+routines on the bench ([`software/feetech_bench.py`](hardware/leg_p0/software/feetech_bench.py)). The knee
+uses an STS3215-C044 (1:191) instead of the C001. **P08**, a one-piece two-leg pelvis with 80 mm hips, is
+designed and print-ready; the right leg is the mirrored part set.
+
+## 6. Training on the as-built model
+
+<table>
+<tr><th>Stand, with 0.3 m/s shoves</th><th>Walk (0.15 m/s command)</th></tr>
+<tr>
+<td><img src="assets/gifs/hw_p0_stand_push.gif" width="390"></td>
+<td><img src="assets/gifs/hw_p0_walk.gif" width="390"></td>
+</tr>
+</table>
+
+The earlier rounds trained on a parametric model. Once the CAD existed,
+[`cad/sim_model.py`](hardware/leg_p0/cad/sim_model.py) generated a MuJoCo model of the robot **as it will be
+built**:
+- **links:** mass, centre of mass and inertia from the actual printed parts (walls and infill), servo cases,
+  horns, screws and cables;
+- **kinematics:** joint axes, link lengths and joint limits from the CAD;
+- **contact:** the real 30 × 18 mm pad;
+- **servos:** the ones actually bought, C001 (1:345) on the hips and C044 (1:191) on the knee;
+- **pelvis:** P08, hips 80 mm apart.
+
+The result weighs 907 g. Its weak point is the hip servos: they are half as fast as the servo the earlier
+rounds assumed, and their 1:345 gearbox roughly doubles the effective inertia the hip has to swing.
+
+| as-built model, 100 held-out seeds | result |
+|---|---|
+| stand 30 s (`hw_stand_push2`) | 98 % up, 98 % without lifting a pad; survives 20 s of 0.3 m/s shoves |
+| walk at a 0.15 m/s command (`hw_walk_scratch_stride2`) | 98 % reach 2 m, **0.178 m/s**, stops and restarts on command 98 % of the time |
+| same walker, push-trained (`hw_walk_best_push`) | 87 % keep walking under 0.2 m/s shoves |
+| supply current at 7.4 V | quiet stand 0.4–0.7 A; walking ~1.5 A mean, ~9 A peaks over 20 ms ([power and wiring](hardware/leg_p0/power.md)) |
+
+What the 23 runs showed ([experiment log](docs/experiments.md), E40–E45):
+- **Training mattered more than hardware.** Transferring the earlier walker capped the as-built robot at
+  about 0.09 m/s. A gait learned from scratch on the new model, then refined, reached 0.178 m/s on the
+  same servos. That walker was found on 1 of 2 training seeds.
+- **Cheap changes didn't help.** A fully charged 8.4 V pack, 40 mm pads and 60–70 mm hips stayed within
+  the seed-to-seed spread.
+- **The one reliable hardware gain needs two changes together:** faster C046 servos on roll/pitch/knee
+  *and* 60 mm hips (0.15–0.17 m/s on 3 of 3 seeds). Either alone did nothing: narrower hips only pay off
+  once the hips are fast enough.
+
 ## Limitations and next steps
 
 - **Simulation only.**
@@ -385,4 +439,5 @@ It's built for unloaded bench testing only; standing and walking come later.
   1. make the pad's quiet stance reproducible and merge standing and walking into one policy;
   2. longer strides via motion priors;
   3. bench-test servo torque-speed curves, pad friction and IMU noise;
-  4. print and assemble the P0 leg ([`hardware/leg_p0/`](hardware/leg_p0/)).
+  4. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
+     under load) and refit the as-built model before trying a trained policy on it.

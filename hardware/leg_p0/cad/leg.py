@@ -221,27 +221,37 @@ def u_bracket(name, web_extra=None):
 
 
 # ----------------------------------------------------------------------------- links
-def part_pelvis_plate():
-    pz0 = HORN_Z + ARM_T + 3.5          # above the yaw top arm and its screw heads
-    pz1 = pz0 + P["pelvis"]["plate_t"]
-    pe = P["pelvis"]
-    plate = box(pe["x0"], pe["x1"], pe["y_inner"], pe["y_outer"], pz0, pz1)
-    plate = try_fillet(plate, plate.edges().filter_by(Axis.Z), 6.0)
+PELVIS_Z0 = HORN_Z + ARM_T + 3.5        # pelvis plate underside: above the yaw top arm and its screw heads
+
+
+def yaw_cup_mount(pz0, pz1):
+    """Left hip-yaw cup hung under a plate spanning z pz0..pz1. Returns (solid to add, solid to cut)."""
     cup = cradle("hip_yaw")
     # riser from the cup's top (idler) wall up to the plate
     bb = cup.bounding_box()
     riser = box(bb.min.X, bb.max.X, bb.min.Y, bb.max.Y, bb.max.Z - 1.0, pz0 + 0.5)
     riser -= box(bb.min.X + 3, bb.max.X - 3, bb.min.Y + 3, bb.max.Y - 3, bb.max.Z - 2, pz0 - 1.5)  # hollow
-    body = plate + cup + riser
     # cable slot above the yaw connector + screwdriver access to the cup's top screws
     kc = in_servo("hip_yaw", box(-6.5, 3.5, -11.0, 11.0, -40, -10)).bounding_box()
-    body -= box(kc.min.X, kc.max.X, kc.min.Y, kc.max.Y, pz0 - 30, pz1 + 1)
+    cut = box(kc.min.X, kc.max.X, kc.min.Y, kc.max.Y, pz0 - 30, pz1 + 1)
     z_wall = max(S["horn_bump"]["z"], S["idler_bump"]["z"]) + CL + C["cheek_t"]     # top of the cup wall
     for hx, hy in S["mount_holes_bot"]:
         if hx < S["output_x"] - CHEEK_CLEAR["hip_yaw"] - 2.5:
             p = servo_plane("hip_yaw").location * Pos(hx, hy, 0)
-            body -= box(p.position.X - 3.2, p.position.X + 3.2, p.position.Y - 3.2, p.position.Y + 3.2,
-                        z_wall + 0.3, pz1 + 1)                          # screwdriver access, keeps the wall
+            cut += box(p.position.X - 3.2, p.position.X + 3.2, p.position.Y - 3.2, p.position.Y + 3.2,
+                       z_wall + 0.3, pz1 + 1)                           # screwdriver access, keeps the wall
+    return cup + riser, cut
+
+
+def part_pelvis_plate():
+    """Single-leg desk fixture: plate + left yaw cup + clamp-tongue bolt pattern."""
+    pz0 = PELVIS_Z0
+    pz1 = pz0 + P["pelvis"]["plate_t"]
+    pe = P["pelvis"]
+    plate = box(pe["x0"], pe["x1"], pe["y_inner"], pe["y_outer"], pz0, pz1)
+    plate = try_fillet(plate, plate.edges().filter_by(Axis.Z), 6.0)
+    add, cut = yaw_cup_mount(pz0, pz1)
+    body = plate + add - cut
     # clamp-tongue bolt pattern (M3) under the inner edge, and the same pattern at the back edge (later use)
     for x in (-25.0, 22.0):
         for y in (pe["y_inner"] + 8, pe["y_inner"] + 22):

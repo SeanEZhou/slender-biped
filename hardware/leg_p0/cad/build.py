@@ -31,11 +31,16 @@ REN = ROOT / "renders"
 PRINTED = ["pelvis_plate", "clamp_tongue", "yaw_bracket", "roll_bracket", "thigh", "shin", "pad"]
 PART_NO = {n: f"P{i + 1:02d}" for i, n in enumerate(PRINTED)}
 # print orientation: the part axis that faces DOWN onto the bed (README "Printing"); others are added as we print them
-PRINT_DOWN = {"yaw_bracket": (1, 0, 0),      # front web on the bed
+_PAD_TILT = np.radians(leg.P["pad"]["stance_pitch"])
+PRINT_DOWN = {"pelvis_plate": (0, 0, 1),     # plate face down, cup walls up (the cup floor bridges ~26 mm)
+              "clamp_tongue": (0, 0, -1),    # flat, ribs up, nut traps open on the bed
+              "yaw_bracket": (1, 0, 0),      # front web on the bed
               "roll_bracket": (-1, 0, 0),    # pitch-cradle back face on the bed, arms flat: horn holes print round
               "thigh": (0, 1, 0),            # lying on its side, one fork arm on the bed: layers run along the
                                              # tube (strong in bending), all horn/case holes print round
-              "shin": (0, 1, 0)}             # same as the thigh: one fork arm on the bed, tube along the bed
+              "shin": (0, 1, 0),             # same as the thigh: one fork arm on the bed, tube along the bed
+              "pad": (np.sin(_PAD_TILT), 0, -np.cos(_PAD_TILT))}   # pitched contact face on the bed: no
+                                             # supports, and the face that touches the ground is the smoothest
 BED_CENTER = (128.0, 128.0)                  # Bambu A1 (256 x 256)
 
 
@@ -45,12 +50,17 @@ def export_print_ready(stems):
     import trimesh
     d = EXP / "stl" / "print_ready"
     d.mkdir(parents=True, exist_ok=True)
-    for name, down in PRINT_DOWN.items():
-        m = trimesh.load(EXP / "stl" / f"{stems[name]}.stl")
+    jobs = [(EXP / "stl" / f"{stems[n]}.stl", down, f"{stems[n]}_print.stl") for n, down in PRINT_DOWN.items()]
+    # right leg: the mirrored part (Y -> -Y) prints the same way with the mirrored down direction
+    jobs += [(EXP / "stl_right_mirror" / f"{stems[n]}_RIGHT.stl", (down[0], -down[1], down[2]), f"{stems[n]}_RIGHT_print.stl")
+             for n, down in PRINT_DOWN.items() if (EXP / "stl_right_mirror" / f"{stems[n]}_RIGHT.stl").exists()
+             and n != "pelvis_plate"]          # the single-leg desk fixture has no right-hand use
+    for src, down, out in jobs:
+        m = trimesh.load(src)
         m.apply_transform(trimesh.geometry.align_vectors(down, (0, 0, -1)))
         c = m.bounds.mean(axis=0)
         m.apply_translation((BED_CENTER[0] - c[0], BED_CENTER[1] - c[1], -m.bounds[0][2]))
-        m.export(d / f"{stems[name]}_print.stl")
+        m.export(d / out)
 
 
 def export_all(items):

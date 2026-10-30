@@ -33,6 +33,15 @@ runs/*/*
 !runs/q2_stand_P30/params_0022M.pkl
 !runs/stride_P30_ft/params_0020M.pkl
 !runs/ctl_stand_F60_12/params_0045M.pkl
+# round 3 (as-built hardware model): best stand/walk policies, their fine-tune chains, the C046+60 mm reference
+!runs/hw_stand_ft/params_0040M.pkl
+!runs/hw_stand_push/params_0030M.pkl
+!runs/hw_stand_push2/params_0020M.pkl
+!runs/hw_walk_scratch/params_0081M.pkl
+!runs/hw_walk_scratch_stride/params_0025M.pkl
+!runs/hw_walk_scratch_stride2/params_0020M.pkl
+!runs/hw_walk_best_push/params_0010M.pkl
+!runs/hw_walk_c046s60_ft_s2/params_0012M.pkl
 *.log
 checkpoints/
 *.zip

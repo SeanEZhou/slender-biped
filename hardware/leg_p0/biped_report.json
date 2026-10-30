@@ -1,0 +1,867 @@
+{
+ "pelvis": {
+  "watertight": true,
+  "bbox_mm": [
+   76.0,
+   120.0,
+   52.0
+  ],
+  "volume_cm3": 66.1
+ },
+ "gap_between_legs_mm": {
+  "neutral": 32.8,
+  "stance": 32.8
+ },
+ "clearance": {
+  "symmetric": [
+   {
+    "roll": 0,
+    "pitch": 0,
+    "knee": 0,
+    "hits": []
+   },
+   {
+    "roll": 0,
+    "pitch": 16,
+    "knee": 32,
+    "hits": []
+   },
+   {
+    "roll": 0,
+    "pitch": 45,
+    "knee": 90,
+    "hits": []
+   },
+   {
+    "roll": 0,
+    "pitch": 80,
+    "knee": 105,
+    "hits": []
+   },
+   {
+    "roll": -3,
+    "pitch": 0,
+    "knee": 0,
+    "hits": []
+   },
+   {
+    "roll": -3,
+    "pitch": 16,
+    "knee": 32,
+    "hits": []
+   },
+   {
+    "roll": -3,
+    "pitch": 45,
+    "knee": 90,
+    "hits": []
+   },
+   {
+    "roll": -3,
+    "pitch": 80,
+    "knee": 105,
+    "hits": []
+   },
+   {
+    "roll": -5,
+    "pitch": 0,
+    "knee": 0,
+    "hits": []
+   },
+   {
+    "roll": -5,
+    "pitch": 16,
+    "knee": 32,
+    "hits": []
+   },
+   {
+    "roll": -5,
+    "pitch": 45,
+    "knee": 90,
+    "hits": []
+   },
+   {
+    "roll": -5,
+    "pitch": 80,
+    "knee": 105,
+    "hits": []
+   },
+   {
+    "roll": -7,
+    "pitch": 0,
+    "knee": 0,
+    "hits": [
+     [
+      "L_shin",
+      "R_shin",
+      5121.7
+     ],
+     [
+      "L_shin",
+      "R_pad",
+      348.7
+     ],
+     [
+      "L_shin",
+      "R_servo_knee",
+      14.0
+     ],
+     [
+      "L_shin",
+      "R_idler_knee",
+      210.9
+     ],
+     [
+      "L_shin",
+      "R_hornscrews_knee",
+      23.5
+     ],
+     [
+      "L_pad",
+      "R_shin",
+      348.7
+     ],
+     [
+      "L_pad",
+      "R_pad",
+      4014.7
+     ],
+     [
+      "L_servo_knee",
+      "R_shin",
+      14.0
+     ],
+     [
+      "L_servo_knee",
+      "R_keepout_knee",
+      216.1
+     ],
+     [
+      "L_servo_knee",
+      "R_hornscrews_knee",
+      38.2
+     ],
+     [
+      "L_idler_knee",
+      "R_shin",
+      210.9
+     ],
+     [
+      "L_idler_knee",
+      "R_hornscrews_knee",
+      102.0
+     ],
+     [
+      "L_keepout_knee",
+      "R_servo_knee",
+      216.1
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_shin",
+      23.5
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_servo_knee",
+      38.2
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_idler_knee",
+      102.0
+     ]
+    ]
+   },
+   {
+    "roll": -7,
+    "pitch": 16,
+    "knee": 32,
+    "hits": [
+     [
+      "L_shin",
+      "R_shin",
+      3295.8
+     ],
+     [
+      "L_shin",
+      "R_pad",
+      375.3
+     ],
+     [
+      "L_shin",
+      "R_servo_knee",
+      2.1
+     ],
+     [
+      "L_shin",
+      "R_idler_knee",
+      69.6
+     ],
+     [
+      "L_shin",
+      "R_hornscrews_knee",
+      63.6
+     ],
+     [
+      "L_pad",
+      "R_shin",
+      375.3
+     ],
+     [
+      "L_pad",
+      "R_pad",
+      2900.0
+     ],
+     [
+      "L_servo_knee",
+      "R_shin",
+      2.1
+     ],
+     [
+      "L_servo_knee",
+      "R_keepout_knee",
+      82.7
+     ],
+     [
+      "L_servo_knee",
+      "R_hornscrews_knee",
+      1.2
+     ],
+     [
+      "L_idler_knee",
+      "R_shin",
+      69.6
+     ],
+     [
+      "L_idler_knee",
+      "R_hornscrews_knee",
+      106.6
+     ],
+     [
+      "L_keepout_knee",
+      "R_servo_knee",
+      82.7
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_shin",
+      63.6
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_servo_knee",
+      1.2
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_idler_knee",
+      106.6
+     ]
+    ]
+   },
+   {
+    "roll": -7,
+    "pitch": 45,
+    "knee": 90,
+    "hits": [
+     [
+      "L_hornscrews_knee",
+      "R_hornscrews_knee",
+      16.7
+     ]
+    ]
+   },
+   {
+    "roll": -7,
+    "pitch": 80,
+    "knee": 105,
+    "hits": []
+   },
+   {
+    "roll": -10,
+    "pitch": 0,
+    "knee": 0,
+    "hits": [
+     [
+      "L_thigh",
+      "R_thigh",
+      1914.2
+     ],
+     [
+      "L_thigh",
+      "R_servo_knee",
+      1162.6
+     ],
+     [
+      "L_shin",
+      "R_shin",
+      24887.4
+     ],
+     [
+      "L_shin",
+      "R_servo_knee",
+      1209.7
+     ],
+     [
+      "L_servo_knee",
+      "R_thigh",
+      1162.6
+     ],
+     [
+      "L_servo_knee",
+      "R_shin",
+      1209.7
+     ],
+     [
+      "L_servo_knee",
+      "R_servo_knee",
+      7389.4
+     ],
+     [
+      "L_servo_knee",
+      "R_idler_knee",
+      693.7
+     ],
+     [
+      "L_servo_knee",
+      "R_keepout_knee",
+      1368.0
+     ],
+     [
+      "L_servo_knee",
+      "R_hornscrews_knee",
+      236.4
+     ],
+     [
+      "L_servo_knee",
+      "R_casescrews_knee",
+      36.8
+     ],
+     [
+      "L_idler_knee",
+      "R_servo_knee",
+      693.7
+     ],
+     [
+      "L_keepout_knee",
+      "R_servo_knee",
+      1368.0
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_servo_knee",
+      236.4
+     ],
+     [
+      "L_casescrews_knee",
+      "R_servo_knee",
+      36.8
+     ]
+    ]
+   },
+   {
+    "roll": -10,
+    "pitch": 16,
+    "knee": 32,
+    "hits": [
+     [
+      "L_thigh",
+      "R_thigh",
+      1724.0
+     ],
+     [
+      "L_thigh",
+      "R_servo_knee",
+      1062.7
+     ],
+     [
+      "L_thigh",
+      "R_casescrews_knee",
+      2.3
+     ],
+     [
+      "L_shin",
+      "R_shin",
+      25422.7
+     ],
+     [
+      "L_shin",
+      "R_servo_knee",
+      1196.4
+     ],
+     [
+      "L_servo_knee",
+      "R_thigh",
+      1062.7
+     ],
+     [
+      "L_servo_knee",
+      "R_shin",
+      1196.4
+     ],
+     [
+      "L_servo_knee",
+      "R_servo_knee",
+      5607.7
+     ],
+     [
+      "L_servo_knee",
+      "R_idler_knee",
+      693.7
+     ],
+     [
+      "L_servo_knee",
+      "R_keepout_knee",
+      1368.0
+     ],
+     [
+      "L_servo_knee",
+      "R_hornscrews_knee",
+      236.4
+     ],
+     [
+      "L_servo_knee",
+      "R_casescrews_knee",
+      33.0
+     ],
+     [
+      "L_idler_knee",
+      "R_servo_knee",
+      693.7
+     ],
+     [
+      "L_keepout_knee",
+      "R_servo_knee",
+      1368.0
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_servo_knee",
+      236.4
+     ],
+     [
+      "L_casescrews_knee",
+      "R_thigh",
+      2.3
+     ],
+     [
+      "L_casescrews_knee",
+      "R_servo_knee",
+      33.0
+     ]
+    ]
+   },
+   {
+    "roll": -10,
+    "pitch": 45,
+    "knee": 90,
+    "hits": [
+     [
+      "L_thigh",
+      "R_thigh",
+      577.3
+     ],
+     [
+      "L_thigh",
+      "R_servo_knee",
+      8.0
+     ],
+     [
+      "L_shin",
+      "R_shin",
+      9684.4
+     ],
+     [
+      "L_shin",
+      "R_pad",
+      395.9
+     ],
+     [
+      "L_shin",
+      "R_servo_knee",
+      548.8
+     ],
+     [
+      "L_shin",
+      "R_idler_knee",
+      250.5
+     ],
+     [
+      "L_pad",
+      "R_shin",
+      395.9
+     ],
+     [
+      "L_pad",
+      "R_pad",
+      5139.7
+     ],
+     [
+      "L_servo_knee",
+      "R_thigh",
+      8.0
+     ],
+     [
+      "L_servo_knee",
+      "R_shin",
+      548.8
+     ],
+     [
+      "L_servo_knee",
+      "R_servo_knee",
+      41.6
+     ],
+     [
+      "L_servo_knee",
+      "R_idler_knee",
+      5.8
+     ],
+     [
+      "L_servo_knee",
+      "R_keepout_knee",
+      608.8
+     ],
+     [
+      "L_servo_knee",
+      "R_hornscrews_knee",
+      190.1
+     ],
+     [
+      "L_idler_knee",
+      "R_shin",
+      250.5
+     ],
+     [
+      "L_idler_knee",
+      "R_servo_knee",
+      5.8
+     ],
+     [
+      "L_idler_knee",
+      "R_idler_knee",
+      222.4
+     ],
+     [
+      "L_idler_knee",
+      "R_hornscrews_knee",
+      12.4
+     ],
+     [
+      "L_keepout_knee",
+      "R_servo_knee",
+      608.8
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_servo_knee",
+      190.1
+     ],
+     [
+      "L_hornscrews_knee",
+      "R_idler_knee",
+      12.4
+     ]
+    ]
+   },
+   {
+    "roll": -10,
+    "pitch": 80,
+    "knee": 105,
+    "hits": [
+     [
+      "L_pad",
+      "R_pad",
+      296.2
+     ]
+    ]
+   }
+  ],
+  "same_direction_sway": [
+   {
+    "left_roll": 5,
+    "right_roll": -5,
+    "hits": []
+   },
+   {
+    "left_roll": 10,
+    "right_roll": -10,
+    "hits": []
+   }
+  ],
+  "scissor_and_turn": [
+   {
+    "left": [
+     0,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     0,
+     0,
+     16,
+     32
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     -15,
+     0,
+     16,
+     32
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     25,
+     0,
+     16,
+     32
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     0,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     0,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     -15,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     25,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     0,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     0,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     -15,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     -25,
+     0
+    ],
+    "right": [
+     25,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     0,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     0,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     -15,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     25,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     0,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     0,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     -15,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     16,
+     32
+    ],
+    "right": [
+     25,
+     0,
+     35,
+     75
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     0,
+     0,
+     35,
+     75
+    ],
+    "right": [
+     0,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     -15,
+     0,
+     35,
+     75
+    ],
+    "right": [
+     -15,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   },
+   {
+    "left": [
+     25,
+     0,
+     35,
+     75
+    ],
+    "right": [
+     25,
+     0,
+     80,
+     105
+    ],
+    "hits": []
+   }
+  ],
+  "seconds": 110
+ },
+ "poses_with_hits": 7
+}

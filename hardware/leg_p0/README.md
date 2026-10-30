@@ -29,6 +29,9 @@ affected part.
 | `cad/leg.py` | parametric geometry (build123d): servo dummy, cradles, U-brackets, tubes, pad, fixture, kinematics |
 | `cad/build.py` | exports, renders, interference and range-of-motion checks |
 | `cad/coupons.py` | calibration coupons |
+| `cad/biped.py` | two-leg bench: P08 pelvis, left + mirrored right leg, inter-leg collision check → `biped_report.json`, `renders/biped_*.png` |
+| `cad/sim_model.py` | CAD → MuJoCo model of the as-built two-leg robot (`models/hw_p0_8dof*`) for training; servo variants via `--actuator-set`, hips via `--spacing`, pad via `--pad` |
+| `power.md` | servo current/power while standing and walking (from trained policies) and supply/wiring sizing |
 | `exports/stl/`, `exports/3mf/` | one printable file per part, `P01`…`P07`, in assembly orientation |
 | `exports/stl/print_ready/` | **send these to the printer**: parts rotated into print orientation, centred on a 256 mm bed (added as each part is printed; `PRINT_DOWN` in `cad/build.py`) |
 | `exports/step/` | per-part STEP files, `assembly_neutral.step`, `assembly_stance.step` |
@@ -127,7 +130,10 @@ leg. "Stance" = hip pitch 16°, knee 32°, where the pad is level.
 | P04 roll bracket | PETG preferred | pitch-cradle back face (−X) down, arms flat so horn holes print round | tree supports under both arms | 4 / 40 % |
 | P05 thigh | PLA or PETG | on its side, one fork arm (+Y) on the bed; the body sits 0.9 mm up | tree supports under the body, tube and upper fork arm | 3 / 15 % (4 walls for loads) |
 | P06 shin | PLA or PETG | on its side, one fork arm (+Y) on the bed, tube along the bed | tree supports under the tube and upper fork arm | 3 / 15 % (4 walls for loads) |
-| P07 pad | PLA/PETG now, TPU 95A later | on its long side | none | 3 / 30 % |
+| P07 pad | PLA/PETG now, TPU 95A later | contact face (pitched 16°) on the bed, stem up | none | 3 / 30 % |
+| P08 biped pelvis | PLA or PETG | plate face down, both yaw cups up | none (cup floors bridge ~26 mm) | 4 / 30 % gyroid |
+
+Right leg: print the `*_RIGHT_print.stl` copies of P03–P07 in `exports/stl/print_ready/` (same settings).
 
 0.4 mm nozzle, 0.2 mm layers (0.16 mm for coupons and brackets if the hole fit is poor). Hide the
 seam toward the back or inside.
@@ -141,3 +147,16 @@ that warm. Reprint the brackets in PETG before long powered holds or standing te
 - No MuJoCo model of this exact geometry yet. When it's made, it should use the C001 speed, the new
   hip offsets and the knee servo mass at the knee.
 - No retrained policy. **Do not run the simulation policies on this leg.**
+
+## Two-leg bench (P08)
+
+`cad/biped.py` builds **P08**, one plate holding both hip-yaw cups, with the hips **80 mm** apart
+(`pelvis.biped_hip_spacing`). There's no desk clamp: hold it by hand. The M3 holes on the centreline
+are for a later handle or torso. The right leg is the mirror of the left; the servo is symmetric about
+its own length/width plane, so each mirrored pocket holds a real servo turned 180°.
+
+Why 80 mm and not the sim's 60 mm: at 60 the real legs are 12.8 mm apart (knee servo and horns),
+can adduct together by only ~2°, and the roll brackets hit when both legs yaw while scissoring.
+At 80 mm the gap is 32.8 mm, the full yaw range is clear, and lateral sway (one leg abducts, the
+other adducts) is clear. **Both legs adducting together collide beyond ~5°** (7° hits at the shins):
+two-leg routines must not do that.

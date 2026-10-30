@@ -33,6 +33,94 @@ catalog:
     sources:
       - https://www.robotshop.com/products/feetech-12v-30kgcm-magnetic-encoding-servo-sts3215
       - https://openelab.io/products/feetech-sts3215-c018-servo-12v
+  STS3215_C001_7V4:          # P0 hardware: yaw, roll, pitch (the SO-101 follower servo)
+    vendor: Feetech
+    voltage: 7.4
+    stall_torque: 1.91        # 19.5 kgf*cm @7.4 V (retailer listings; one review measured 16.5)
+    rated_torque: 0.64        # 6.5 kgf*cm (listed @6 V) = 1/3 stall
+    noload_speed: 5.45        # 52 rpm @7.4 V (retailer); 0.238 s/60deg = 42 rpm @6 V
+    stall_current: 2.5        # 2.0 A @6 V listed, scaled to 7.4 V
+    noload_current: 0.18      # 0.15 A @6 V listed, scaled
+    gear_ratio: 345
+    rotor_inertia: 2.5e-8    # kg*m^2 ESTIMATE (no datasheet value); armature = J_rotor * N^2
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    bus: Feetech SCS/STS TTL half-duplex, up to 1 Mbps
+    price_usd: 22
+    spec_confidence: vendor
+    sources:
+      - https://openelab.io/products/feetech-sts3215-c001-servo
+      - https://www.amazon.com/SO-ARM101-Debugging-Reduction-345-Compatible/dp/B0FLW54PJB
+  STS3215_C044_7V4:          # P0 hardware: knee (SO-101 leader servo)
+    vendor: Feetech
+    voltage: 7.4
+    stall_torque: 1.5         # ESTIMATE. Retailer lists 27.4 kgf*cm (2.69 N*m), which is implausible: more than the
+                              # 1:345 C001 at the same voltage. Same-motor scaling of the C001 gives 1.06 N*m; scaling by
+                              # the listed stall currents (3.8 vs 2.5 A) at an equal motor speed gives ~1.6. Nominal 1.5;
+                              # sensitivity runs cover 1.06-2.69 via the strength scale.
+    rated_torque: 0.5         # 1/3 of the nominal stall (retailer lists 9 kgf*cm = 0.88, same caveat)
+    noload_speed: 9.0         # 86 rpm (0.116 s/60deg) @7.4 V, retailer; consistent with same-motor scaling (9.8)
+    stall_current: 3.8        # retailer
+    noload_current: 0.42      # retailer
+    gear_ratio: 191
+    rotor_inertia: 2.5e-8
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    bus: Feetech SCS/STS TTL half-duplex, up to 1 Mbps
+    price_usd: 22
+    spec_confidence: estimate
+    sources:
+      - https://openelab.com/products/feetech-sts3215-c044-servo
+      - https://www.roboticscenter.ai/hardware/so-101/specs
+  STS3215_C044_7V4_low:      # sensitivity: knee torque from same-motor scaling of the C001 (1.91 * 191/345)
+    vendor: Feetech
+    voltage: 7.4
+    stall_torque: 1.06
+    rated_torque: 0.35
+    noload_speed: 9.0
+    stall_current: 3.8
+    noload_current: 0.42
+    gear_ratio: 191
+    rotor_inertia: 2.5e-8
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    spec_confidence: estimate
+  STS3215_C001_8V4:          # option: same servo on a fully charged 2S pack (8.4 V): speed and stall torque scale ~V
+    vendor: Feetech
+    voltage: 8.4
+    stall_torque: 2.17
+    rated_torque: 0.72
+    noload_speed: 6.19
+    stall_current: 2.84
+    noload_current: 0.2
+    gear_ratio: 345
+    rotor_inertia: 2.5e-8
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    spec_confidence: estimate
+  STS3215_C044_8V4:
+    vendor: Feetech
+    voltage: 8.4
+    stall_torque: 1.70
+    rated_torque: 0.57
+    noload_speed: 10.2
+    stall_current: 4.3
+    noload_current: 0.48
+    gear_ratio: 191
+    rotor_inertia: 2.5e-8
+    mass: 0.055
+    dims: {L: 0.0452, W: 0.0247, H: 0.035}
+    shaft_offset: 0.0115
+    resolution_counts: 4096
+    spec_confidence: estimate
   STS3215_C046_7V4:
     vendor: Feetech
     voltage: 7.4
@@ -179,6 +267,31 @@ assignments:
     knee: STS3215_C046_7V4
     ankle: STS3215_C046_7V4
     ankle_roll: STS3215_C046_7V4
+  hw_p0:             # P0 hardware as built (2026-10-29): C001 1:345 hips, C044 1:191 direct-drive knee
+    hip_yaw: STS3215_C001_7V4
+    hip_roll: STS3215_C001_7V4
+    hip_pitch: STS3215_C001_7V4
+    knee: STS3215_C044_7V4
+  hw_p0_knee_low:    # sensitivity only: as built, with the pessimistic knee torque
+    hip_yaw: STS3215_C001_7V4
+    hip_roll: STS3215_C001_7V4
+    hip_pitch: STS3215_C001_7V4
+    knee: STS3215_C044_7V4_low
+  hw_p0_8v4:         # option: as built, on a full 2S pack (servos rated 4-7.4 V nominal; 8.4 V is the charged-cell peak)
+    hip_yaw: STS3215_C001_8V4
+    hip_roll: STS3215_C001_8V4
+    hip_pitch: STS3215_C001_8V4
+    knee: STS3215_C044_8V4
+  hw_p0_c046_legs:   # escalation: the sim baseline's faster C046 on roll/pitch/knee (same case, CAD unchanged)
+    hip_yaw: STS3215_C001_7V4
+    hip_roll: STS3215_C046_7V4
+    hip_pitch: STS3215_C046_7V4
+    knee: STS3215_C046_7V4
+  hw_p0_c044_all:    # escalation: 1:191 everywhere except yaw (faster hips, less torque)
+    hip_yaw: STS3215_C001_7V4
+    hip_roll: STS3215_C044_7V4
+    hip_pitch: STS3215_C044_7V4
+    knee: STS3215_C044_7V4
   slim_dynamixel:    # smallest envelope, over budget
     hip_yaw: XL330_M288_5V
     hip_roll: XC330_T288_11V1

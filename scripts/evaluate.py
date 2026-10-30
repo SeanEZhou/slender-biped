@@ -27,6 +27,10 @@ TESTS = {
     "stand": dict(seconds=30.0, sched=[(0.0, (0.0, 0.0, 0.0))]),
     "walk": dict(seconds=20.0, sched=[(0.0, (0.15, 0.0, 0.0))], heading_hold=True),
     "walk40": dict(seconds=40.0, sched=[(0.0, (0.15, 0.0, 0.0))], heading_hold=True),  # 2 m gate without a 20 s cap
+    "walk05": dict(seconds=20.0, sched=[(0.0, (0.05, 0.0, 0.0))], heading_hold=True),   # power vs speed (round 3)
+    "walk10": dict(seconds=20.0, sched=[(0.0, (0.10, 0.0, 0.0))], heading_hold=True),
+    "walk20": dict(seconds=20.0, sched=[(0.0, (0.20, 0.0, 0.0))], heading_hold=True),
+    "walkpush": dict(seconds=40.0, sched=[(0.0, (0.15, 0.0, 0.0))], heading_hold=True, push=0.2),  # robustness (round 3)
     "walk_open": dict(seconds=20.0, sched=[(0.0, (0.15, 0.0, 0.0))]),  # no heading hold
     "startstop": dict(seconds=18.0, sched=[(0.0, (0.15, 0.0, 0.0)), (6.0, (0.0, 0.0, 0.0)), (12.0, (0.15, 0.0, 0.0))],
                       heading_hold=True),
@@ -41,8 +45,10 @@ def _worker(args):
     cfg, run_dir = load_run(run)
     env_cfg = cfg["env"]
     t = TESTS[test]
+    over = dict(over)
+    model = over.pop("model", env_cfg["model"])   # --set model='"<name>"': same policy on another model (sensitivity)
     ec = EvalConfig.from_train(env_cfg, **{"dr": dr, "push_vel": t.get("push", 0.0), **over})
-    env = CpuBiped(env_cfg["model"], ec, seed=10000 + seed)
+    env = CpuBiped(model, ec, seed=10000 + seed)
     pol = NumpyPolicy(run_dir / params)
     res, _ = run_episode(env, pol, t["seconds"], t["sched"], record=(test == "startstop"),
                          heading_hold=t.get("heading_hold", False))

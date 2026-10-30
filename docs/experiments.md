@@ -910,3 +910,143 @@ explicitly shape stepping) and not by the servos.
 stalled or crashed); 3 were conclusive failures by design (E33 falls, E35 marches, E38 still steps). The
 health watchdog (`scripts/health_watch.sh`) checked the queue runner, GPU utilization and log freshness
 every 30 s and reported every 30 min. No intervention was needed.
+
+# Round 3 — the as-built hardware (2026-10-29)
+
+Question: with the leg as actually designed and printed (P0 CAD) and the servos actually bought, can the
+two-leg robot stand and walk, and what does it draw from the supply? If not: what to change, from cheap to
+expensive (training/settings → parts → stronger servos)?
+
+## E40 — CAD-derived hardware model (`hardware/leg_p0/cad/sim_model.py` → `models/hw_p0_8dof`)
+- Every link comes from the printable CAD, not the parametric shells: P08 two-leg pelvis (80 mm hips),
+  2 × P0 leg (P03–P07), P30 pad. Mass/COM/inertia per link from the part solids with a print model
+  (perimeter walls solid + infill), servo cases at their real poses, horns, screws and cables. Joint axes,
+  link lengths and the pad sole come from the CAD kinematics. Joint limits = CAD collision-free range
+  (yaw −20…30, roll −14…30, pitch −30…85, knee 0…110). Same joint/geom names as the parametric models, so
+  the MJX env, the CPU evaluation and every script run unchanged; visual meshes are the CAD parts.
+- Servos as built: **STS3215-C001 (1:345)** on yaw/roll/pitch (1.91 N·m, 5.45 rad/s @7.4 V) and
+  **STS3215-C044 (1:191)** on the knee. The C044's listed 27.4 kgf·cm is implausible (more than the 1:345 at
+  the same voltage); the model uses 1.5 N·m (current-scaled), 9.0 rad/s. Specs and sources in `configs/actuators.yaml`.
+- **907 g** (round-2 sim: 861 g), pelvis 25.6 cm high at stance. Statics: stance needs ≤ 23 % of knee stall
+  on one leg (same as the round-2 sim). Passive pose hold with zero action: as good as the round-2 P30 model.
+- **The real difference is the hip servos.** The round-2 pad walker's peak joint speeds were 1.1–1.6× the
+  C001's no-load speed. And the 1:345 gearbox reflects ~5× more rotor inertia (armature ≈ J_rotor·N², an
+  estimate) — effective hip-pitch inertia 60.9 vs 29.2 ×10⁻⁴ kg·m² (2.1×). The direct-drive knee adds 1.3× leg inertia.
+
+## E41 — Standing on the as-built hardware (`hw_stand_ft`, `hw_stand_scratch`, `hw_stand_push`, `hw_stand_push2`)
+- `hw_stand_ft`: round-2 P30 quiet stand (E31) transferred, `stand_quiet2`, 40 M → **99 % alive, 90 % no-lift
+  stance** (round 2 on its own model: 85 %). From scratch (`hw_stand_scratch`, 45 M): 94 % / 94 % — unlike
+  round 2 (1 of 2 seeds), the quiet stance is found from scratch.
+- Pushes (0.3 m/s kicks every 2–4 s) knocked both over in ~4 s. Push fine-tune (`--push 0.3 --dr`, 30 M + 20 M):
+  **`hw_stand_push2` @20 M — 98 % alive, 98 % no-lift, heading creep 11°, and the full 20 s under pushes
+  (73 % survive ≥ 15 s).** Recovery steps drive the hips to their speed limit (overspeed events 777).
+- Knee-spec sensitivity (policy replayed with a 1.06 N·m knee, `hw_p0kl`): stand 95 % / 89 % — performance
+  holds, but knee RMS torque rises to 0.7–1.0 × rated (heat).
+
+## E42 — Walking, warm-started from the round-2 pad walker (`hw_walk_ft`, `_s1`, `hw_walk_cad`)
+- `stride_P30_ft` @20 M transferred, `walk_stride_ft`, DR, lr 1e-4. All fine-tunes peaked at 10–12 M.
+- Seed 0: walks (98 % reach 2 m) but **0.076 m/s at a 0.15 command**, 1.5 cm steps at 5.1 steps/s, start/stop
+  26 %, 168 overspeed events. Seed 1: 0.116 m/s at 7.4 steps/s. Cadence fine-tune (E37 recipe): 0.088.
+- Knee-spec sensitivity: still 94 % reach 2 m with the 1.06 N·m knee; knee RMS torque ≈ 1.0 × rated.
+
+## E43 — Escalation ladder, warm-start recipe (single seeds unless noted)
+
+| change | tier | model | vx @ 0.15 | 2 m | start/stop |
+|---|---|---|---|---|---|
+| as built (5 runs: seeds 0/1, cadence ft, 60/70 mm hips) | — | hw_p0 (+s60/s70) | **0.088 ± 0.018** | 92–100 % | 25–54 % |
+| fully charged 2S (8.4 V: +13 % speed and torque), seeds 0/1 | easy | hw_p0v84 | 0.111 / 0.050 | 100 / 47 % | 50 / 3 % |
+| 40 × 22 mm pad | part | hw_p0pad40 | 0.096 | 100 % | 6 % |
+| hips 60 / 70 mm (P08 reprint) | part | hw_p0s60 / s70 | 0.068 / 0.090 | 92 / 100 % | 26 / 54 % |
+| C046 (1:147) roll/pitch/knee | servo | hw_p0c046 | 0.087 | 90 % | 13 % |
+| **C046 + 60 mm hips**, seeds 0/1/2 | servo + part | hw_p0c046s60 | **0.148 / 0.168 / 0.174** | 100 % | 7 / 18 / 15 % |
+| C044 (1:191) roll/pitch/knee (the knee's servo) | servo | hw_p0c044 | 0.121 | 100 % | 13 % |
+
+- **Seed noise dominates small changes.** The same recipe gives 0.076 or 0.116 m/s on the as-built model,
+  0.111 or 0.050 at 8.4 V. Nothing in the easy or part tiers beats the as-built spread.
+- **Interaction:** with the slow C001 hips, hip spacing doesn't matter (0.068–0.090). With fast C046 hips,
+  80 mm hips cap walking at 0.087 and 60 mm recovers 0.148–0.174 (round-2 sim: 0.157). The wider stance
+  needs a bigger lateral weight shift every step; that only becomes the limit once the hips are fast enough.
+- 60 mm hips are safe for walking: the C046+60 walker's knees touched in 2 of ~20 000 control steps
+  (`scripts/leg_contacts.py`). The CAD collisions at 60 mm (both legs adducting together) are not used by gaits.
+
+## E44 — Walking learned natively on the hardware (`hw_walk_scratch` → `hw_walk_scratch_stride` → `…_stride2`): **best walker**
+- From scratch with the round-1 v5 `walk` recipe (DR, 80 M): 99 % reach 2 m, 0.071 m/s, **1.8 steps/s,
+  start/stop 89 %, 1.1 A** — but it shuffles (1.5 m of sliding vs 0.9 m airborne per 20 s).
+- Then `walk_stride_ft` (25 M) and +20 M: **98 % reach 2 m, 0.178 m/s at a 0.15 command, start/stop 98 %**,
+  5.4 steps/s, airborne 5.3 m vs sliding 1.1 m per 20 s (real steps), RMS torque ≤ 0.83 × rated, 1.47 A mean.
+  It tracks speed (0.04 / 0.13 / 0.23 m/s at 0.05 / 0.10 / 0.20) and stops at zero command (0.55 A standing).
+- **Better than the round-2 sim walker (0.157 m/s, 44 % start/stop) and than any hardware change with the
+  warm-start recipe — on the servos already bought.** The warm start was the bottleneck: the round-2 gait
+  was shaped for faster, lighter legs and fine-tuning only bent it.
+- Push-robust version (`hw_walk_best_push`, +20 M with 0.2 m/s kicks, rule → 10 M): walking under 0.2 m/s kicks
+  every 2–4 s (`walkpush`, 40 s) 87 % alive / 92 % reach 2 m (before: 73 % / 86 %); start/stop 98 %; slower
+  (0.135 m/s at a 0.15 command), 1.40 A.
+- **Reproducibility: not reproduced.** Seed 1 (`hw_walk_scratch_s1`, 60 M; rule → 20 M) learned to step (6 steps/s,
+  0.080 m/s, start/stop 81 %, 2.0 A) instead of shuffling; its stride fine-tune (`…_s1_stride`, from the 60 M final
+  params, rule → 12 M) reached only 0.084 m/s, start/stop 48 %, 1358 overspeed events, knee RMS 1.04 × rated.
+  Not a clean replica (60 vs 80 M, final vs best checkpoint as init), but the honest reading is: **the 0.178 m/s
+  as-built walker exists, and training found it on 1 of 2 seeds.**
+
+## E45 — Power (`scripts/power_audit.py`, details in `hardware/leg_p0/power.md`)
+- Supply current from simulated torque × speed × duty through the servo motor model (no regen, +30 mA idle
+  per servo, gearbox friction not modelled), 7.4 V, 20 episodes.
+- Quiet stand 0.4–0.7 A; native walker 0.7–1.6 A mean rising with speed (1.4 A @ 0.15 m/s, 10 W), p99 4.7 A,
+  20 ms peaks ~9 A; warm-started walkers 1.8–2.2 A regardless of speed (they step ~5/s even when standing).
+  Knees are the hungriest servos (p99 ~3 A, peaks at the 3.8 A stall current).
+- Sizing: ≥ 10 A peak / ≥ 3 A continuous supply, a bulk capacitor at the robot, one power branch per leg.
+
+## Round 3 summary
+**Run index** (23 runs, all completed; CPU gates 100 seeds each, rule = best in-training eval, step 0 excluded)
+
+| # | runs | what | outcome |
+|---|---|---|---|
+| E40 | — | CAD-derived model of the as-built robot | 907 g; statics fine; hips 2× slower and 2.1× more effective inertia than the round-2 sim |
+| E41 | `hw_stand_ft`, `hw_stand_scratch`, `hw_stand_push(2)` | quiet stand, then pushes | **98 % alive, 98 % no-lift, survives 0.3 m/s pushes** |
+| E42 | `hw_walk_ft(_s1)`, `hw_walk_cad` | round-2 walker transferred | walks, slowly: 0.076–0.116 m/s, start/stop ~26 % |
+| E43 | 12 runs | 8.4 V, pad 40, hips 60/70, C046, C044, C046+60 | only C046 + 60 mm hips is a clear gain (0.148–0.174, 3 seeds) |
+| E44 | `hw_walk_scratch` → `_stride` → `_stride2`, `_s1…`, `hw_walk_best_push` | gait learned natively on the hardware | **0.178 m/s, 98 % start/stop on the as-built servos** (1 of 2 seeds) |
+| E45 | — | power audit | walking 1.4–2.2 A mean, ~9 A 20 ms peaks; quiet stand 0.4–0.7 A |
+
+**Answers**
+1. *Is the as-built configuration possible?* **Yes.** It stands quietly (98 % no-lift), survives pushes, and
+   walks. The best as-built walker (`hw_walk_scratch_stride2` @20 M) walks at 0.178 m/s with 98 % start/stop;
+   the push-trained version (`hw_walk_best_push` @10 M) trades speed (0.135) for robustness.
+2. *What limits it?* The C001 hips: half the speed of the sim's C046 and ~5× its reflected rotor inertia
+   (estimate). Joint speeds hit the no-load limit while walking and recovering from pushes. The 1:191 knee is fine.
+3. *What helps, cheapest first?*
+   - **Training (free): learn the gait natively on the hardware model** (from scratch → stride fine-tune) rather
+     than transferring the round-2 gait. Biggest effect seen (0.178 vs ~0.09 m/s), but found on 1 of 2 seeds.
+   - **Settings/parts:** 8.4 V supply, a 40 mm pad, 60–70 mm hips: no effect beyond seed noise with the
+     C001 hips. Narrower hips only pay off together with faster hip servos.
+   - **Servos:** C046 on roll/pitch/knee **plus 60 mm hips** (a P08 reprint): 0.148–0.174 m/s on 3 of 3 seeds
+     with the warm-start recipe — the most *reliable* gain, but it stops poorly (7–18 %). C046 alone (80 mm)
+     gave nothing; C044 hips 0.121 (1 seed) at the highest current.
+4. *Power:* see E45 and `hardware/leg_p0/power.md`: size for ~10 A peaks at 7.4 V, 2 A walking mean;
+   one power branch per leg; knees are the hungriest servos and will run warm.
+
+**Lessons (round 3)**
+1. **Model the hardware you have, from the CAD.** A part-accurate model moved every conclusion: the
+   reflected rotor inertia of a 1:345 gearbox outweighs the leg itself, and the 80 mm hips cost walking
+   speed only once the hips are fast.
+2. **Single seeds can't rank small changes.** The same recipe gave 0.076 or 0.116 m/s; 8.4 V gave 0.111 or
+   0.050. Only effects larger than the seed spread (here ±0.02–0.04 m/s) count; three seeds settled the one
+   real hardware effect.
+3. **A transferred gait carries its old body's assumptions.** Fine-tuning the round-2 walker plateaued around
+   0.09 m/s; a gait grown on the new model reached 0.178. Warm starts save time but cap the result when the
+   dynamics change a lot.
+4. **Shuffle first, then stride, worked once.** The from-scratch walker shuffled (efficient, stops well) and the
+   stride reward turned it into real steps while keeping the stopping — but seed 1 took a different path.
+5. **Power follows the gait, not the speed.** Walkers that step in place at zero command draw 4× a quiet stance;
+   the native walker's current scales with speed. Peaks (~9 A over 20 ms) are the same for every gait.
+
+**Next steps (not run)**
+- More seeds of the native curriculum, initialized from the best (not final) checkpoint, to make the
+  0.178 m/s result reliable.
+- Measure on the real robot: knee stall torque (C044 spec is uncertain), servo current with an inline meter, and
+  joint speeds under load — then re-fit `configs/actuators.yaml` and regenerate the model.
+- If buying servos: C046 on roll/pitch/knee only together with narrower (60–70 mm) hips.
+
+**GPU-time accounting (12:16 – 18:51, one job at a time):** 23 runs, about 6.6 h of the 7 h budget, all
+completed. The queue runner's 20-minute stall watchdog never fired; `scripts/health_watch.sh` reported every
+30 min (re-armed after each heartbeat). Evaluation (`scripts/eval_hw.sh`) ran on the CPU in parallel, so the
+GPU never waited for it. One mid-run reprioritization (17:05) replaced four queued runs after E44's first result.

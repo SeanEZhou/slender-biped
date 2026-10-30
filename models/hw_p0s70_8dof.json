@@ -1,0 +1,334 @@
+{
+ "name": "hw_p0s70_8dof",
+ "joints": [
+  "L_hip_yaw",
+  "L_hip_roll",
+  "L_hip_pitch",
+  "L_knee",
+  "R_hip_yaw",
+  "R_hip_roll",
+  "R_hip_pitch",
+  "R_knee"
+ ],
+ "nominal_q": [
+  0.0,
+  0.0,
+  0.2792526803190927,
+  0.5585053606381855,
+  0.0,
+  0.0,
+  0.2792526803190927,
+  0.5585053606381855
+ ],
+ "stand_base_z": 0.36730913334549387,
+ "cfg": {
+  "variant": "hw_p0s70",
+  "foot": "P30",
+  "ankle": false,
+  "actuator_set": "hw_p0",
+  "contact_set": "full",
+  "hip_spacing": 0.07,
+  "joint_limits_deg": {
+   "hip_yaw": [
+    -20,
+    30
+   ],
+   "hip_roll": [
+    -14,
+    30
+   ],
+   "hip_pitch": [
+    -30,
+    85
+   ],
+   "knee": [
+    0,
+    110
+   ]
+  },
+  "nominal_pose_deg": {
+   "hip_yaw": 0.0,
+   "hip_roll": 0.0,
+   "hip_pitch": 16.0,
+   "knee": 32.0
+  },
+  "foot_P30": {
+   "friction": [
+    1.0,
+    0.004,
+    0.0004
+   ]
+  }
+ },
+ "servos": {
+  "hip_yaw": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.91,
+   "rated_torque": 0.64,
+   "noload_speed": 5.45,
+   "stall_current": 2.5,
+   "noload_current": 0.18,
+   "gear_ratio": 345,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 22,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://openelab.io/products/feetech-sts3215-c001-servo",
+    "https://www.amazon.com/SO-ARM101-Debugging-Reduction-345-Compatible/dp/B0FLW54PJB"
+   ],
+   "model": "STS3215_C001_7V4"
+  },
+  "hip_roll": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.91,
+   "rated_torque": 0.64,
+   "noload_speed": 5.45,
+   "stall_current": 2.5,
+   "noload_current": 0.18,
+   "gear_ratio": 345,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 22,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://openelab.io/products/feetech-sts3215-c001-servo",
+    "https://www.amazon.com/SO-ARM101-Debugging-Reduction-345-Compatible/dp/B0FLW54PJB"
+   ],
+   "model": "STS3215_C001_7V4"
+  },
+  "hip_pitch": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.91,
+   "rated_torque": 0.64,
+   "noload_speed": 5.45,
+   "stall_current": 2.5,
+   "noload_current": 0.18,
+   "gear_ratio": 345,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 22,
+   "spec_confidence": "vendor",
+   "sources": [
+    "https://openelab.io/products/feetech-sts3215-c001-servo",
+    "https://www.amazon.com/SO-ARM101-Debugging-Reduction-345-Compatible/dp/B0FLW54PJB"
+   ],
+   "model": "STS3215_C001_7V4"
+  },
+  "knee": {
+   "vendor": "Feetech",
+   "voltage": 7.4,
+   "stall_torque": 1.5,
+   "rated_torque": 0.5,
+   "noload_speed": 9.0,
+   "stall_current": 3.8,
+   "noload_current": 0.42,
+   "gear_ratio": 191,
+   "rotor_inertia": 2.5e-08,
+   "mass": 0.055,
+   "dims": {
+    "L": 0.0452,
+    "W": 0.0247,
+    "H": 0.035
+   },
+   "shaft_offset": 0.0115,
+   "resolution_counts": 4096,
+   "bus": "Feetech SCS/STS TTL half-duplex, up to 1 Mbps",
+   "price_usd": 22,
+   "spec_confidence": "estimate",
+   "sources": [
+    "https://openelab.com/products/feetech-sts3215-c044-servo",
+    "https://www.roboticscenter.ai/hardware/so-101/specs"
+   ],
+   "model": "STS3215_C044_7V4"
+  }
+ },
+ "mass_log": [
+  [
+   "yaw",
+   "yaw_bracket",
+   23.7
+  ],
+  [
+   "roll",
+   "roll_bracket",
+   24.0
+  ],
+  [
+   "thigh",
+   "thigh",
+   51.84
+  ],
+  [
+   "shin",
+   "shin",
+   37.27
+  ],
+  [
+   "shin",
+   "pad",
+   5.28
+  ],
+  [
+   "pelvis",
+   "servo_hip_yaw",
+   50.0
+  ],
+  [
+   "yaw",
+   "horn_hip_yaw",
+   3.0
+  ],
+  [
+   "yaw",
+   "idler_hip_yaw",
+   2.0
+  ],
+  [
+   "yaw",
+   "hornscrews_hip_yaw",
+   3.6
+  ],
+  [
+   "pelvis",
+   "casescrews_hip_yaw",
+   0.8
+  ],
+  [
+   "yaw",
+   "servo_hip_roll",
+   50.0
+  ],
+  [
+   "roll",
+   "horn_hip_roll",
+   3.0
+  ],
+  [
+   "roll",
+   "idler_hip_roll",
+   2.0
+  ],
+  [
+   "roll",
+   "hornscrews_hip_roll",
+   3.6
+  ],
+  [
+   "yaw",
+   "casescrews_hip_roll",
+   0.8
+  ],
+  [
+   "roll",
+   "servo_hip_pitch",
+   50.0
+  ],
+  [
+   "thigh",
+   "horn_hip_pitch",
+   3.0
+  ],
+  [
+   "thigh",
+   "idler_hip_pitch",
+   2.0
+  ],
+  [
+   "thigh",
+   "hornscrews_hip_pitch",
+   3.6
+  ],
+  [
+   "roll",
+   "casescrews_hip_pitch",
+   0.8
+  ],
+  [
+   "thigh",
+   "servo_knee",
+   50.0
+  ],
+  [
+   "shin",
+   "horn_knee",
+   3.0
+  ],
+  [
+   "shin",
+   "idler_knee",
+   2.0
+  ],
+  [
+   "shin",
+   "hornscrews_knee",
+   3.6
+  ],
+  [
+   "thigh",
+   "casescrews_knee",
+   0.8
+  ],
+  [
+   "pelvis",
+   "pelvis_biped (half)",
+   39.77
+  ],
+  [
+   "pelvis",
+   "pelvis_electronics",
+   20.0
+  ],
+  [
+   "yaw",
+   "cable_yaw",
+   4.0
+  ],
+  [
+   "roll",
+   "cable_roll",
+   4.0
+  ],
+  [
+   "thigh",
+   "cable_thigh",
+   6.0
+  ]
+ ],
+ "total_mass": 0.9069088,
+ "link_mass": {
+  "pelvis": 0.2211382013767355,
+  "yaw": 0.08709707717284695,
+  "roll": 0.08740157068423468,
+  "thigh": 0.11723730085055983,
+  "shin": 0.05114972936724148
+ },
+ "source": "hardware/leg_p0/cad/sim_model.py"
+}

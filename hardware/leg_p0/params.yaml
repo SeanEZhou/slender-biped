@@ -96,6 +96,10 @@ pelvis:
   y_outer: 50.0                # left edge
   y_inner: -72.0               # right edge (overhangs the desk side)
   cup_wall: 3.0
+  biped_hip_spacing: 80.0      # P08 two-leg pelvis, yaw axis to yaw axis. Wider than the sim's 60 mm: at 60 the real
+                               # legs sit 12.8 mm apart (knee servo + horns), can only adduct ~2 deg together and the
+                               # roll brackets collide when both legs yaw while scissoring. 80 clears the full yaw
+                               # range and allows ~5 deg of simultaneous adduction (biped_report.json)
 tongue:
   length: 150.0                # lies on the desk, clamped with two C-clamps
   width: 70.0
