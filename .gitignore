@@ -47,6 +47,10 @@ runs/*/*
 !runs/r4j_d65_30_c4/params_0060M.pkl
 !runs/r4i_ref42_c4/params_0060M.pkl
 !runs/r4n_s60_d65/params_0060M.pkl
+# round 5 (walking on a line): optical-flow walker, leg-odometry walker, and their common starting point
+!runs/r5p_flow/params_0020M.pkl
+!runs/r5q_legs_path/params_0030M.pkl
+!runs/r5n_line_cont/params_0020M.pkl
 *.log
 checkpoints/
 *.zip

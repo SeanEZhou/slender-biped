@@ -77,7 +77,7 @@ class EnvConfig:
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
-        alive=0.5, termination=-20.0))
+        track_vy=0.0, line=0.0, alive=0.5, termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
     track_ang_sigma: float = 0.05      # yaw-rate tracking kernel width (rad/s)^2
@@ -96,6 +96,36 @@ class EnvConfig:
     width_target: float = 0.08         # m, lateral tip separation (body frame) above which the width term penalizes
     tip_condim: int = 3                # tip-floor contact dims; 4 adds the pad's torsional (yaw) friction, which the
                                        # model specifies (0.004) but condim 3 ignores
+    # sideways drift (round 5). Extra policy inputs go in FRONT of the 35-dim base state, so the base layout (and
+    # obs[-5:-2] = cmd) is unchanged and train.py can widen an older checkpoint's first layer with zero rows.
+    obs_vel: str = ""                  # "" | "oracle" (true heading-frame vx, vy) | "odo" (stance-leg odometry estimate)
+    obs_accel: bool = False            # accelerometer specific force (body frame, in g) with per-episode bias
+    obs_hist: int = 0                  # past control steps of [gravity, gyro, q, qd, action] stacked in front
+    odo_noise: float = 0.002           # m, per-step tip-position noise from joint encoders (0.005 rad x ~0.35 m)
+    odo_bias: float = 0.01             # m/s, per-episode velocity bias (calibration) std
+    odo_scale: float = 0.1             # per-episode scale error (leg-length / kinematics) half-range
+    odo_alpha: float = 0.15            # low-pass on the odometry velocity (per 20 ms step)
+    odo_contact: str = "sched"         # which tips count as stance: "sched" (reference timing) | "sensed" (foot switch /
+                                       # load estimate: contact on this and the previous step, odo_flip reading errors)
+    odo_flip: float = 0.03
+    odo_src: str = "legs"              # velocity source for obs_vel="odo" and obs_line: "legs" (stance-leg kinematics) |
+                                       # "flow" (downward optical-flow sensor: ground velocity x scale error + bias + noise;
+                                       # immune to foot slip)
+    flow_noise: float = 0.02           # m/s per-sample noise of the flow sensor
+    acc_noise: float = 0.01            # g, white noise per sample
+    acc_bias: float = 0.03             # g, per-episode bias half-range per axis
+    vy_avg_tau: float = 0.67           # s, low-pass on heading-frame velocity for track_vy (~ one gait cycle)
+    vy_avg_sigma: float = 0.0004       # (m/s)^2 kernel of the cycle-averaged lateral-velocity reward
+    vy_avg_mode: str = "ema"           # "ema" (tau above; leaves ~+-0.035 m/s of the gait sway) | "box" (mean over
+                                       # exactly one gait cycle: the sway cancels)
+    obs_line: bool = False             # policy input: sideways offset from the commanded path, integrated from the
+                                       # odometry (odo_v) since the last command change (drifts with the odometry bias)
+    line_frame: str = "heading"        # integrate the offset estimate with the odometry in the current-heading frame
+                                       # ("heading": a heading error leaks forward speed into it) or projected on the
+                                       # path normal using the IMU yaw ("path")
+    line_sigma: float = 0.01           # m^2 kernel of the "line" reward on the TRUE offset from the commanded path
+    mirror_aug: bool = False           # half the episodes run the mirror image: the policy sees mirrored inputs and its
+                                       # action and the reference are mirrored back (exact left-right symmetry data)
 
 
 def _quat_rot_t(q, v):
@@ -169,14 +199,44 @@ class SlenderBipedEnv(Env):
             self.ref = load(cfg.ref_table, jp)
             self.ref_w = jp.array([cfg.ref_yaw_weight if j.endswith("hip_yaw") else 1.0 for j in self.joints])
             assert abs(self.ref["gait_hz"] - cfg.gait_hz) < 1e-6, (self.ref["gait_hz"], cfg.gait_hz)
+        self._cycle_n = int(round(1.0 / (cfg.gait_hz * cfg.ctrl_dt)))  # control steps per gait cycle
         # obs sizes
-        self._state_size = 3 + 3 + 3 * self.nj + 3 + 2
-        self._priv_size = self._state_size + 3 + 1 + 2 + 6 + 2 + 4 + 3 * self.nj
+        self._frame_size = 3 + 3 + 3 * self.nj                       # history frame: gravity, gyro, q, qd, action
+        self._base_size = self._frame_size + 3 + 2
+        self._extra_size = ({"": 0, "oracle": 2, "odo": 2}[cfg.obs_vel] + 3 * cfg.obs_accel + int(cfg.obs_line)
+                            + cfg.obs_hist * self._frame_size)
+        self._state_size = self._extra_size + self._base_size
+        # critic extras: averaged velocity + odometry estimate (track_vy), true and estimated path offset (line)
+        self._priv_extra = 6 if cfg.rw.get("line", 0.0) else 4 if cfg.rw.get("track_vy", 0.0) else 0
+        self._priv_size = self._priv_extra + self._base_size + 3 + 1 + 2 + 6 + 2 + 4 + 3 * self.nj
 
     # ------------------------------------------------------------------ brax API
     @property
     def observation_size(self):
         return {"state": (self._state_size,), "privileged_state": (self._priv_size,)}
+
+    def _swap(self, x):
+        """Left/right joint swap. The hip-yaw and hip-roll axes of the right leg are mirrored in the model, so the
+        mirror image of a joint vector is the plain swap (no sign changes)."""
+        return jp.concatenate([x[self.right_idx], x[self.left_idx]])
+
+    def extra_obs_stats(self, base_mean, base_std):
+        """Initial normalizer (mean, std) for the extra front inputs when widening an older checkpoint."""
+        c = self.cfg
+        m, s = [], []
+        if c.obs_vel:
+            m += [0.12, 0.0]; s += [0.08, 0.05]
+        if c.obs_accel:
+            m += [0.0, 0.0, 1.0]; s += [0.2, 0.2, 0.2]
+        if c.obs_line:
+            m += [0.0]; s += [0.15]
+        for _ in range(c.obs_hist):
+            m += list(base_mean[:self._frame_size]); s += list(base_std[:self._frame_size])
+        return np.array(m), np.array(s)
+
+    def priv_extra_stats(self):
+        return (np.array([0.12, 0.0, 0.12, 0.0, 0.0, 0.0])[:self._priv_extra],
+                np.array([0.08, 0.05, 0.08, 0.05, 0.15, 0.15])[:self._priv_extra])
 
     @property
     def action_size(self):
@@ -245,30 +305,48 @@ class SlenderBipedEnv(Env):
         servo = self._sample_servo(k4)
         cmd = self._sample_cmd(k5)
         low, centre = self._tip_low(data)
+        rng, kb1, kb2, kb3, kb4 = jax.random.split(rng, 5)
         info = dict(
             rng=rng, servo=servo, cmd=cmd, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
             prev_cmd=qj, q_tgt=qj, phase=jp.array(0.0), air_time=jp.zeros(2),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
+            # round 5: cycle-averaged heading-frame velocity (reward), odometry and accelerometer state, history
+            line_p0=qpos[0:2], line_yc=jp.array(0.0), y_est=jp.array(0.0), y_true=jp.array(0.0),
+            v_avg=jp.zeros(2), v_buf=jp.zeros((self._cycle_n, 2)), odo_v=jp.zeros(2), odo_p=centre - qpos[0:3],
+            odo_bias=c.odo_bias * jax.random.normal(kb1, (2,)),
+            odo_scale=1.0 + jax.random.uniform(kb2, minval=-c.odo_scale, maxval=c.odo_scale),
+            acc_bias=jax.random.uniform(kb3, (3,), minval=-c.acc_bias, maxval=c.acc_bias),
+            acc=jp.array([0.0, 0.0, 1.0]), v_prev=jp.zeros(3), hist=jp.zeros((c.obs_hist, self._frame_size)),
+            mirror=(jax.random.uniform(kb4) < 0.5) & c.mirror_aug,
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
-        obs = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
+        obs, frame = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
+        info["hist"] = jp.tile(frame, (c.obs_hist, 1))
+        obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
 
     def _metric_keys(self):
         return ["r_" + k for k in self.cfg.rw] + ["sat_frac", "overspeed_frac", "peak_tau_frac", "touchdowns",
-                                                   "both_contact", "vx", "height"]
+                                                   "both_contact", "vx", "height", "vy_avg_abs"]
 
     # ------------------------------------------------------------------ step
     def step(self, state: State, action):
         c, s_ = self.cfg, state.info["servo"]
         action = jp.clip(action, -1, 1)
+        mir = state.info["mirror"]
+        act_real = jp.where(mir, self._swap(action), action)
         phase_next = jp.mod(state.info["phase"] + 2 * jp.pi * c.gait_hz * c.ctrl_dt, 2 * jp.pi)
         if self.ref is not None:
             from .ref_gait import lookup
-            q_ref, z_ref, st_ref = lookup(self.ref, jp.maximum(state.info["cmd"][0], 0.0), phase_next, jp)
+            # mirrored episode: the mirror image of the reference half a cycle later (identical for symmetric tables)
+            q_ref, z_ref, st_ref = lookup(self.ref, jp.maximum(state.info["cmd"][0], 0.0),
+                                          phase_next + jp.pi * mir, jp)
+            q_ref = jp.where(mir, self._swap(q_ref), q_ref)
+            z_ref = jp.where(mir, z_ref[::-1], z_ref)
+            st_ref = jp.where(mir, st_ref[::-1], st_ref)
         q_base = q_ref if (self.ref is not None and c.ref_residual) else self.q_nom
-        q_cmd = jp.clip(q_base + c.action_scale * action, self.q_lo, self.q_hi)
+        q_cmd = jp.clip(q_base + c.action_scale * act_real, self.q_lo, self.q_hi)
         ts = self.ts * s_["strength"]
         w0 = self.w0 * s_["speed"]
         kp = c.kp * s_["kp"]
@@ -299,7 +377,8 @@ class SlenderBipedEnv(Env):
                                             jp.arange(self.n_sub))
 
         info = dict(state.info)
-        rng, k_cmd, k_ct, k_push, k_pt, k_obs = jax.random.split(info["rng"], 6)
+        rng, k_cmd, k_ct, k_push, k_pt, k_obs, k_odo, k_acc = jax.random.split(info["rng"], 8)
+        cmd_vy_prev = info["cmd"][1]
         # pushes
         info["push_timer"] = info["push_timer"] - 1
         do_push = (info["push_timer"] <= 0) & (c.push_vel > 0)
@@ -339,6 +418,48 @@ class SlenderBipedEnv(Env):
         head_err = jp.mod(info["heading"] - yaw_cur + jp.pi, 2 * jp.pi) - jp.pi
         # heading-frame velocity for command tracking (yaw-only frame)
         yaw_fwd = _quat_rot_t(quat, jp.array([1.0, 0.0, 0.0]))
+        # ---- round 5: cycle-averaged heading-frame velocity (reward), stance-leg odometry, accelerometer
+        cy, sy = jp.cos(yaw_cur), jp.sin(yaw_cur)
+        to_head = lambda v: jp.array([cy * v[0] + sy * v[1], -sy * v[0] + cy * v[1]])  # noqa: E731
+        if c.vy_avg_mode == "box":
+            info["v_buf"] = jp.concatenate([info["v_buf"][1:], to_head(v_world)[None]], 0)
+            v_avg = jp.mean(info["v_buf"], 0)
+        else:
+            v_avg = info["v_avg"] + (c.ctrl_dt / c.vy_avg_tau) * (to_head(v_world) - info["v_avg"])
+        # tip positions relative to the pelvis as the joint encoders + IMU attitude would give them (noisy FK); the
+        # pelvis moves opposite to the scheduled stance tip(s). On hardware the stance schedule is the same table.
+        p_meas = centre - data.qpos[0:3] + c.odo_noise * jax.random.normal(k_odo, (2, 3))
+        if c.odo_contact == "sensed" or self.ref is None:
+            flip = jax.random.uniform(jax.random.fold_in(k_odo, 1), (2,)) < c.odo_flip
+            st_w = ((contact & info["contact_prev"]) ^ flip).astype(float)
+        else:
+            st_w = st_ref.astype(float)
+        st_w = jp.where(jp.sum(st_w) > 0, st_w, jp.ones(2))
+        v_leg = -jp.sum(st_w[:, None] * (p_meas - info["odo_p"])[:, :2], 0) / (jp.sum(st_w) * c.ctrl_dt)
+        if c.odo_src == "flow":
+            b = info["odo_bias"]
+            v_flow = (info["odo_scale"] * v_world[:2] + jp.array([cy * b[0] - sy * b[1], sy * b[0] + cy * b[1]])
+                      + c.flow_noise * jax.random.normal(jax.random.fold_in(k_odo, 2), (2,)))
+            odo_v = info["odo_v"] + c.odo_alpha * (to_head(v_flow) - info["odo_v"])
+        else:
+            odo_v = info["odo_v"] + c.odo_alpha * (info["odo_scale"] * to_head(v_leg) + info["odo_bias"] - info["odo_v"])
+        f_imu = (_quat_rot_t(quat, (v_world - info["v_prev"]) / c.ctrl_dt + jp.array([0.0, 0.0, 9.81])) / 9.81
+                 + info["acc_bias"] + c.acc_noise * jax.random.normal(k_acc, (3,)))
+        info.update(v_avg=v_avg, odo_v=odo_v, odo_p=p_meas, acc=f_imu, v_prev=v_world)
+        # path: line through line_p0 along the commanded heading, shifted sideways by the integrated vy command
+        hc, hs = jp.cos(info["heading"]), jp.sin(info["heading"])
+        rel = data.qpos[0:2] - info["line_p0"]
+        info["line_yc"] = info["line_yc"] + cmd_vy_prev * c.ctrl_dt
+        y_true = -hs * rel[0] + hc * rel[1] - info["line_yc"]
+        if c.line_frame == "path":
+            b = info["odo_bias"]
+            vw = info["odo_scale"] * v_leg + jp.array([cy * b[0] - sy * b[1], sy * b[0] + cy * b[1]])
+            if c.odo_src == "flow":
+                vw = v_flow
+            info["y_est"] = info["y_est"] + (-hs * vw[0] + hc * vw[1] - cmd_vy_prev) * c.ctrl_dt
+        else:
+            info["y_est"] = info["y_est"] + (odo_v[1] - cmd_vy_prev) * c.ctrl_dt
+        info["y_true"] = y_true
         # stride: forward (heading-direction) travel of a tip between its lift-off and touchdown
         fwd = jp.array([jp.cos(yaw_cur), jp.sin(yaw_cur)])
         step_len = (centre[:, :2] - lift_pos[:, :2]) @ fwd
@@ -379,6 +500,8 @@ class SlenderBipedEnv(Env):
             **ref_terms,
             width=jp.where(moving, jp.maximum(jp.abs(_quat_rot_t(quat, centre[0] - centre[1])[1]) - c.width_target, 0.0) ** 2
                            * 1e4, 0.0),
+            track_vy=jp.exp(-(cmd[1] - v_avg[1]) ** 2 / c.vy_avg_sigma),
+            line=jp.where(moving, jp.exp(-y_true ** 2 / c.line_sigma), 0.0),
             alive=1.0,
             termination=0.0,
         )
@@ -404,6 +527,10 @@ class SlenderBipedEnv(Env):
             err = jp.mod(info["heading"] - yaw_now + jp.pi, 2 * jp.pi) - jp.pi
             info["cmd"] = info["cmd"].at[2].set(jp.clip(c.heading_gain * err, -0.3, 0.3))
         info["cmd_timer"] = jp.where(resample, self._steps(k_ct, c.cmd_resample_s), info["cmd_timer"])
+        info["line_p0"] = jp.where(resample, data.qpos[0:2], info["line_p0"])
+        info["line_yc"] = jp.where(resample, 0.0, info["line_yc"])
+        info["y_est"] = jp.where(resample, 0.0, info["y_est"])
+        info["y_true"] = jp.where(resample, 0.0, info["y_true"])
 
         info.update(rng=rng, last_act=action, prev_cmd=q_cmd, q_tgt=q_tgt, air_time=air,
                     contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1)
@@ -412,8 +539,10 @@ class SlenderBipedEnv(Env):
             metrics["r_" + k] = rw[k] * v
         metrics.update(sat_frac=acc["sat"], overspeed_frac=acc["over"], peak_tau_frac=acc["peak"],
                        touchdowns=jp.sum(touchdown).astype(float), both_contact=jp.all(contact).astype(float),
-                       vx=v_body[0], height=z)
-        obs = self._obs(data, info, action, acc["tau"], k_obs)
+                       vx=v_body[0], height=z, vy_avg_abs=jp.abs(v_avg[1]))
+        obs, frame = self._obs(data, info, action, acc["tau"], k_obs)
+        if c.obs_hist:
+            info["hist"] = jp.concatenate([info["hist"][1:], frame[None]], 0)
         return state.replace(pipeline_state=data, obs=obs, reward=reward, done=done, metrics=metrics, info=info)
 
     # ------------------------------------------------------------------ observations
@@ -431,20 +560,47 @@ class SlenderBipedEnv(Env):
         q_n = q + n * 0.005 * jax.random.normal(k[2], (self.nj,))
         qd_n = qd + n * 0.3 * jax.random.normal(k[3], (self.nj,))
         clock = jp.array([jp.sin(info["phase"]), jp.cos(info["phase"])])
-        state = jp.concatenate([g_n, w_n, q_n, 0.1 * qd_n, action, info["cmd"], clock])
+        mir = info["mirror"]
+        fy = jp.where(mir, jp.array([1.0, -1.0, 1.0]), 1.0)      # polar vectors (gravity, velocity, acceleration)
+        fw = jp.where(mir, jp.array([-1.0, 1.0, -1.0]), 1.0)     # axial vectors (angular velocity)
+        fc = jp.where(mir, jp.array([1.0, -1.0, -1.0]), 1.0)     # command (vx, vy, wz)
+        sw = lambda x: jp.where(mir, self._swap(x), x)  # noqa: E731
+        clock = jp.where(mir, -clock, clock)                      # phase + pi: the other leg's half of the cycle
+        cmd = info["cmd"] * fc
+        g_n, w_n, q_n, qd_n = g_n * fy, w_n * fw, sw(q_n), sw(qd_n)
+        frame = jp.concatenate([g_n, w_n, q_n, 0.1 * qd_n, action])   # action is already in the policy's frame
+        extra = []
+        if c.obs_vel == "oracle":
+            yaw = jp.arctan2(2 * (quat[0] * quat[3] + quat[1] * quat[2]), 1 - 2 * (quat[2] ** 2 + quat[3] ** 2))
+            vw = data.qvel[0:2]
+            extra.append(jp.array([jp.cos(yaw) * vw[0] + jp.sin(yaw) * vw[1], -jp.sin(yaw) * vw[0] + jp.cos(yaw) * vw[1]])
+                         * fy[:2])
+        elif c.obs_vel == "odo":
+            extra.append(info["odo_v"] * fy[:2])
+        if c.obs_accel:
+            extra.append(info["acc"] * fy)
+        if c.obs_line:
+            extra.append(jp.clip(info["y_est"], -0.5, 0.5)[None] * fy[1])
+        if c.obs_hist:
+            extra.append(info["hist"].ravel())
+        state = jp.concatenate(extra + [frame, cmd, clock])
         low, centre = self._tip_low(data)
         v_body = _quat_rot_t(quat, data.qvel[0:3])
-        tip_rel = jax.vmap(lambda p: _quat_rot_t(quat, p - data.qpos[0:3]))(centre).ravel()
+        tip_rel = jax.vmap(lambda p: _quat_rot_t(quat, p - data.qpos[0:3]))(centre) * fy
+        tip_rel = jp.where(mir, tip_rel[::-1], tip_rel).ravel()
+        con = (low < 0.0015).astype(float)
         s_ = info["servo"]
         priv = jp.concatenate([
-            jp.concatenate([g_body, w_body, q, 0.1 * qd, action, info["cmd"], clock]),
-            v_body, data.qpos[2:3], (low < 0.0015).astype(float), tip_rel,
+            (jp.concatenate([info["v_avg"], info["odo_v"], jp.clip(jp.array([info["y_true"], info["y_est"]]), -0.5, 0.5)])
+             * jp.concatenate([fy[:2], fy[:2], fy[1:2], fy[1:2]]))[:self._priv_extra],
+            jp.concatenate([g_body * fy, w_body * fw, sw(q), 0.1 * sw(qd), action, cmd, clock]),
+            v_body * fy, data.qpos[2:3], jp.where(mir, con[::-1], con), tip_rel,
             jp.array([self.sys.pair_friction[self.tip_pairs[0], 0], jp.sum(self.sys.body_mass)]),
             jp.array([jp.mean(s_["strength"]), jp.mean(s_["speed"]), s_["latency"] * c.sim_dt * 100,
                       jp.mean(s_["deadzone"]) * 100]),
-            tau / self.ts, s_["kp"], s_["deadzone"] * 100,
+            sw(tau / self.ts), sw(s_["kp"]), sw(s_["deadzone"]) * 100,
         ])
-        return {"state": state, "privileged_state": priv}
+        return {"state": state, "privileged_state": priv}, frame
 
 
 TIP_PAIRS = jp.array([0, 1])  # set by SlenderBipedEnv from pair names (tip-floor pairs)

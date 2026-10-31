@@ -80,6 +80,21 @@ class EvalConfig:
     ref_table: str = ""                # reference gait (round 4): residual action base, see mjx_env
     ref_residual: bool = False
     tip_condim: int = 3                # 4 = pad torsional friction on (see mjx_env)
+    obs_vel: str = ""                  # round-5 extra inputs and estimator noise, see mjx_env.EnvConfig
+    obs_accel: bool = False
+    obs_hist: int = 0
+    odo_noise: float = 0.002
+    odo_bias: float = 0.01
+    odo_scale: float = 0.1
+    odo_alpha: float = 0.15
+    odo_contact: str = "sched"
+    line_frame: str = "heading"        # see mjx_env.EnvConfig.line_frame
+    obs_line: bool = False             # integrated odometry offset from the path (start line, shifted by the vy command)
+    odo_flip: float = 0.03
+    odo_src: str = "legs"              # see mjx_env.EnvConfig.odo_src
+    flow_noise: float = 0.02
+    acc_noise: float = 0.01
+    acc_bias: float = 0.03
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
@@ -138,6 +153,8 @@ class CpuBiped:
         self.knee_bid = [mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, f"{s}_shin") for s in "LR"]
         self.knee_r = float(m.geom_size[g("L_knee_col")][0])
         self.rng = np.random.default_rng(seed)
+        # round-5 estimators draw from their own stream, so older evaluations keep their exact random sequence
+        self.est_rng = np.random.default_rng([seed, 5])
         self.kid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_KEY, "stand")
         self.ref = None
         if cfg.ref_table:
@@ -203,6 +220,20 @@ class CpuBiped:
         self.contact_prev = low < 0.0015
         self.push_timer = self._steps(c.push_interval_s)
         self.tau = np.zeros(self.nj)
+        self.y_est = 0.0
+        self.path_heading = yaw_of(d.qpos[3:7])
+        self.odo_vw = np.zeros(2)
+        self.odo_v, self.odo_p, self.odo_con_prev = np.zeros(2), centre - d.qpos[0:3], low < 0.0015
+        er = self.est_rng
+        self.odo_bias = c.odo_bias * er.normal(size=2)
+        self.odo_scale_k = 1.0 + er.uniform(-c.odo_scale, c.odo_scale)
+        self.acc_bias_v = er.uniform(-c.acc_bias, c.acc_bias, 3)
+        self.acc, self.v_prev = np.array([0.0, 0.0, 1.0]), np.zeros(3)
+        self.hist = np.zeros((c.obs_hist, 3 + 3 + 3 * self.nj))
+        if not c.obs_hist:
+            return self.obs()
+        self.obs()
+        self.hist[:] = self._frame
         return self.obs()
 
     def _steps(self, lohi):
@@ -222,7 +253,53 @@ class CpuBiped:
         q = q + n * 0.005 * r.normal(size=self.nj)
         qd = qd + n * 0.3 * r.normal(size=self.nj)
         clock = np.array([np.sin(self.phase), np.cos(self.phase)])
-        return np.concatenate([g, w, q, 0.1 * qd, self.last_act, self.cmd, clock])
+        self._frame = np.concatenate([g, w, q, 0.1 * qd, self.last_act])
+        extra = []
+        if c.obs_vel == "oracle":
+            yaw = yaw_of(quat)
+            vw = d.qvel[0:2]
+            extra.append([np.cos(yaw) * vw[0] + np.sin(yaw) * vw[1], -np.sin(yaw) * vw[0] + np.cos(yaw) * vw[1]])
+        elif c.obs_vel == "odo":
+            extra.append(self.odo_v)
+        if c.obs_accel:
+            extra.append(self.acc)
+        if c.obs_line:
+            extra.append([np.clip(self.y_est, -0.5, 0.5)])
+        if c.obs_hist:
+            extra.append(self.hist.ravel())
+        return np.concatenate([np.asarray(e, float) for e in extra] + [self._frame, self.cmd, clock])
+
+    def _update_estimators(self, phase_next, cmd_vx):
+        """Stance-leg odometry and accelerometer, same equations and noise as mjx_env.step."""
+        c, d, r = self.cfg, self.d, self.est_rng
+        quat, v_world = d.qpos[3:7], d.qvel[0:3].copy()
+        yaw = yaw_of(quat)
+        cy, sy = np.cos(yaw), np.sin(yaw)
+        to_head = lambda v: np.array([cy * v[0] + sy * v[1], -sy * v[0] + cy * v[1]])  # noqa: E731
+        low, centre = self.tip_low()
+        p_meas = centre - d.qpos[0:3] + c.odo_noise * r.normal(size=(2, 3))
+        con = low < 0.0015
+        if c.odo_contact == "sensed" or self.ref is None:
+            st = ((con & self.odo_con_prev) ^ (r.uniform(size=2) < c.odo_flip)).astype(float)
+        else:
+            from .ref_gait import lookup
+            st = lookup(self.ref, max(cmd_vx, 0.0), phase_next)[2].astype(float)
+        self.odo_con_prev = con
+        if st.sum() == 0:
+            st = np.ones(2)
+        v_leg = -(st[:, None] * (p_meas - self.odo_p)[:, :2]).sum(0) / (st.sum() * c.ctrl_dt)
+        b = self.odo_bias
+        if c.odo_src == "flow":
+            self.odo_vw = (self.odo_scale_k * v_world[:2] + np.array([cy * b[0] - sy * b[1], sy * b[0] + cy * b[1]])
+                           + c.flow_noise * r.normal(size=2))
+            self.odo_v = self.odo_v + c.odo_alpha * (to_head(self.odo_vw) - self.odo_v)
+        else:
+            self.odo_v = self.odo_v + c.odo_alpha * (self.odo_scale_k * to_head(v_leg) + self.odo_bias - self.odo_v)
+            self.odo_vw = self.odo_scale_k * v_leg + np.array([cy * b[0] - sy * b[1], sy * b[0] + cy * b[1]])
+        self.odo_p = p_meas
+        self.acc = (quat_rot_t(quat, (v_world - self.v_prev) / c.ctrl_dt + np.array([0.0, 0.0, 9.81])) / 9.81
+                    + self.acc_bias_v + c.acc_noise * r.normal(size=3))
+        self.v_prev = v_world
 
     def step(self, action):
         c, m, d, s_ = self.cfg, self.m, self.d, self.servo
@@ -261,7 +338,17 @@ class CpuBiped:
             if self.push_timer <= 0:
                 d.qvel[0:2] += c.push_vel * self.rng.normal(size=2)
                 self.push_timer = self._steps(c.push_interval_s)
-        return self.obs(), {k: np.array(v) for k, v in log.items()}
+        vy_cmd = self.cmd[1]
+        self._update_estimators(self.phase, self.cmd[0])
+        if c.line_frame == "path":
+            h = self.path_heading
+            self.y_est += (-np.sin(h) * self.odo_vw[0] + np.cos(h) * self.odo_vw[1] - vy_cmd) * c.ctrl_dt
+        else:
+            self.y_est += (self.odo_v[1] - vy_cmd) * c.ctrl_dt
+        obs = self.obs()
+        if c.obs_hist:
+            self.hist = np.concatenate([self.hist[1:], self._frame[None]], 0)
+        return obs, {k: np.array(v) for k, v in log.items()}
 
     def fallen(self):
         d = self.d

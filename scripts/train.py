@@ -167,6 +167,30 @@ TASKS = {
                               ref_contact=0.5, width=-0.05, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0,
                               alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
                               action_rate=-0.05)),
+    # walk_lat (round 5, fine-tune of r4k_cat2_ft): the catwalk walker crabs ~20 deg off its heading and drifts 1-2 m
+    # sideways in 20 s, ignoring sideways commands (trained only on +-0.03 m/s). Wider sideways commands and a reward on
+    # the gait-cycle-averaged lateral velocity (the per-step term is dominated by the natural sway). Sensor variants
+    # (obs_vel / obs_accel / obs_hist) are set per run with --set.
+    "walk_lat": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.1, 0.1), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                     phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                     gait_hz=1.5, ref_table="d65_cat", ref_yaw_weight=0.0, width_target=0.06,
+                     rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                             ref_contact=0.5, width=-0.05, track_vy=2.0, slip=-10.0, ang_vel_xy=-0.02, pose=0.0,
+                             termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                             saturation=-1.0, action_rate=-0.05)),
+    # walk_line (round 5): velocity feedback alone (even the true velocity) left 60 % of walks > 0.2 m off the line at
+    # 2 m, and a wide lateral kernel let the gait shrink back to 2 cm shuffles. Position feedback: the policy sees its
+    # odometry-integrated offset from the commanded path (obs_line) and is rewarded on the true offset (line); the
+    # sideways speed term averages over exactly one gait cycle (box); a stride term protects the step length.
+    "walk_line": dict(cmd_vx=(0.05, 0.25), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.5, ref_table="d65_cat", ref_yaw_weight=0.0, width_target=0.06,
+                      vy_avg_mode="box", vy_avg_sigma=0.0025, obs_vel="odo", odo_contact="sensed", obs_line=True,
+                      cmd_resample_s=(4.0, 8.0),
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.0,
+                              ref_contact=0.5, width=-0.05, track_vy=2.0, line=3.0, stride=1.0, slip=-10.0,
+                              ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0,
+                              overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
     "walk_v1": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
                  phase_when_still=True,
                  rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,
@@ -202,6 +226,32 @@ TASKS = {
                          ang_vel_xy=-0.02, pose=-0.2, termination=-5.0, alive=1.0, torque=-0.2,
                          over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
 }
+
+
+def widen(restore, env):
+    """Insert zero-weight input rows in FRONT of an older checkpoint's first layers for the round-5 extra inputs,
+    with the normalizer for the new inputs seeded from env defaults (the running count is huge, so they would
+    otherwise stay at mean 0 / std 1)."""
+    norm, pol, val = restore
+    mean, std, sv = dict(norm.mean), dict(norm.std), dict(norm.summed_variance)
+    count = float(np.asarray(sv["state"])[0] / np.asarray(std["state"])[0] ** 2)
+    for key, net, size, stats in (("state", pol, env.observation_size["state"][0],
+                                   lambda: env.extra_obs_stats(np.asarray(mean["state"]), np.asarray(std["state"]))),
+                                  ("privileged_state", val, env.observation_size["privileged_state"][0],
+                                   env.priv_extra_stats)):
+        k = net["params"]["hidden_0"]["kernel"]
+        n = size - k.shape[0]
+        if n == 0:
+            continue
+        m0, s0 = stats()
+        assert len(m0) == n, (key, n, len(m0))
+        net["params"]["hidden_0"]["kernel"] = np.concatenate([np.zeros((n, k.shape[1]), k.dtype), np.asarray(k)], 0)
+        dt = np.asarray(mean[key]).dtype
+        mean[key] = np.concatenate([m0.astype(dt), np.asarray(mean[key])])
+        std[key] = np.concatenate([s0.astype(dt), np.asarray(std[key])])
+        sv[key] = np.concatenate([(count * s0 ** 2).astype(dt), np.asarray(sv[key])])
+        print(f"[widen] {key}: +{n} inputs", flush=True)
+    return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
 def build_cfg(a) -> EnvConfig:
@@ -274,7 +324,7 @@ def main():
     restore = None
     if a.init:
         with open(a.init, "rb") as f:
-            restore = pickle.load(f)
+            restore = widen(pickle.load(f), env)
 
     net = functools.partial(ppo_networks.make_ppo_networks, policy_hidden_layer_sizes=(128, 128, 128, 128),
                             value_hidden_layer_sizes=(256, 256, 256, 256, 256),

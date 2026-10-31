@@ -23,6 +23,7 @@ PWM duty into supply current using the same DC-motor model the simulation uses.
 | walking, shuffle gait (`hw_walk_scratch`) | 1.1 A | 3.5 A | 8.8 A | 9.5 A | 8 W |
 | **walking with real steps, round 4** (`r4j_d65_c4_cont`, 0.15 m/s command) | 2.15 A | 6.5 A | 9.0 A | 13 A | 16 W |
 | … catwalk style (`r4k_cat2_ft`) / 60 mm hips (`r4n_s60_d65`) | 2.2 / 2.0 A | 6.8 / 6.5 A | 14.6† / 9.0 A | 15.6 / 12.7 A | 16 / 15 W |
+| **walking on a line, round 5**, optical flow (`r5p_flow`) / leg odometry (`r5q_legs_path`) | **1.8** / 2.2 A | 6.3 / 6.9 A | 9.1 / 9.5 A | 11.4 / 12.1 A | 13 / 16 W |
 | all 8 servos stalled at once (bound, never seen) | | | 22.6 A | | 167 W |
 
 \* The quiet-stand peaks happen while the robot settles in the first second after the start pose.
@@ -33,6 +34,10 @@ mean (16 W) instead of ~1.5 A, because every step lifts the leg ~2 cm and swings
 hip-pitch servos run at their rated torque (RMS ≈ 1.0 × rated, vs 0.83 for the skitter) and this did not come down
 with stronger torque penalties or 60 mm hips: **expect the hips to get warm in long walking sessions**; watch the
 servo temperature register and walk in bouts.
+
+**Round 5 (walking on a line, E57–E63):** the optical-flow walker draws less, 1.8 A mean (13 W), and its busiest servo
+runs at 0.86 × rated RMS torque instead of ~1.0, with 20 ms peaks of ~9 A. The leg-odometry walker is unchanged from
+round 4. A downward optical-flow module adds well under 0.1 A.
 
 How much walking costs depends on the gait more than on the speed. The best walker (learned natively on
 the hardware model) scales with speed: 0.7 A at 0.05 m/s up to 1.6 A at 0.2 m/s, and it stops and stands at

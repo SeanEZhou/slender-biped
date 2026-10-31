@@ -4,7 +4,7 @@
 
 The walker (reference-residual actions) hands over to the stander (absolute actions) `delay` s after the command
 drops to zero (with --double-support: at the next double-support window of the walker's gait clock), and takes back control as soon as it rises. Both share the observation layout; the environment
-uses the walker's config (e.g. tip_condim). Schedule: 0.15 m/s for 6 s, zero for 6 s, 0.15 m/s for 6 s.
+uses the walker's config (e.g. tip_condim); round-5 extra walker inputs sit in front of the base layout. Schedule: 0.15 m/s for 6 s, zero for 6 s, 0.15 m/s for 6 s.
 Success = no fall, >= 0.3 m covered in each walking phase and no lift-off in the last 3 s
 of the stop phase.
 """
@@ -56,7 +56,8 @@ for s in range(a.n):
             else:
                 standing = True
         env.cfg.ref_residual = not standing
-        obs, _ = env.step((stander if standing else walker)(obs))
+        # a round-5 walker has extra inputs in front of the shared base layout; the stander reads only the base
+        obs, _ = env.step(stander(obs[-len(stander.mean):]) if standing else walker(obs))
         for t0 in (0.0, 6.0, 12.0, 18.0 - dt):
             if abs(t - t0) < dt / 2:
                 xs[t0] = env.d.qpos[0:2].copy()

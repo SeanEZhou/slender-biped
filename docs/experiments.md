@@ -1231,3 +1231,191 @@ Gates (walk40, startstop, …) are the usual 100-seed CPU evaluations.
 **GPU-time accounting (22:27 – 07:58, one job at a time):** 28 runs, about 9.5 h of the 11 h budget. The queue runner's
 stall watchdog never fired; `scripts/health_watch.sh` reported every 30 min. Six runs were stopped by hand as soon as
 their question was answered (marching, no learning, known heading flaw). Evaluation ran on the CPU in parallel.
+
+---
+
+# Round 5 — walking straight, not sideways (2026-10-30, `hw_p0_8dof`)
+
+**Goal.** The round-4 walkers held their *heading* but not their *path*: with the heading loop on, the catwalk walker
+`r4k_cat2_ft` walks several degrees off the way it faces (a crab) and ends up to 2 m to the side after 20 s. Round 4
+called it "straight" because none of its metrics measured sideways travel (correction to the round-4 summary). Round 5:
+find out why, and fix it with hardware-plausible sensing. 8 GPU-hours, same queue and watchdog.
+
+**How drift is judged.** `scripts/drift_eval.py`: 0.15 m/s command, heading held by the outer loop, 20 s; the
+sideways offset when the robot first passes 2 m forward, and **on the line** = passes 2 m within 0.2 m of the start
+line. Every number below is from 50 seeds (30000–30049) unless marked; 20-seed screens used the first 20 of them.
+`scripts/drift_mjx.py` repeats the test in the MJX training simulator. Each policy is evaluated with its own sensor
+configuration; `--set` overrides sensor errors for the diagnostics, and `--true-offset` feeds the true path offset.
+
+*Reproducibility note.* The first screens ran with the new estimators drawing from the evaluator's main random stream,
+which also shifted older evaluations. The estimators now have their own stream (older JSONs reproduce exactly) and every
+round-5 evaluation was re-run; the numbers here are the re-run. Individual numbers moved by up to ~20 points between the
+two noise realizations (e.g. the true-offset diagnostic, 84 → 64 %), so differences under ~15 points on 50 seeds are
+not meaningful.
+
+| baseline | on the line @2 m | offset @2 m (median) | crab (median) | falls in 20 s |
+|---|---|---|---|---|
+| `r4k_cat2_ft` (catwalk) | 22 % | 0.46 m | 8.5° | 4 % |
+| `r4k_cat2_s1` (catwalk, seed 1) | 24 % | 0.30 m | 12.9° | 8 % |
+| `r4j_d65_30_c4` (normal width) | 18 % | 0.32 m | 9.0° | 2 % (64 % reach 2 m) |
+
+## E57 — Diagnosis
+- **It ignores sideways commands.** Trained on ±0.03 m/s only; at ±0.03 the 20 s sideways travel was −0.53 / −0.43 m
+  (5 seeds), the same as at 0. The drift side depends on the seed, not the command.
+- **It cannot sense it.** The policy sees gravity direction, gyro, joints, command and clock; no velocity. The reward
+  already penalized sideways speed (`track_lin` covers both axes), so the drift persisted despite the reward.
+- **Not a simulator gap** (the MJX training simulator shows the same drift), **not leg yaw** (mean hip-yaw offsets
+  within ±1.1°, unrelated to crab angles of −34…+22°). **Randomization makes it worse but is not the cause:** the
+  nominal model drifts too (20 seeds: 40 % on the line without randomization vs 10 % with it). The gait's sideways
+  balance by foot placement is loose, and nothing closed the loop.
+
+## E58 — Sensor variants, fine-tunes of `r4k_cat2_ft` (task `walk_lat`, 30 M each)
+New inputs go in front of the 35-dim base observation and the first layer is widened with zero rows (`train.py
+widen`), so every variant starts as the round-4 walker. Sideways commands ±0.1 m/s; reward on the lateral velocity
+low-passed over ~one gait cycle (`track_vy`). Gait metrics: `gait_quality.py`, 3 seeds.
+
+| run @30 M | extra input | on the line | offset @2 m | crab | steps / air |
+|---|---|---|---|---|---|
+| `r5a_lat` | none (reward + command range only) | 30 % | 0.41 m | 12° | 6.6 cm / 140 ms |
+| `r5b_oracle` | true velocity | 42 % | 0.22 m | 7° | 7.6 cm / 160 ms |
+| `r5c_odo` | stance-leg odometry, sensed contact | 26 % | 0.42 m | 10° | 7.1 cm / 160 ms |
+| `r5d_odo_sched` | stance-leg odometry, scheduled contact | 30 % | 0.45 m | 12° | 4.8 cm / 160 ms |
+| `r5e_acchist` | accelerometer + 0.2 s history | 30 % | 0.30 m | 8° | 3.7 cm / 100 ms: shrinking |
+
+- **Odometry** (`odo`): the pelvis moves opposite to the stance tip, measured through noisy forward kinematics
+  (2 mm/step), with per-episode bias (1 cm/s) and scale error (±10 %). Which tip counts as "stance" matters: with the
+  modelled errors off, the gait schedule's stance foot biases the sideways estimate by +1…+3 cm/s (it is often still
+  landing or sliding); contact sensed on two consecutive steps (a foot switch or load estimate, 3 % misreads) gives
+  ±1 cm/s.
+- Only the true velocity helped, and only partly.
+
+## E59 — The reward could not see the drift
+- `vy_avg_sigma = 0.0004` (2 cm/s): past ~5 cm/s of error the reward is flat, so there is no gradient toward larger
+  corrections; the oracle walker followed ±0.08 m/s commands for 20 s with +0.65 / −0.18 m (ideal ±1.6 m).
+- The exponential average (τ 0.67 s) leaves ~±3.5 cm/s of the gait's own sway (±0.22 m/s at 1.5 Hz), as large as
+  the drift. A **boxcar over exactly one gait cycle** (`vy_avg_mode="box"`) cancels it.
+- Wave 2 (box, 5 cm/s kernel, weight 3): oracle `r5g_oracle_w` 40 % @20 M, and by 30 M a 3 cm, 100 ms shuffle (30 %);
+  odometry `r5h_odo_w` 20 %; plus mirror augmentation `r5i_odo_w_mir` 22 %. **Velocity feedback alone, even perfect,
+  plateaus at ~20–42 %.** Like a proportional-only controller, it leaves a small steady error that integrates into
+  drift.
+
+## E60 — Position feedback (task `walk_line`)
+- The policy also sees its **offset from the commanded path**, integrated from the odometry since the last command
+  change (`obs_line`), and is rewarded on the **true** offset (`line`; the critic sees both). Plus the box-averaged
+  `track_vy` and a `stride` term against shuffling.
+- `r5k_line` (50 M from `r4k_cat2_ft`): **22 → 44 % on the line, 0.46 → 0.25 m, crab 3.7°, 0 falls**, gait kept
+  (6.5 cm, 150 ms air, 70 mm width). It uses the input, one-sidedly: a fake +0.3 m offset made it move −0.42 m relative
+  to the line; −0.3 m only +0.10 m (no offset: −0.15 m; 10 s, 10 seeds).
+- Mirror augmentation (`r5j_line_mir`, then `r5l_line_mir_ft` with stride 3): 26 % with a 3.6 cm shuffle, then 44 %
+  with the gait restored. **No benefit from mirroring** in any run; dropped.
+- Normal width (`r5m_line_d65`, from `r4j_d65_30_c4`): 10 %, only 22 % reach 2 m at 0.07 m/s. It learned to walk slowly.
+- Longer (`r5n_line_cont`, +50 M from `r5k_line`): **56 %** @20 M (7.3 cm, 160 ms, 74 mm) and @50 M (steps shrinking to
+  5.3 cm, 130 ms). A wider line kernel (`r5o_line_wide`, σ 0.2 m): 65 / 60 % on the 20-seed screen, **54 / 46 % on 50**.
+- **Seed 1** (`r5k_line_s1` from `r4k_cat2_s1`): 24 → 32 % @30 M (38 % @50 M), 0.30 → 0.27 m, falls 8 → 0 %, crab
+  12.9 → 5.9°, gait 7.2 cm / 160 ms / 79 mm. **Smaller gain than seed 0.**
+
+## E61 — What limits it
+- Same policy (`r5n_line_cont` @20 M): odometry 56 %; **true offset as input 64 %, 0.15 m**. Removing the modelled
+  odometry errors (bias + scale 62 %, contact misreads 58 %, encoder noise 48 %, all 58 %) moves it within noise. For
+  this policy the estimate costs ~5–10 points; the controller is the larger limit.
+- Pad lowest point instead of its centre for odometry: worse (0.13 vs 0.08 m RMS error at 2 m, 12 seeds). Traces show
+  the estimate tracking within 1–3 cm and then jumping by up to ~0.1 m when a stance pad slides while still counted as
+  planted; leg odometry cannot see foot slip.
+- The offset was integrated in the *current heading* frame, so heading error leaks forward speed into it. Integrating
+  on the path normal with the IMU yaw (`line_frame="path"`): zero-shot 60 % (no change), but **trained with it**
+  (`r5q_legs_path`, 30 M from `r5n_line_cont` @20 M): **78 % on the line, 0.12 m, crab 3.8°**, gait 5.8 cm / 170 ms
+  / 63 mm, 0.15 m/s (@10 M 82 %, but 4.1 cm / 100 ms). Best result **without extra hardware** (seed 0; seed 1 below).
+
+## E62 — A downward optical-flow sensor (`odo_src="flow"`)
+- Modelled as ground velocity × (1 ± 5 %) + 0.5 cm/s bias + 2 cm/s noise per sample (a PMW3901-class module looking at
+  the floor; immune to foot slip; needs a textured floor). Same inputs as the leg odometry, so the walker fine-tunes
+  directly.
+- Zero-shot on `r5n_line_cont` @20 M: 56 → 72 %. Fine-tuned (`r5p_flow`, 30 M from it):
+  **@20 M: 100 % on the line, 4 cm median offset at 2 m, crab 1.9°, 0 falls**; gait 5.3 cm steps, 140 ms air, 18 mm
+  clearance, 8 % sliding, **61 mm** width, 0.16 m/s. @10 M 74 %; @30 M 82 % but slowing (3.6 cm, 100 ms).
+- With a sensor twice as bad (1 cm/s bias, ±10 % scale, 4 cm/s noise): 94 %, 0.07 m.
+- It **follows sideways commands**: ±0.05 m/s for 20 s → +0.99 / −0.97 m (ideal ±1.0; 20 seeds).
+- Gates (100 seeds): walk40 99 % reach 2 m, 0.18 m/s, 138 overspeed events, busiest servo 0.86 × rated RMS (round 4:
+  ~1.0); start/stop on its own 26 % (round-4 catwalk: 15 %); **walk → stop → walk with the stander hand-over 98 %,
+  0 falls** (round 4: 85 %, 5 %); under 0.2 m/s kicks 71 % reach 2 m (round 4: 72 %). Power (20 episodes): 1.82 A
+  mean (round 4: 2.21 A), 20 ms peak 9.1 A.
+- The leg-odometry walker `r5q_legs_path` @30 M for comparison: walk40 100 %, 0.18 m/s, 1 875 overspeed events, hips up
+  to 1.0 × rated; start/stop alone 1 %; hand-over 95 %, 1 % falls; 2.19 A mean, 20 ms peak 9.5 A.
+
+## E63 — Reproducibility and a normal-width straight walker
+- **Seed 1, optical flow** (`r5p_flow_s1`, 30 M from `r5k_line_s1` @30 M): @20 M 58 % on the line, 0.09 m, crab 2.4°,
+  but **slow**: 0.10 m/s on 2.9 cm steps, so only 68 % reach 2 m in 20 s (@10 M: 52 %, 3.9 cm, 140 ms). Weighting speed
+  and stride more (`r5s_flow_s1_speed`, track_lin 5, stride 2): 54 % @10 M, then slower still. **Seed 1 gets straighter
+  with flow (24 → 58 %, offset 0.30 → 0.09 m) but loses speed and step length.**
+- **Seed 1, leg odometry + path frame** (`r5q_legs_path_s1`): 40–42 %, 0.21–0.24 m, versus 32 % at its starting point.
+  The seed-0 path-frame result (78 %) **did not reproduce**; leg odometry gives 40–78 % across the two seeds (round 4:
+  18–24 %).
+- **Normal width with flow** (`r5r_flow_d65`, from `r4j_d65_30_c4`): 30 %, 0.18 m, but slow (48 % reach 2 m, 0.10 m/s)
+  and shuffling (3.9 steps/s, 37 % double support, 19 % sliding). The catwalk remains the best gait.
+
+## E64 — Heading from a gyro only (`scripts/gyro_heading_eval.py`)
+Every other round-5 number gives the heading hold and the path-frame offset estimate the **true** yaw. A 6-axis IMU
+such as the MPU6050 has no magnetometer, so on hardware yaw is the integrated gyro and drifts. Model: yaw_est =
+yaw_true + bias·t + 3 % scale error × the turned angle, bias sign alternating across seeds; the yaw error steers the
+heading hold and rotates the odometry / flow velocity before it is integrated into the path offset. 60 s walks
+(~10.8 m), 30 seeds, CPU only; no falls in any case. Output: `results/drift/gyro_heading.txt`.
+
+| heading source | flow: on line @2 m | flow: offset @end, median / p90 | legs: on line @2 m | legs: offset @end |
+|---|---|---|---|---|
+| true yaw (as in E57–E63) | 100 % | 0.14 / 0.31 m | 80 % | 0.39 / 1.10 m |
+| gyro, 0.02 °/s bias | 97 % | 0.15 / 0.36 m | 80 % | 0.40 / 1.16 m |
+| gyro, 0.05 °/s bias | 100 % | 0.27 / 0.43 m | 70 % | 0.49 / 1.01 m |
+| gyro, 0.2 °/s bias (poorly calibrated) | 100 % | 1.06 / 1.28 m | 73 % | 1.03 / 1.48 m |
+| no heading hold (yaw-rate command 0) | 60 % | 0.20 / 0.36 m | 40 % | 0.53 / 1.21 m |
+
+- **Over 2 m the gyro barely matters**; over a minute its bias sets the drift. The robot faces along the drifted
+  heading and its offset estimate is rotated by the same error, so the drift is invisible to it: offset ≈ v·b·t²/2
+  (0.2 °/s → 11° and ~1 m after 60 s). At 0.02 °/s it matches the true yaw.
+- **Without heading hold** the walkers turn 17–23° per minute. The flow walker still stays near the line by crabbing
+  while facing away from it; the leg-odometry walker drifts off.
+- 0.02–0.05 °/s is reachable with an MPU6050 if the gyro bias is re-estimated whenever the robot stands still (startup
+  and every stop); the residual drift is mostly temperature, from the servos warming the board.
+- Not modelled: vibration, gyro saturation at foot strike, and removing the pelvis rotation from the flow reading.
+
+## Round 5 summary
+**Run index** (21 runs, all completed; fine-tunes of 20–50 M steps; drift on 50 seeds; gates 100)
+
+| # | runs | what | outcome |
+|---|---|---|---|
+| E57 | — | diagnosis | crab, ignores sideways commands, no velocity input; not a sim gap or leg yaw; randomization worsens it |
+| E58 | `r5a`–`r5e` | velocity inputs (none, oracle, odometry ×2, accel + history) | only the oracle helps, partly (42 %) |
+| E59 | `r5g`–`r5i` | one-cycle box average, wider kernel, mirror | velocity feedback plateaus at 20–42 %; wide kernel shrinks the gait |
+| E60 | `r5j`–`r5o`, `r5k_line_s1` | path-offset input + true-offset reward | 22 → 44–56 % (seed 0), 24 → 32–38 % (seed 1), gait kept; mirroring no help |
+| E61 | `r5q_legs_path` | limits; path-frame integration | true offset only +8 points; trained path frame **78 %** (seed 0) |
+| E62 | `r5p_flow` | downward optical-flow sensor | **100 % on the line, 4 cm, crab 2°**, 61 mm track, 98 % walk-stop-walk, 1.8 A |
+| E63 | `r5p_flow_s1`, `r5s_*`, `r5q_legs_path_s1`, `r5r_flow_d65` | seeds, normal width | seed 1: straighter (58 %) but slow; normal width slow |
+| E64 | `r5p_flow`, `r5q_legs_path` (eval only) | gyro-only heading (MPU6050-class) | ≤0.05 °/s bias ≈ true yaw over 2 m and close over 11 m; 0.2 °/s → ~1 m off per minute |
+
+**Answers**
+1. *Why did it walk sideways?* The policy had no signal for sideways drift (no velocity in its inputs, a heading loop
+   that only watches the pelvis), and its foot-placement balance is loose, so a few cm/s of drift went uncorrected.
+2. *Is it fixable?* Mostly, with **position feedback**. Leg odometry alone: 40–78 % of walks within 0.2 m of the line at
+   2 m depending on the seed (round 4: ~20 %). With a downward optical-flow sensor: **100 %, median 4 cm** on seed 0;
+   seed 1 is much straighter too (58 %, 9 cm) but walks slower.
+3. *Hardware:* a PMW3901-class flow sensor under the pelvis (on a textured floor) is the most effective fix; leg odometry
+   alone roughly halves the drift. Contact sensing in the pads helps the odometry (scheduled stance biases it 1–3 cm/s).
+
+**Lessons (round 5)**
+1. **Measure the claim.** "Straight" needs a sideways metric; heading held is not path held. One plot of 20 paths would
+   have caught it in round 4.
+2. **A policy cannot correct what it cannot sense, and velocity is not position.** Even perfect velocity feedback left
+   drift; feeding back the integrated offset fixed most of it.
+3. **Match the reward to the error you want gone.** Twice a kernel was too narrow to give a gradient at the errors that
+   mattered, and a smoothed velocity still carried the gait's own sway; average over exactly one gait cycle.
+4. **Train with the signal you will deploy.** Swapping a better estimate into a trained policy changed little (path frame
+   56 → 60 %, flow 56 → 72 %); fine-tuning with it gave 78 % and 100 %.
+5. **Noise realizations matter as much as seeds.** 20-seed screens overstated two runs by 10–15 points, and re-running
+   with a different noise stream moved one diagnostic by 20. Finalists get 50 seeds, a second training seed, and the
+   evaluator's random streams must stay fixed when it gains features.
+6. **Stop early and check the gait.** Stability objectives slowly trade step length and speed away; the best checkpoints
+   were at 10–30 M steps, chosen on gait as well as drift.
+
+**GPU-time accounting (10:34 – 17:34, one job at a time):** 21 runs, about 7.0 h of the 8 h budget. Neither watchdog
+fired; `scripts/health_watch.sh` reported every 30 min. One queued run (`r5f_hist`) was dropped before it started once
+the reward problem (E59) was found. Evaluation ran on the CPU in parallel, and all round-5 evaluations were re-run once
+under the final evaluator.

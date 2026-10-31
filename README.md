@@ -22,7 +22,7 @@ An end-to-end robotics design study:
 <tr>
 <th>As built<br><sub>model from the printed CAD<br>and the real servos (§6)</sub></th>
 <td valign="top"><img src="assets/gifs/hw_p0_stand_push.gif" width="360"><br><sub>stands still and recovers from 0.3 m/s shoves</sub></td>
-<td valign="top"><img src="assets/gifs/hw_p0_walk_r4.gif" width="360"><br><sub>real steps, narrow "catwalk" track (§7)</sub></td>
+<td valign="top"><img src="assets/gifs/hw_p0_walk_r5.gif" width="360"><br><sub>real steps on a straight, narrow "catwalk" line (§7–8)</sub></td>
 </tr>
 </table>
 
@@ -50,9 +50,14 @@ An end-to-end robotics design study:
   actually bought, it stands still (98 % without lifting a pad), survives shoves, and walks at 0.18 m/s while
   stopping on command 98 % of the time. Walking draws about 1.5 A at 7.4 V, with ~9 A peaks.
 - **Real steps instead of a skitter (§7).** Every earlier walker took 5–7 tiny hops a second (2 cm, 60 ms in the
-  air). Imitating a reference gait, with more double support, gives a straight walk with 6 cm steps, 160 ms of
+  air). Imitating a reference gait, with more double support, gives a walk with 6 cm steps, 160 ms of
   swing and 2 cm of foot clearance at 0.16 m/s, reproduced on 2 of 2 seeds; a curriculum narrows it into an
   elegant catwalk line. The cost: ~2.2 A instead of 1.5 A, with the hip servos at their rated torque.
+- **Walking on a line, not drifting sideways (§8).** Those walkers held their heading but crabbed off it, and only
+  ~20 % of walks passed 2 m within 0.2 m of the line: the policy had no way to sense sideways drift. Feeding it a
+  path-offset estimate and rewarding the true offset fixes most of it. With leg odometry alone 40–78 % of walks stay on
+  the line (depending on the training seed); with a ~$15 downward optical-flow sensor **100 %, with a median offset of
+  4 cm**, a 61 mm catwalk track, and better stops (walk → stop → walk 98 %, no falls).
 
 > **Status: simulation, plus a first printed leg.** One P0 leg is printed, assembled and bench-tested
 > (servos calibrated, whole-leg routines, and it stands and squats on its own pad, §5); the two-leg robot
@@ -373,7 +378,7 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `configs/` | parametric morphology including the control frames (`geometry.yaml`); servo catalogue with sources (`actuators.yaml`) |
 | `models/generate_model.py` | MJCF generator: exterior shells, servo envelopes, collision primitives, training and evaluation contact sets; `models/ref/` reference-gait tables |
 | `slender_biped/` | servo model, MJX training env, CPU evaluator, reference gait (`ref_gait.py`), morphology tools, renderer |
-| `scripts/` | training, evaluation, gait anatomy and gait quality, walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
+| `scripts/` | training, evaluation, gait quality and sideways drift (`drift_eval.py`, `drift_mjx.py`), walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
@@ -446,6 +451,37 @@ rated 7.4 V.
 - **P08 pelvis:** a one-piece two-leg pelvis with 80 mm hips, designed and print-ready.
 - **Right leg:** the mirrored part set, print-ready.
 
+### 5.3 Unexpected setbacks
+
+Build problems that weren't design or training issues, and what they taught us. (The first-print misfit
+in §5.1 was the earliest.)
+
+**One pair of servo horns short.** The servos arrived one main/idler horn pair short. Rather than wait,
+we tried printing replacements on a Bambu A1 (PLA, 0.4 mm nozzle).
+[`cad/horns.py`](hardware/leg_p0/cad/horns.py) builds them from the horn drawing in the
+[STS3215 spec sheet](https://files.seeedstudio.com/products/Feetech/108090023_STS3215-C001_Datasheet.pdf)
+(section 10, Accessories). The outputs are in
+[`exports/stl/print_ready/horns/`](hardware/leg_p0/exports/stl/print_ready/horns/).
+
+<img src="assets/unexpected_setbacks/3d_printed_horns_crop.jpg" width="480" alt="Printed and stock STS3215 horns">
+
+<sub>Top: idler horns, two printed and the stock one (right). Bottom: main horns, two printed and the stock
+splined one (right).</sub>
+
+- **Idler (passive) horn: printing worked.** The first attempt took its size from a 3D model rather than the
+  drawing, and its centre hole was far too small. The drawing shows a 6.05 mm bore that turns on the servo's
+  rear shaft. Printed from the drawing, the 6.25 mm variant spins freely and is in use. The M3 mounting holes
+  also needed 2.8 mm instead of 2.5 mm before an M3 machine screw would thread into PLA.
+- **Main (driven) horn: printing didn't work.** The output shaft has 25 teeth only about 0.3 mm tall. That is
+  smaller than the 0.4 mm nozzle's line, so the slicer smooths the teeth into a plain round hole; layer
+  height plays no part. Plain bores meant for the shaft's teeth to bite into (5.7 and 5.8 mm) were still too
+  tight to press on. Replacement horns were ordered.
+
+**Lesson:** a smooth bore (the idler horn) can be printed straight from the manufacturer's drawing. A fine
+spline (the main horn) can't be made with teeth on an A1 with a 0.4 mm nozzle; a 0.2 mm nozzle or a resin
+print might manage it, but for a load-bearing joint a stock metal horn is the right part anyway. Keep a few
+spare main horns on hand.
+
 ## 6. Training on the as-built model
 
 <table>
@@ -514,6 +550,9 @@ the CAD model, and the policy outputs corrections around it.
 | supply current, mean | 1.5 A | 2.2 A |
 | hip servos, RMS torque / rated | 0.83 | **1.0** |
 
+> **Correction (round 5):** "straight" in this section means the walkers *held their heading*. They still crabbed off
+> it and drifted up to 2 m sideways in 20 s, which none of the round-4 metrics measured. §8 fixes most of it.
+
 What made it work, and what didn't:
 - **Imitation gives real steps; it does not move an existing gait.** From scratch, the reference produced
   real 200 ms swings within 20 M steps. Fine-tuning the skitter with the same rewards kept the skitter.
@@ -536,6 +575,54 @@ What made it work, and what didn't:
   their rated torque). **Real steps on the C001 hip servos mean warm hips**; see
   [power and wiring](hardware/leg_p0/power.md).
 
+## 8. Walking on a line (round 5)
+
+<img src="results/plots/walk_paths_r5.png" width="760">
+
+<table>
+<tr><th>Side</th><th>Facing (61 mm catwalk line)</th></tr>
+<tr>
+<td><img src="assets/gifs/hw_p0_walk_r5.gif" width="360"></td>
+<td><img src="assets/gifs/hw_p0_walk_r5_front.gif" width="360"></td>
+</tr>
+</table>
+
+With the heading loop on, the round-4 catwalk walker kept facing forward but walked several degrees off that
+direction, a crab, and only 22 % of runs passed 2 m within 0.2 m of the start line. It ignored sideways commands and had no
+input that could tell it it was drifting. Round 5 (7 GPU-hours, 21 runs, [E57–E63](docs/experiments.md)) closed
+that loop; [`drift_eval.py`](scripts/drift_eval.py) is the new measure.
+
+| 0.15 m/s command, heading held, 50 seeds | round 4 catwalk | **leg odometry**¹ (`r5q_legs_path`) | **+ optical flow** (`r5p_flow`) |
+|---|---|---|---|
+| passes 2 m within 0.2 m of the line | 22 % | **78 %** | **100 %** |
+| sideways offset at 2 m, median | 0.46 m | 0.12 m | **0.04 m** |
+| crab angle, median | 8.5° | 3.8° | **1.9°** |
+| step / air time / width | 6.4 cm / 160 ms / 72 mm | 5.8 cm / 170 ms / 63 mm | 5.3 cm / 140 ms / **61 mm** |
+| walk → stop → walk (with the stander, 100 seeds) | 85 %, 5 % falls | 95 %, 1 % falls | **98 %, no falls** |
+| supply current, mean | 2.2 A | 2.2 A | **1.8 A** |
+
+¹ Seed 0. On seed 1 the same recipe gives 40 %, so 40–78 % across seeds. The flow result is also seed 0; on seed 1 the
+flow walker gets much straighter (24 → 58 %, median offset 9 cm) but slows to 0.10 m/s.
+
+What it took, and what didn't help:
+- **Velocity feedback is not enough.** Giving the policy its velocity (leg odometry, accelerometer + history,
+  even the true velocity) and rewarding sideways speed reached 20–42 % at best. Like a proportional-only
+  controller, it leaves a small steady error that adds up to drift.
+- **Position feedback works.** The policy sees its offset from the commanded path, integrated from its own
+  odometry, and is rewarded on the true offset. It now follows sideways commands too (±0.05 m/s for 20 s →
+  ±1.0 m).
+- **Reward design mattered twice.** A sideways-speed reward that was too narrow gave no gradient at the errors
+  that mattered, and a smoothed speed still contained the gait's own ±0.2 m/s sway. Averaging over exactly
+  one gait cycle cancels the sway.
+- **Train with the sensor you will deploy.** Swapping a better estimate into a trained policy changed little;
+  fine-tuning with it did. Leg odometry jumps up to ~10 cm whenever a planted pad slides, which no encoder can see.
+  A downward-facing optical-flow sensor measures the floor directly; even at twice the modelled error it keeps
+  94 % of walks on the line.
+- **Didn't help:** wider sideways-speed rewards alone (the gait shrank to 3 cm shuffles), mirror-symmetry
+  augmentation (no gain in three runs), a normal-width stance (straighter in metres, but only because it walked at
+  half speed), and simply training longer (steps shrink again after ~20–30 M steps, so checkpoints are chosen on
+  gait as well as drift).
+
 ## Limitations and next steps
 
 - **Simulation only.**
@@ -543,14 +630,23 @@ What made it work, and what didn't:
     are estimates.
   - Real rubber pads, floor compliance and belt backlash will differ from MuJoCo's soft contacts.
 - **Seeds.** Most results come from one training seed per configuration. The pad's quiet stance
-  reproduced on 1 of 2; the round-4 walking and catwalk results on 2 of 2.
+  reproduced on 1 of 2; the round-4 walking and catwalk results on 2 of 2; round 5's gain in straightness on 2 of 2
+  (its size, speed and step length on 1 of 2).
 - **Robustness.** Large pushes (0.5 m/s) and slippery floors (μ ≤ 0.35) still break walking.
   Turning works only through an outer heading loop.
+- **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
+  of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
+  seed that walker is just as straight but slower.
 - **Next steps:**
   1. merge standing and walking into one policy (today: a hand-over between two);
   2. walking under pushes without losing the stepping gait (push training reverted it to a skitter);
   3. hip load: the imitation gait runs the C001 hip servos at rated torque; faster hip servos (C046) or
      shorter walking bouts with temperature monitoring;
   4. bench-test servo torque-speed curves, pad friction (including twisting friction) and IMU noise;
-  5. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
+     add a downward optical-flow sensor (PMW3901-class) to the pelvis and measure its drift against the model.
+     A 6-axis IMU (MPU6050 class, gyro-only heading) is enough if its gyro bias is re-zeroed at every stop: at
+     ≤0.05 °/s the straight walkers match true-yaw results over 2 m (E64);
+  5. keep step length and speed while training for straightness (late fine-tuning slowly trades them away, and the
+     second seed's straight walker is slow);
+  6. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
      under load) and refit the as-built model before trying a trained policy on it.

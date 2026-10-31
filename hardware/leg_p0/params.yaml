@@ -30,6 +30,27 @@ servo:
   connector_x: -1.55           # 5264 connectors on the idler face
   connector_keepout: {x0: -4.5, x1: 1.5, half_w: 9.5, depth: 12.0}   # plug + cable bend allowance
   mass_g: 55
+  # printed replacement horns (cad/horns.py). Baseline = Feetech STS3215 spec sheet, section 10 Accessories (p. 7):
+  # both horns 19.95 OD, 4-M3 on a 14 mm circle, 9 mm hub. Driven: 4.5 total, 2.5 plate, 25T spline (5.9 OD,
+  # copper-gear shaft) 3.6 deep, 3.2 centre hole. Passive: 3.1 total, 2.1 plate, 6.05 bore.
+  # Tooth height / flank shape are not on the drawing (ESTIMATE). Printer-side choices are the *_variants lists.
+  # Tested on a Bambu A1, PLA, 0.4 nozzle: passive 6.25 fits and turns freely (in use); the driven spline teeth
+  # don't print and the 5.7/5.8 round bores were too tight, so driven horns were bought instead (README 5.3).
+  horn_print:
+    outer_d: 19.95
+    bolt_circle_d: 14.0
+    mount_hole_d: 2.8          # M3 machine screw threads itself into PLA (2.5 printed too tight); drawing: tapped M3 in 6061
+    hub_d: 9.0
+    driven: {total_t: 4.5, plate_t: 2.5, spline_depth: 3.6, center_d: 3.2}
+    passive: {total_t: 3.1, plate_t: 2.1, bore_d: 6.05}
+    spline_teeth: 25
+    spline_nominal_d: 5.9      # shaft OD (drawing)
+    spline_tooth_h: 0.3        # ESTIMATE
+    spline_clear: 0.2          # diametral, bore valleys = nominal + clear + fit offset
+    spline_fit_offsets: {tight: -0.1, nominal: 0.0, loose: 0.1}   # -> bore valleys 6.0 / 6.1 / 6.2
+    round_bore_variants: [5.7, 5.8]   # 0.4 mm nozzle: plain bore the shaft teeth press into (teeth do not print)
+    passive_bore_variants: [6.05, 6.15, 6.25, 6.35]
+    lead_in: 0.3
 
 # --- printing / fit
 fit:

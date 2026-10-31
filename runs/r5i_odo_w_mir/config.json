@@ -1,0 +1,167 @@
+{
+ "args": {
+  "name": "r5i_odo_w_mir",
+  "model": "hw_p0_8dof",
+  "task": "walk_lat",
+  "steps": 30000000.0,
+  "dr": true,
+  "push": 0.0,
+  "strength": 1.0,
+  "obs_noise": 1.0,
+  "action_scale": 0.25,
+  "seed": 0,
+  "num_envs": 4096,
+  "episode_length": 1000,
+  "init": "runs/r4k_cat2_ft/params_0030M.pkl",
+  "rw": [
+   "track_vy=3.0"
+  ],
+  "set": [
+   "ref_residual=true",
+   "tip_condim=4",
+   "vy_avg_sigma=0.0025",
+   "vy_avg_mode=\"box\"",
+   "obs_vel=\"odo\"",
+   "odo_contact=\"sensed\"",
+   "mirror_aug=true"
+  ],
+  "lr": 0.0001,
+  "entropy": 0.005,
+  "gamma": 0.99
+ },
+ "env": {
+  "model": "hw_p0_8dof",
+  "task": "walk_lat",
+  "ctrl_dt": 0.02,
+  "sim_dt": 0.002,
+  "solver_iterations": 4,
+  "action_scale": 0.25,
+  "kp": 8.0,
+  "kd": 0.05,
+  "slew": 8.0,
+  "latency_sub": 2,
+  "deadzone": 0.0015,
+  "strength_scale": 1.0,
+  "dr": true,
+  "dr_strength": [
+   0.8,
+   1.05
+  ],
+  "dr_speed": [
+   0.8,
+   1.05
+  ],
+  "dr_kp": [
+   0.75,
+   1.25
+  ],
+  "dr_latency_sub": [
+   0,
+   6
+  ],
+  "dr_deadzone": [
+   0.0,
+   0.015
+  ],
+  "obs_noise": 1.0,
+  "reset_joint_noise": 0.08,
+  "reset_tilt": 0.04,
+  "push_interval_s": [
+   2.0,
+   4.0
+  ],
+  "push_vel": 0.0,
+  "cmd_vx": [
+   0.05,
+   0.25
+  ],
+  "cmd_vy": [
+   -0.1,
+   0.1
+  ],
+  "cmd_wz": [
+   -0.3,
+   0.3
+  ],
+  "cmd_zero_prob": 0.2,
+  "cmd_resample_s": [
+   3.0,
+   6.0
+  ],
+  "heading_cmd": true,
+  "heading_gain": 1.0,
+  "gait_hz": 1.5,
+  "phase_when_still": false,
+  "max_tilt": 0.7,
+  "min_height_frac": 0.6,
+  "rw": {
+   "track_lin": 3.0,
+   "track_ang": 2.0,
+   "upright": 1.0,
+   "height": 0.5,
+   "lin_vel_z": -1.0,
+   "ang_vel_xy": -0.02,
+   "torque": -0.2,
+   "saturation": -1.0,
+   "overspeed": -2.0,
+   "action_rate": -0.05,
+   "joint_vel": -0.0005,
+   "over_rated": -3.0,
+   "heading": 3.0,
+   "stop": 2.0,
+   "pose": 0.0,
+   "slip": -10.0,
+   "feet_air_time": 0.0,
+   "contact_phase": 0.0,
+   "swing_height": 0.0,
+   "both_feet": 0.0,
+   "touchdown": 0.0,
+   "liftoff": 0.0,
+   "stride": 0.0,
+   "ref_q": 1.0,
+   "ref_tip": 1.0,
+   "ref_contact": 0.5,
+   "width": -0.05,
+   "track_vy": 3.0,
+   "line": 0.0,
+   "alive": 0.5,
+   "termination": -5.0
+  },
+  "rated_frac": 0.33,
+  "track_sigma": 0.005,
+  "track_ang_sigma": 0.1,
+  "heading_sigma": 0.1,
+  "stop_sigma": 0.002,
+  "height_sigma": 0.03,
+  "swing_height": 0.025,
+  "air_time_target": 0.2,
+  "stride_target": 0.06,
+  "ref_table": "d65_cat",
+  "ref_residual": true,
+  "ref_sigma_q": 0.1,
+  "ref_sigma_tip": 0.0002,
+  "ref_yaw_weight": 0.0,
+  "width_target": 0.06,
+  "tip_condim": 4,
+  "obs_vel": "odo",
+  "obs_accel": false,
+  "obs_hist": 0,
+  "odo_noise": 0.002,
+  "odo_bias": 0.01,
+  "odo_scale": 0.1,
+  "odo_alpha": 0.15,
+  "odo_contact": "sensed",
+  "odo_flip": 0.03,
+  "acc_noise": 0.01,
+  "acc_bias": 0.03,
+  "vy_avg_tau": 0.67,
+  "vy_avg_sigma": 0.0025,
+  "vy_avg_mode": "box",
+  "obs_line": false,
+  "line_sigma": 0.01,
+  "mirror_aug": true
+ },
+ "jax_devices": [
+  "cuda:0"
+ ]
+}
