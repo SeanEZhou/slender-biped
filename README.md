@@ -379,6 +379,7 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `models/generate_model.py` | MJCF generator: exterior shells, servo envelopes, collision primitives, training and evaluation contact sets; `models/ref/` reference-gait tables |
 | `slender_biped/` | servo model, MJX training env, CPU evaluator, reference gait (`ref_gait.py`), morphology tools, renderer |
 | `scripts/` | training, evaluation, gait quality and sideways drift (`drift_eval.py`, `drift_mjx.py`), walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
+| `hardware/torso_p0/` | printable torso: shape file, build script, thread test, renders, parts list |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
@@ -623,9 +624,80 @@ What it took, and what didn't help:
   half speed), and simply training longer (steps shrink again after ~20–30 M steps, so checkpoints are chosen on
   gait as well as drift).
 
+## 9. Torso design
+
+<img src="hardware/torso_p0/renders/torso_whole.png" width="900">
+
+The legs needed a body. I designed a torso that carries their slender look upward, with a narrow waist, a soft rounded
+chest and a slim neck in one smooth white surface, while the bare black servos stay as the only dark accents. The hard
+part was mechanical: the shell had to look effortless while wrapping a wide hip plate, staying out of the way of four
+moving joints per leg, and fitting on a small printer.
+
+### 9.1 Keeping the hips slim
+
+The legs need 80 mm between the hips to avoid colliding, which makes the hip plate 120 mm wide. A body that enclosed
+the plate came out about 150 mm across the hips. It looked heavy and hid the top of the legs, working against the
+long-legged look the whole project is built around.
+
+So I stopped trying to enclose it. Below the plate, the hips narrow to a triangular panel that passes between the legs,
+with a large opening on each side where the plate and hip-yaw servos stick out. That took the hips down to 115 mm and
+turned the mechanism into part of the look.
+
+### 9.2 Proving form didn't cost function
+
+A shell this close to the joints is only useful if it never limits the legs that the walking policies depend on. I
+scripted a collision check of the printable parts against the leg CAD instead of judging clearance by eye, and every
+check came back with no interference (one leg tested, relying on the robot's mirror symmetry):
+
+- 29 leg poses across the yaw, roll, pitch and knee bench ranges;
+- the fixed hip plate and yaw servos;
+- neighbouring torso pieces;
+- the hip panels along their full slide-in path, with the legs attached.
+
+### 9.3 Designing for the printer and for future access
+
+<img src="hardware/torso_p0/renders/torso_exploded.png" width="900">
+
+The torso is too tall for my Bambu A1, so I split it into horizontal sections. That solved a second problem too: the
+hip plate stays reachable for future electronics. Taking out a few screws and lifting off the upper sections opens up
+the whole body, with no glued joints to break.
+
+The seams follow the shape: one sits at the waist, the narrowest point, and another runs through the centre of the arm
+openings, so they nearly disappear in the assembled body. The hips were the one place a simple stack
+couldn't work, because a one-piece hip would trap the plate between its upper ring and the part that passes between the
+legs. Splitting it into front and rear panels means they can be fitted or removed with the legs still attached.
+
+### 9.4 Status
+
+The torso is designed and checked in CAD and is ready to print, but hasn't been built yet, so its fits are still
+unproven. It adds about 216 g, against roughly 408 g per leg, with its centre of mass about 80 mm above the plate.
+That's a significant change to the robot's balance, so the walking policies will need retraining with it before
+walking with the torso on.
+
+### 9.5 Build notes
+
+For anyone recreating this. Full assembly steps are in the [torso README](hardware/torso_p0/README.md), and the parts
+list is in [`BOM.csv`](hardware/torso_p0/BOM.csv).
+
+| part | role |
+|---|---|
+| T01, T02 hip panels | slide in from the front and rear; one screw joins them between the legs |
+| T03 pelvis ring | bolts through a small floor to the plate's existing M3 holes, clamping the panels' ears under the plate |
+| T04 midriff, T05 chest, T06 shoulders | stack on 8 mm sleeves, each held by 3–4 M3x6 screws; the arm openings are 48 mm |
+
+- **Print first:** the [thread test plate](hardware/torso_p0/fit_tests/m3_thread_test_print.stl) (under 5 g, holes
+  from 2.2 to 2.9 mm). Printed holes don't come out at their nominal size, so use it to set `M3_PILOT` in
+  [`cad/torso.py`](hardware/torso_p0/cad/torso.py), then rerun the script. Its current 2.6 mm is a placeholder.
+- **Then:** T03 and T04, to test the sleeve fit before printing the rest.
+- **Print setup:** files in [`exports/print_ready/`](hardware/torso_p0/exports/print_ready/) are already oriented for
+  a 256 mm bed. Walls are 2.4 mm, and each part is at most 81 mm tall.
+- **Changing the design:** [`T1_shape.json`](hardware/torso_p0/T1_shape.json) defines the shape. Arm openings and seams
+  are constants at the top of `cad/torso.py`.
+
 ## Limitations and next steps
 
-- **Simulation only.**
+- **Sim-to-real transfer is the next milestone.** The robot legs are assembled and the policies are trained on a model
+  built from the same CAD, but no policy has run on the hardware yet. The main gaps to close:
   - Feetech specs come from retailer listings; rotor inertia, gear friction and thermal behaviour
     are estimates.
   - Real rubber pads, floor compliance and belt backlash will differ from MuJoCo's soft contacts.
@@ -637,6 +709,8 @@ What it took, and what didn't help:
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
+- **Torso.** Designed and checked in CAD but not yet printed. The walking policies don't yet include its mass, so they
+  need retraining with it before walking with it on.
 - **Next steps:**
   1. merge standing and walking into one policy (today: a hand-over between two);
   2. walking under pushes without losing the stepping gait (push training reverted it to a skitter);

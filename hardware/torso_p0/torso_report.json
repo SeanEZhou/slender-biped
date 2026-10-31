@@ -1,0 +1,111 @@
+{
+ "pieces": {
+  "T03_pelvis_ring": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    89.8,
+    115.2,
+    81.0
+   ],
+   "fits_bed": true,
+   "mass_g": 71,
+   "overhang_over_50deg_mm2": 34
+  },
+  "T04_midriff": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    79.8,
+    95.1,
+    55.0
+   ],
+   "fits_bed": true,
+   "mass_g": 41,
+   "overhang_over_50deg_mm2": 49
+  },
+  "T05_chest": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    91.5,
+    103.9,
+    53.0
+   ],
+   "fits_bed": true,
+   "mass_g": 45,
+   "overhang_over_50deg_mm2": 61
+  },
+  "T06_shoulders": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    78.9,
+    93.0,
+    70.5
+   ],
+   "fits_bed": true,
+   "mass_g": 28,
+   "overhang_over_50deg_mm2": 1393
+  },
+  "T01_hip_front": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    56.0,
+    73.8,
+    72.0
+   ],
+   "fits_bed": true,
+   "mass_g": 16,
+   "overhang_over_50deg_mm2": 1503
+  },
+  "T02_hip_rear": {
+   "watertight": true,
+   "bodies": 1,
+   "bbox_on_bed_mm": [
+    46.0,
+    79.5,
+    72.0
+   ],
+   "fits_bed": true,
+   "mass_g": 15,
+   "overhang_over_50deg_mm2": 1474
+  }
+ },
+ "total_mass_g": 216,
+ "com_mm": [
+  -3.0,
+  0.0,
+  112.6
+ ],
+ "between_pieces_mm3": {
+  "T03_pelvis_ring+T04_midriff": 0.0,
+  "T04_midriff+T05_chest": 0.0,
+  "T05_chest+T06_shoulders": 0.0,
+  "T01_hip_front+T02_hip_rear": 0.0
+ },
+ "fixed_parts_mm3": {
+  "stance_00_pelvis_biped": {
+   "T03_pelvis_ring": 0.0,
+   "T04_midriff": 0.0,
+   "T05_chest": 0.0,
+   "T06_shoulders": 0.0,
+   "T01_hip_front": 0.0,
+   "T02_hip_rear": 0.0
+  },
+  "stance_06_L_servo_hip_yaw": {
+   "T03_pelvis_ring": 0.0,
+   "T04_midriff": 0.0,
+   "T05_chest": 0.0,
+   "T06_shoulders": 0.0,
+   "T01_hip_front": 0.0,
+   "T02_hip_rear": 0.0
+  }
+ },
+ "moving_parts": {
+  "poses": 29,
+  "hits": []
+ },
+ "panel_slide_in_hits": []
+}

@@ -1,0 +1,11 @@
+item,qty,spec,where
+T01 hip_front,1,printed; PLA or PETG,front hip panel
+T02 hip_rear,1,printed; PLA or PETG,rear hip panel
+T03 pelvis_ring,1,printed; PLA or PETG,sits on the P08 plate
+T04 midriff,1,printed; PLA or PETG,waist to under the chest
+T05 chest,1,printed; PLA or PETG,chest; lower half of the arm openings
+T06 shoulders,1,printed; PLA or PETG,shoulders and neck; upper half of the arm openings
+M3x12 screw,6,socket or pan head,down through the T03 floor and P08 plate
+M3 nut,6,standard,4 in the hip panel ear pockets; 2 under the plate at the centre holes
+M3x6 screw,10,spare servo horn screws,tube seams: 3 waist; 3 under chest; 4 at the arm seam
+M3x6 screw,1,spare servo horn screw,crotch lap joint; from below
