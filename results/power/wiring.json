@@ -1,0 +1,122 @@
+{
+ "ohm_per_hop": 0.1,
+ "volts": 7.4,
+ "runs": {
+  "r5p_flow": {
+   "single chain": {
+    "feed_rms_A": 2.214252719373595,
+    "feed_peak_20ms_A": 9.066849990298913,
+    "feed_peak_2ms_A": 11.429457256467206,
+    "feed_over_contact_pct": 12.477614926717024,
+    "drop_p99_V": 3.0876688642547845,
+    "drop_peak_V": 5.088609465634482,
+    "drop_over_10pct_time_pct": 51.0582262017908
+   },
+   "one branch per leg": {
+    "feed_rms_A": 1.3515247489435576,
+    "feed_peak_20ms_A": 6.277782814239682,
+    "feed_peak_2ms_A": 8.040872293157577,
+    "feed_over_contact_pct": 3.615627032164474,
+    "drop_p99_V": 1.3875005268577425,
+    "drop_peak_V": 2.15960009446431,
+    "drop_over_10pct_time_pct": 7.486618978540344
+   },
+   "hips and knees fed separately": {
+    "feed_rms_A": 0.8292617374182286,
+    "feed_peak_20ms_A": 4.01268413535433,
+    "feed_peak_2ms_A": 5.213246789987724,
+    "feed_over_contact_pct": 1.2022910309639339,
+    "drop_p99_V": 0.38107945376810803,
+    "drop_peak_V": 0.9410285282693713,
+    "drop_over_10pct_time_pct": 0.006753038867490371
+   }
+  },
+  "r5q_legs_path": {
+   "single chain": {
+    "feed_rms_A": 2.599414392211502,
+    "feed_peak_20ms_A": 9.531117390066147,
+    "feed_peak_2ms_A": 12.110397808711033,
+    "feed_over_contact_pct": 17.839777900055026,
+    "drop_p99_V": 3.274352018072053,
+    "drop_peak_V": 5.782880996537181,
+    "drop_over_10pct_time_pct": 69.05282377069682
+   },
+   "one branch per leg": {
+    "feed_rms_A": 1.4601089162032368,
+    "feed_peak_20ms_A": 7.204255372634796,
+    "feed_peak_2ms_A": 8.258682465455717,
+    "feed_over_contact_pct": 3.5788604872192487,
+    "drop_p99_V": 1.3885875857174406,
+    "drop_peak_V": 2.261207919715396,
+    "drop_over_10pct_time_pct": 6.557200740333149
+   },
+   "hips and knees fed separately": {
+    "feed_rms_A": 0.9171653519542786,
+    "feed_peak_20ms_A": 4.0106411157578234,
+    "feed_peak_2ms_A": 5.0915700729094855,
+    "feed_over_contact_pct": 0.8228702916312342,
+    "drop_p99_V": 0.46306987112598336,
+    "drop_peak_V": 0.9719428848661081,
+    "drop_over_10pct_time_pct": 0.021259566805062278
+   }
+  },
+  "r4k_cat2_ft": {
+   "single chain": {
+    "feed_rms_A": 2.6280859099594056,
+    "feed_peak_20ms_A": 14.624864369645152,
+    "feed_peak_2ms_A": 15.636565700759757,
+    "feed_over_contact_pct": 19.933470061527686,
+    "drop_p99_V": 3.1282512123616204,
+    "drop_peak_V": 7.694535275978756,
+    "drop_over_10pct_time_pct": 68.18393276974638
+   },
+   "one branch per leg": {
+    "feed_rms_A": 1.446899761084423,
+    "feed_peak_20ms_A": 7.8955956911104614,
+    "feed_peak_2ms_A": 8.68608154927609,
+    "feed_over_contact_pct": 3.463308488819969,
+    "drop_p99_V": 1.3616492524703416,
+    "drop_peak_V": 2.4030907628736786,
+    "drop_over_10pct_time_pct": 7.07468360762343
+   },
+   "hips and knees fed separately": {
+    "feed_rms_A": 0.9325567863186462,
+    "feed_peak_20ms_A": 4.670786437559178,
+    "feed_peak_2ms_A": 5.118213808637983,
+    "feed_over_contact_pct": 0.8896503426541944,
+    "drop_p99_V": 0.497866584653799,
+    "drop_peak_V": 1.1264155555604303,
+    "drop_over_10pct_time_pct": 0.08328747936571457
+   }
+  },
+  "r4j_d65_c4_cont": {
+   "single chain": {
+    "feed_rms_A": 2.554910700969521,
+    "feed_peak_20ms_A": 8.948016936074207,
+    "feed_peak_2ms_A": 12.980472977655934,
+    "feed_over_contact_pct": 17.8202691211045,
+    "drop_p99_V": 3.1364288896808175,
+    "drop_peak_V": 5.311382006245603,
+    "drop_over_10pct_time_pct": 67.0729328197689
+   },
+   "one branch per leg": {
+    "feed_rms_A": 1.4210839259306913,
+    "feed_peak_20ms_A": 6.860304179864258,
+    "feed_peak_2ms_A": 8.931994973463517,
+    "feed_over_contact_pct": 3.2404582061927867,
+    "drop_p99_V": 1.3557901754633968,
+    "drop_peak_V": 2.2069323980971336,
+    "drop_over_10pct_time_pct": 5.90140563253464
+   },
+   "hips and knees fed separately": {
+    "feed_rms_A": 0.944108051461711,
+    "feed_peak_20ms_A": 4.2778771306453995,
+    "feed_peak_2ms_A": 5.586189455409234,
+    "feed_over_contact_pct": 0.8196188284728129,
+    "drop_p99_V": 0.5059532821600654,
+    "drop_peak_V": 1.0735623135653853,
+    "drop_over_10pct_time_pct": 0.06753038867490371
+   }
+  }
+ }
+}

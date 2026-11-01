@@ -380,6 +380,7 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `slender_biped/` | servo model, MJX training env, CPU evaluator, reference gait (`ref_gait.py`), morphology tools, renderer |
 | `scripts/` | training, evaluation, gait quality and sideways drift (`drift_eval.py`, `drift_mjx.py`), walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
 | `hardware/torso_p0/` | printable torso: shape file, build script, thread test, renders, parts list |
+| `hardware/leg_p0/power.md` | power requirements per servo, wiring layouts and component sizing |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
@@ -695,6 +696,32 @@ list is in [`BOM.csv`](hardware/torso_p0/BOM.csv).
 - **Changing the design:** [`T1_shape.json`](hardware/torso_p0/T1_shape.json) defines the shape. Arm openings and seams
   are constants at the top of `cad/torso.py`.
 
+## 10. Power delivery
+
+Hobby serial-bus servos are designed to be daisy-chained, with power and data sharing one thin 3-pin lead. That's
+convenient for a slow robot arm, but walking is different. This robot averages only about 2 A, but each step produces peaks
+of 9 A or more as the knees and hips briefly reach their stall currents (2.5 A per hip servo, 3.8 A per knee).
+
+I simulated the current through every link of the wiring, using my trained walking policies. On a single chain, the
+last servo would spend more than half of a walk over 10 % below supply voltage, with drops above 3 V at the worst moments.
+These servos are already speed-limited, so that matters: in simulation, a 13 % higher supply voltage made one walker 46 % faster.
+
+<img src="assets/power_wiring.png" width="900">
+
+| layout | busiest feed, 20 ms peak | voltage drop, 99th percentile | time more than 10 % low |
+|---|---|---|---|
+| single daisy chain | 9–14.6 A | 3.1–3.3 V | 51–69 % |
+| one branch per leg | 6.3–7.9 A | 1.4 V | 5.9–7.5 % |
+| **hips and knees fed separately** | 4.0–4.7 A | 0.4–0.5 V | under 0.1 % |
+
+The obvious fix, one branch per leg, isn't enough, because the knee is both the hungriest servo and the furthest from the
+supply. So my design keeps the data on the daisy chain and takes the power off it: a pelvis power board with a 15 A supply and a bulk
+capacitor feeds the hips and each knee separately.
+
+**Status:** this is the planned design, not yet built. The currents come from simulation, and the wiring resistance (0.1 Ω
+per lead) is an estimate that I'll replace with measurements on the robot. Per-servo requirements, component sizing and limits
+are in [power and wiring](hardware/leg_p0/power.md).
+
 ## Limitations and next steps
 
 - **Sim-to-real transfer is the next milestone.** The robot legs are assembled and the policies are trained on a model
@@ -723,5 +750,5 @@ list is in [`BOM.csv`](hardware/torso_p0/BOM.csv).
      ≤0.05 °/s the straight walkers match true-yaw results over 2 m (E64);
   5. keep step length and speed while training for straightness (late fine-tuning slowly trades them away, and the
      second seed's straight walker is slow);
-  6. print P08 and the right leg, then measure on the real robot (knee torque, servo current, joint speeds
-     under load) and refit the as-built model before trying a trained policy on it.
+  6. print P08 and the right leg, build the power wiring (§10), then measure on the real robot (knee torque, servo
+     current and voltage, joint speeds under load) and refit the as-built model before trying a trained policy on it.
