@@ -33,7 +33,10 @@ SLEEVE_T, SLEEVE_H = 1.6, 8.0
 SEAMS = (Z0 + 73, Z0 + 120, Z0 + 165)     # waist, under the chest, through the arm-opening centre
 ARM_R, ARM_X, ARM_Z = 24.0, -5.0, Z0 + 165
 SCREWS = {SEAMS[0]: (180, 75, -75), SEAMS[1]: (180, 75, -75), SEAMS[2]: (40, -40, 140, -140)}   # deg, 0 = front
-M3_CLEAR, M3_PILOT = 3.4, 2.6              # pilot: M3 self-tapping into print
+SLOPED_SEAMS = (SEAMS[2],)                 # steep upper chest: the sleeve follows the wall instead of staying straight
+PILOT_DEPTH = 6.5
+M3_CLEAR, M3_PILOT = 3.4, 2.9              # pilot: M3 self-tapping into print, set by the thread test
+NECK_SCREWS, NECK_PAD = (180, 75, -75), 4.0   # deg, 0 = front; pad depth from the outside, keeps the neck bore open
 NUT_AF, NUT_H = 5.7, 2.6                   # params.yaml fit.m3_nut_*
 PLATE = dict(x0=-42.0, x1=34.0, y=60.0, z0=25.7, z1=Z0)
 PLATE_HOLES = (-30.0, 0.0, 22.0), (-7.0, 7.0)   # biped.part_pelvis_biped
@@ -115,35 +118,88 @@ def loft(rings, cx):
     return m
 
 
+def boss(c, rs, ph, poly):
+    """Prism 10 mm wide from section poly (depth inward from radius rs, height above c) at angle ph about c."""
+    import manifold3d as m3
+    er = np.array([np.cos(ph), np.sin(ph), 0.0])
+    et = np.array([-np.sin(ph), np.cos(ph), 0.0])
+    mf = m3.CrossSection([poly], m3.FillRule.Positive).extrude(10.0).to_mesh()
+    d, z, w = np.asarray(mf.vert_properties)[:, :3].T
+    v = c + np.outer(rs - d, er) + np.outer(w - 5.0, et) + np.outer(z, (0, 0, 1))
+    b = trimesh.Trimesh(v, np.asarray(mf.tri_verts), process=True)
+    if b.volume < 0:
+        b.invert()
+    return b
+
+
+def neck_parts(rim, outer):
+    """Screw pads for a head fitted over the top SLEEVE_H of the neck. Returns (pads, pilots)."""
+    cx = float(np.mean(ring(rim, 0.0)[:, 0]))
+    r = radial(rim - SLEEVE_H / 2, 0.0, cx)
+    c = np.array([cx, 0.0, rim])
+    poly = [(0, -SLEEVE_H - NECK_PAD), (NECK_PAD, -SLEEVE_H), (NECK_PAD, 0), (0, 0)]      # 45 deg underside: prints unsupported
+    pads, pilots = [], []
+    for deg in NECK_SCREWS:
+        ph = np.radians(deg)
+        rs = float(np.interp(np.arctan2(np.sin(ph), np.cos(ph)), PHI, r, period=2 * np.pi))
+        er = np.array([np.cos(ph), np.sin(ph), 0.0])
+        pads.append(inter(boss(c, rs, ph, poly), outer))
+        pilots.append(rod(c + er * (rs + 1.0) - np.array((0, 0, SLEEVE_H / 2)), -er, M3_PILOT / 2, NECK_PAD + 3.0))
+    return pads, pilots
+
+
+def surface_normal(z, ph, cx):
+    """Outward unit normal of the outer shell at height z, angle ph about (cx, 0)."""
+    i = int(np.argmin(np.abs(PHI - np.arctan2(np.sin(ph), np.cos(ph)))))
+    er = np.array([np.cos(ph), np.sin(ph), 0.0])
+    et = np.array([-np.sin(ph), np.cos(ph), 0.0])
+    r0 = radial(z, 0.0, cx)
+    dr_dz = (radial(z + 1.0, 0.0, cx)[i] - radial(z - 1.0, 0.0, cx)[i]) / 2.0
+    dr_dph = (r0[(i + 3) % len(PHI)] - r0[i - 3]) / (2.0 * (PHI[1] - PHI[0]) * 3)
+    n = np.cross(dr_dph * er + r0[i] * et, dr_dz * er + np.array((0, 0, 1.0)))
+    return n / np.linalg.norm(n)
+
+
 def seam_parts(zs):
     """Sleeve on the lower tube and the screw features. Returns (add_to_lower, cut_lower, cut_upper)."""
     cx = float(np.mean(ring(zs, 0.0)[:, 0]))
-    r_up = np.min([radial(z, WALL + SLIDE, cx) for z in np.linspace(zs, zs + SLEEVE_H, 9)], axis=0)
+    zz = np.linspace(zs, zs + SLEEVE_H, 9)
+    radii = [radial(z, WALL + SLIDE, cx) for z in zz]
+    sloped = zs in SLOPED_SEAMS
+    if sloped:
+        r_z = np.minimum.accumulate(radii, axis=0)      # follows a wall narrowing upward, still drops straight on
+        rings = list(zip(zz, r_z))
+    else:
+        r_z = np.min(radii, axis=0)[None]               # one straight sleeve inside the narrowest section
+        rings = [(zs, r_z[0]), (zs + SLEEVE_H, r_z[0])]
+    r_up = r_z[0]
     r_in = r_up - SLEEVE_T
     step = next(h for h in np.arange(4.0, 30.0, 1.0) if (radial(zs - h, WALL, cx) - r_in).max() <= h)     # 45 deg max
     r_low = radial(zs - step, WALL, cx)
-    outer = loft([(zs - step, r_low + WALL / 2), (zs, r_up), (zs + SLEEVE_H, r_up)], cx)
-    bore = loft([(zs - step - 0.01, r_low), (zs, r_in), (zs + SLEEVE_H + 1.0, r_in)], cx)
+    outer = loft([(zs - step, r_low + WALL / 2)] + rings, cx)
+    bore = loft([(zs - step - 0.01, r_low)] + [(z, r - SLEEVE_T) for z, r in (rings if sloped else rings[:1])] + [(zs + SLEEVE_H + 1.0, rings[-1][1] - SLEEVE_T)], cx)
     sleeve = diff(outer, bore)
-    import manifold3d as m3
     bosses, cut_l, cut_u = [], [], []
     for deg in SCREWS[zs]:
         ph = np.radians(deg)
         rs = float(np.interp(np.arctan2(np.sin(ph), np.cos(ph)), PHI, r_up, period=2 * np.pi))
         er = np.array([np.cos(ph), np.sin(ph), 0.0])
-        et = np.array([-np.sin(ph), np.cos(ph), 0.0])
         c = np.array([cx, 0.0, zs])
-        poly = [(0, -7.5), (6.5, -1.0), (6.5, SLEEVE_H), (0, SLEEVE_H)]       # 45 deg underside: prints unsupported
-        mf = m3.CrossSection([poly], m3.FillRule.Positive).extrude(10.0).to_mesh()
-        d, z, w = np.asarray(mf.vert_properties)[:, :3].T
-        v = c + np.outer(rs - d, er) + np.outer(w - 5.0, et) + np.outer(z, (0, 0, 1))
-        b = trimesh.Trimesh(v, np.asarray(mf.tri_verts), process=True)
-        if b.volume < 0:
-            b.invert()
-        bosses.append(b)
-        p = c + er * rs + np.array((0, 0, SLEEVE_H / 2))
-        cut_l.append(rod(p + er * 1.0, -er, M3_PILOT / 2, 7.5))
-        cut_u.append(rod(p - er * 0.5, er, M3_CLEAR / 2, 8.0))
+        if sloped:                                      # screw square to the wall, so the head seats flat
+            zm = zs + SLEEVE_H / 2
+            rm = float(np.interp(np.arctan2(np.sin(ph), np.cos(ph)), PHI, r_z[len(zz) // 2], period=2 * np.pi))
+            p = c + er * rm + np.array((0, 0, SLEEVE_H / 2))
+            n = surface_normal(zm, ph, cx)
+            depth = rs - rm + (n @ er) * PILOT_DEPTH + 1.6
+            low = SLEEVE_H / 2 - n[2] * PILOT_DEPTH - 1.6
+            poly = [(0, low - depth), (depth, low), (depth, SLEEVE_H), (0, SLEEVE_H)]     # 45 deg underside: prints unsupported
+        else:
+            p = c + er * rs + np.array((0, 0, SLEEVE_H / 2))
+            n = er
+            poly = [(0, -7.5), (6.5, -1.0), (6.5, SLEEVE_H), (0, SLEEVE_H)]               # 45 deg underside: prints unsupported
+        bosses.append(boss(c, rs, ph, poly))
+        cut_l.append(rod(p + n * 1.0, -n, M3_PILOT / 2, PILOT_DEPTH + 1.0))
+        cut_u.append(rod(p - n * 0.5, n, M3_CLEAR / 2, 8.0))
     keep = union(outer, box(-200, 200, -200, 200, zs - 12, zs))
     return union(sleeve, *[inter(b, keep) for b in bosses]), cut_l, cut_u
 
@@ -179,6 +235,9 @@ def build():
             p = diff(p, *cuts_low[z1])
         if i > 0:
             p = diff(p, *cuts_up[z0])
+        if i == 3:                                              # neck: same 8 mm overlap and M3x6, for a head fitted over it
+            pads, pilots = neck_parts(z1, outer)
+            p = diff(union(p, *pads), *pilots)
         if i == 0:                                              # floor on the plate, bolted through its M3 holes
             fl = inter(box(-60, 60, -16, 16, Z0, Z0 + FLOOR_T), outer)
             holes = [rod((x, y, Z0 - 1), (0, 0, 1), M3_CLEAR / 2, FLOOR_T + 2) for x in PLATE_HOLES[0] for y in PLATE_HOLES[1]]

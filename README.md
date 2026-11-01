@@ -670,7 +670,7 @@ legs. Splitting it into front and rear panels means they can be fitted or remove
 ### 9.4 Status
 
 The torso is designed and checked in CAD and is ready to print, but hasn't been built yet, so its fits are still
-unproven. It adds about 216 g, against roughly 408 g per leg, with its centre of mass about 80 mm above the plate.
+unproven. It adds about 213 g, against roughly 408 g per leg, with its centre of mass about 80 mm above the plate.
 That's a significant change to the robot's balance, so the walking policies will need retraining with it before
 walking with the torso on.
 
@@ -683,11 +683,12 @@ list is in [`BOM.csv`](hardware/torso_p0/BOM.csv).
 |---|---|
 | T01, T02 hip panels | slide in from the front and rear; one screw joins them between the legs |
 | T03 pelvis ring | bolts through a small floor to the plate's existing M3 holes, clamping the panels' ears under the plate |
-| T04 midriff, T05 chest, T06 shoulders | stack on 8 mm sleeves, each held by 3–4 M3x6 screws; the arm openings are 48 mm |
+| T04 midriff, T05 chest, T06 shoulders | stack on 8 mm sleeves, each held by 3–4 M3x8 screws; the arm openings are 48 mm |
 
 - **Print first:** the [thread test plate](hardware/torso_p0/fit_tests/m3_thread_test_print.stl) (under 5 g, holes
   from 2.2 to 2.9 mm). Printed holes don't come out at their nominal size, so use it to set `M3_PILOT` in
-  [`cad/torso.py`](hardware/torso_p0/cad/torso.py), then rerun the script. Its current 2.6 mm is a placeholder.
+  [`cad/torso.py`](hardware/torso_p0/cad/torso.py), then rerun the script. 2.9 mm held firm on a Bambu A1, and that's
+  the current value.
 - **Then:** T03 and T04, to test the sleeve fit before printing the rest.
 - **Print setup:** files in [`exports/print_ready/`](hardware/torso_p0/exports/print_ready/) are already oriented for
   a 256 mm bed. Walls are 2.4 mm, and each part is at most 81 mm tall.
