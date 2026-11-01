@@ -1,0 +1,124 @@
+{
+ "rim_z": 266.2,
+ "solid_outer_mass_g": 420.6,
+ "face": {
+  "watertight": true,
+  "bodies": 1,
+  "faces": 101552,
+  "bbox_mm": [
+   61.4,
+   53.7,
+   63.8
+  ],
+  "fits_bed": true,
+  "solid_mass_g": 30.3,
+  "com_mm": [
+   -11.7,
+   0.0,
+   288.7
+  ],
+  "bottom_z": 258.2,
+  "top_z": 322.0,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1
+  }
+ },
+ "hair": {
+  "watertight": true,
+  "bodies": 1,
+  "faces": 124972,
+  "bbox_mm": [
+   81.8,
+   81.7,
+   87.8
+  ],
+  "fits_bed": true,
+  "solid_mass_g": 129.3,
+  "com_mm": [
+   -18.7,
+   0.4,
+   328.3
+  ],
+  "bottom_z": 271.8,
+  "top_z": 359.58,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1
+  }
+ },
+ "total": {
+  "solid_mass_g": 159.7,
+  "com_mm": [
+   -17.4,
+   0.3,
+   320.8
+  ]
+ },
+ "face_hair_overlap_mm3": 0.0,
+ "lift_overlap_mm3": {
+  "0.5": 0.0,
+  "2": 0.0,
+  "5": 0.0,
+  "10": 0.0,
+  "20": 0.0,
+  "40": 0.0,
+  "70": 0.0
+ },
+ "t06_overlap_mm3": {
+  "face": 0.0,
+  "hair": 0.0
+ },
+ "neck_driver_paths_mm3": {
+  "180": 0.0,
+  "75": 0.0,
+  "-75": 0.0
+ },
+ "hair_driver_paths_mm3": {
+  "180": {
+   "head": 0.0,
+   "t06": 0.0
+  },
+  "90": {
+   "head": 0.0,
+   "t06": 0.0
+  },
+  "-90": {
+   "head": 0.0,
+   "t06": 0.0
+  }
+ },
+ "hair_screws": {
+  "180": {
+   "core_vs_hair_mm3": 0.0,
+   "core_vs_face_mm3": 0.0,
+   "thread_vs_hair_mm3": 0.0,
+   "thread_bite_mm": 5.34,
+   "tip_clear_mm": 1.1,
+   "head_seat_on_hair": 1.0
+  },
+  "90": {
+   "core_vs_hair_mm3": 0.0,
+   "core_vs_face_mm3": 0.0,
+   "thread_vs_hair_mm3": 0.0,
+   "thread_bite_mm": 5.37,
+   "tip_clear_mm": 1.1,
+   "head_seat_on_hair": 1.0
+  },
+  "-90": {
+   "core_vs_hair_mm3": 0.0,
+   "core_vs_face_mm3": 0.0,
+   "thread_vs_hair_mm3": 0.0,
+   "thread_bite_mm": 5.37,
+   "tip_clear_mm": 1.1,
+   "head_seat_on_hair": 1.0
+  }
+ },
+ "passage_overlap_mm3": 0.0,
+ "dropped_mm3": {
+  "face": 0.0,
+  "hair": 0.0
+ }
+}

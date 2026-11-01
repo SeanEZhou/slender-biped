@@ -380,6 +380,7 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `slender_biped/` | servo model, MJX training env, CPU evaluator, reference gait (`ref_gait.py`), morphology tools, renderer |
 | `scripts/` | training, evaluation, gait quality and sideways drift (`drift_eval.py`, `drift_mjx.py`), walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
 | `hardware/torso_p0/` | printable torso: shape file, build script, thread test, renders, parts list |
+| `hardware/head_p0/` | printable head: build script, print files, fit report, renders, paint previews |
 | `hardware/leg_p0/power.md` | power requirements per servo, wiring layouts and component sizing |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
@@ -696,7 +697,78 @@ list is in [`BOM.csv`](hardware/torso_p0/BOM.csv).
 - **Changing the design:** [`T1_shape.json`](hardware/torso_p0/T1_shape.json) defines the shape. Arm openings and seams
   are constants at the top of `cad/torso.py`.
 
-## 10. Power delivery
+## 10. Head design
+
+<img src="hardware/head_p0/renders/head_whole.png" width="900">
+
+The robot needed a face that gave it some personality. I wanted a cute anime-style head that feels elegant and warm, with
+rounded hair and a soft face that continue the body's smooth surfaces. These renders show it unpainted. It also had to be
+practical: printable on the same small printer, quick to take apart, and with room inside for parts such as a micro
+camera later.
+
+<img src="hardware/head_p0/renders/head_views.png" width="900">
+
+### 10.1 Keeping it round
+
+My early hair models came out angular, and they looked wrong against the body. So I rebuilt the hair as a blended
+distance field, a round cap with soft locks melted into it, which removes hard edges by construction. Every lock starts at
+the crown, which stops the sides looking bald, and the top of the head is a completely smooth dome.
+
+The eyes, brows, nose and mouth are low relief (under 1 mm), so they read on bare plastic and also guide the paint. The
+smile needed a second pass: a 0.36 mm rise at the corners of the mouth looked fine with paint in the renders, but didn't
+show on the unpainted model. It's now about 0.95 mm, with a wider, deeper groove and lips that follow the curve.
+
+### 10.2 From a hollow shell to two parts
+
+<img src="hardware/head_p0/renders/head_parts.png" width="900">
+
+The first version was one hollow piece. It looked right, but a closed shell is awkward to print: any support inside
+would be hard to remove, and nothing inside could be reached afterwards.
+
+So I split the head into a face part that bolts to the neck and a hair cap that fits over it. They meet on a vertical bore,
+which means the cap lifts straight off and the outer shape barely changes. The face prints as an open bowl, and the
+cap's inside roofs are 45° apart from a small flat patch at the top, so neither needs supports inside. Removing three
+screws opens up the head.
+
+### 10.3 Screws as part of the look
+
+I first tried to hide the cap's screws by angling them up from under the hair. Measuring the built parts showed what that
+cost: the slanted holes left a sliver across each pilot's mouth, thread that was only partly surrounded by plastic, and just
+0.1 mm of spare depth for the screw.
+
+So I changed the question. The body already shows its screws on the connecting plates, and that helps say "robot". Three
+horizontal screws at the back and sides are simpler to print and drive, give about 5.4 mm of full thread, and match the
+torso. The build now measures each screw's path, thread and head seat every time it runs, so these numbers can't quietly
+go stale.
+
+### 10.4 Status
+
+The head is designed and checked in CAD and is ready to print, but hasn't been built yet, so its fits are still unproven.
+In CAD, the two parts don't overlap, the cap lifts 70 mm without touching the face, neither part touches the torso, a
+driver can reach all six screws with the head on the robot, and the neck's cable opening stays clear.
+
+It adds at most about 160 g, the model's weight if every part were solid, with its centre of mass about 55 mm above the
+neck rim. Real prints should be lighter, but that's still a lot of mass at the very top of the robot, so the walking
+policies will need retraining with it, as they will for the torso.
+
+### 10.5 Build notes
+
+For anyone recreating this. Print settings and fit details are in the [head README](hardware/head_p0/README.md), and
+colour ideas are in [`renders/paint/`](hardware/head_p0/renders/paint/).
+
+| part | role |
+|---|---|
+| H01 face | slides over the top 8 mm of the T06 neck and stops on a seat at the rim; 3 M3x6 screws at the back and sides |
+| H02 hair | lifts on and off the face part; 3 M3x12 screws at the back and sides, with their heads recessed in the hair |
+
+- **Print setup:** files in [`exports/print_ready/`](hardware/head_p0/exports/print_ready/) are already oriented for a
+  256 mm bed. Use tree supports under the chin and hair hem, and block them inside the hair cap.
+- **Screw holes:** the face part's pilots are 2.9 mm, the size set by the torso's thread test.
+- **Changing the design:** the shape and screw positions are constants in
+  [`cad/head.py`](hardware/head_p0/cad/head.py), which also writes the fit checks to
+  [`head_report.json`](hardware/head_p0/head_report.json).
+
+## 11. Power delivery
 
 Hobby serial-bus servos are designed to be daisy-chained, with power and data sharing one thin 3-pin lead. That's
 convenient for a slow robot arm, but walking is different. This robot averages only about 2 A, but each step produces peaks
@@ -737,8 +809,8 @@ are in [power and wiring](hardware/leg_p0/power.md).
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
-- **Torso.** Designed and checked in CAD but not yet printed. The walking policies don't yet include its mass, so they
-  need retraining with it before walking with it on.
+- **Torso and head.** Designed and checked in CAD but not yet printed. The walking policies don't yet include their mass,
+  so they need retraining before walking with them on.
 - **Next steps:**
   1. merge standing and walking into one policy (today: a hand-over between two);
   2. walking under pushes without losing the stepping gait (push training reverted it to a skitter);
@@ -750,5 +822,5 @@ are in [power and wiring](hardware/leg_p0/power.md).
      ≤0.05 °/s the straight walkers match true-yaw results over 2 m (E64);
   5. keep step length and speed while training for straightness (late fine-tuning slowly trades them away, and the
      second seed's straight walker is slow);
-  6. print P08 and the right leg, build the power wiring (§10), then measure on the real robot (knee torque, servo
+  6. print P08 and the right leg, build the power wiring (§11), then measure on the real robot (knee torque, servo
      current and voltage, joint speeds under load) and refit the as-built model before trying a trained policy on it.
