@@ -1,0 +1,150 @@
+{
+ "face": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   61.4,
+   53.7,
+   63.8
+  ],
+  "solid_mass_g": 30.7,
+  "bottom_z": 258.2,
+  "top_z": 322.0,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    61.4,
+    53.7,
+    63.8
+   ]
+  }
+ },
+ "hair": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   89.9,
+   94.5,
+   93.7
+  ],
+  "solid_mass_g": 183.4,
+  "bottom_z": 266.9,
+  "top_z": 360.7,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    89.9,
+    94.5,
+    93.7
+   ]
+  }
+ },
+ "ear_L": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   27.2,
+   6.2,
+   25.2
+  ],
+  "solid_mass_g": 2.6,
+  "bottom_z": 279.3,
+  "top_z": 304.5,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    27.2,
+    25.2,
+    6.2
+   ]
+  }
+ },
+ "ear_R": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   27.2,
+   6.2,
+   25.2
+  ],
+  "solid_mass_g": 2.6,
+  "bottom_z": 279.3,
+  "top_z": 304.5,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    27.2,
+    25.2,
+    6.2
+   ]
+  }
+ },
+ "total": {
+  "solid_mass_g": 219.2,
+  "com_mm": [
+   -18.2,
+   0.5,
+   316.3
+  ],
+  "rim_z": 266.2
+ },
+ "overlap_mm3": {
+  "face/hair": 0.0,
+  "face/ear_L": 0.0,
+  "face/ear_R": 0.0,
+  "hair/ear_L": -0.817,
+  "hair/ear_R": 0.0,
+  "ear_L/ear_R": 0.0
+ },
+ "t06_overlap_mm3": {
+  "face": 0.0,
+  "hair": 0.0,
+  "ear_L": 0.0,
+  "ear_R": 0.0
+ },
+ "hair_lift_mm3": 0.0,
+ "ear_removal_mm3": {
+  "ear_L": 0.0,
+  "ear_R": 0.0
+ },
+ "screws": {
+  "back": {
+   "length_mm": 12.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.34,
+   "tip_clear_mm": 1.1,
+   "head_seat": 1.0,
+   "driver_path_mm3": -0.02
+  },
+  "ear_L": {
+   "length_mm": 16.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.5,
+   "tip_clear_mm": 1.0,
+   "head_seat": 1.0,
+   "driver_path_mm3": 0.0
+  },
+  "ear_R": {
+   "length_mm": 16.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.5,
+   "tip_clear_mm": 1.0,
+   "head_seat": 1.0,
+   "driver_path_mm3": 0.0
+  }
+ },
+ "neck_driver_paths_mm3": {
+  "180": 0.0,
+  "75": 0.0,
+  "-75": 0.0
+ },
+ "passage_overlap_mm3": 0.0
+}

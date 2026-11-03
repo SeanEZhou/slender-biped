@@ -381,6 +381,7 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `scripts/` | training, evaluation, gait quality and sideways drift (`drift_eval.py`, `drift_mjx.py`), walker/stander hand-over, audits, renders, figures, GPU queue and watchdogs |
 | `hardware/torso_p0/` | printable torso: shape file, build script, thread test, renders, parts list |
 | `hardware/head_p0/` | printable head: build script, print files, fit report, renders, paint previews |
+| `hardware/head_p1/` | second head, H2, with sticker face: four design versions, each with build script, print files, fit report, renders |
 | `hardware/leg_p0/power.md` | power requirements per servo, wiring layouts and component sizing |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
@@ -768,6 +769,37 @@ colour ideas are in [`renders/paint/`](hardware/head_p0/renders/paint/).
   [`cad/head.py`](hardware/head_p0/cad/head.py), which also writes the fit checks to
   [`head_report.json`](hardware/head_p0/head_report.json).
 
+### 10.6 A second head: H2
+
+<img src="hardware/head_p1/versions/v4/renders/head_views.png" width="900">
+
+H2 comes from my own "Rebel Princess" concept: short layered hair with broad, pointed locks and a braid around the crown.
+It reuses H1's mounting: the face part slides over the neck, and the hair cap lifts straight off it on three screws.
+
+This time the eyes, brows and mouth are stickers, not relief. A flat sticker on a flat face looks like a mask once you turn
+the head, so the bone structure is modelled instead: brow ridge, nose bridge and tip, cheekbones and chin, with eye
+sockets that have flat floors for the stickers to sit in.
+
+<img src="hardware/head_p1/versions/v4/renders/stickers.png" width="900">
+
+The hair took four passes, all kept in [`versions/`](hardware/head_p1/versions/):
+
+- **v1** had the concept's ear units, but they didn't look good in print.
+- **v2** dropped them and covered the sides with hair. I also replaced v1's narrow locks, which read as rectangular strips
+  from the front, with broad triangles. But v2's back locks drew in to a V at the nape.
+- **v3** kept v2's crown and bangs and took v1's sides and back.
+- **v4** has v2's broad locks at the sides and v1's straight-hanging back.
+
+<img src="hardware/head_p1/versions/compare_v2_v3_v4.png" width="900">
+
+The hanging locks are the part most likely to break when the robot falls, so v4 also raises the minimum tip width from 1.3
+to 2.5 mm. A tip's weakest cross-section 3 mm above its end grew from 2.3 to 3.8 mm², and 5 mm up from 2.5 to 13 mm².
+
+**Status:** the face part is printed. v4's face file is byte-identical to v3's, so its hair, not yet printed, fits that
+face. In CAD the parts don't overlap each other or the torso, the cap lifts off cleanly, and each hair screw gets about
+5.3 mm of full thread. H2 is heavier than H1: 229 g if solid, or about 134 g as printed, with its centre of mass about
+50 mm above the neck rim. Print and assembly notes are in the [H2 README](hardware/head_p1/README.md).
+
 ## 11. Power delivery
 
 Hobby serial-bus servos are designed to be daisy-chained, with power and data sharing one thin 3-pin lead. That's
@@ -809,7 +841,7 @@ are in [power and wiring](hardware/leg_p0/power.md).
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
-- **Torso and head.** Designed and checked in CAD but not yet printed. The walking policies don't yet include their mass,
+- **Torso and head.** Designed and checked in CAD. Only the H2 face part is printed so far. The walking policies don't yet include their mass,
   so they need retraining before walking with them on.
 - **Next steps:**
   1. merge standing and walking into one policy (today: a hand-over between two);

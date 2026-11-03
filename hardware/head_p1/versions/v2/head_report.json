@@ -1,0 +1,95 @@
+{
+ "face": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   61.4,
+   53.7,
+   63.8
+  ],
+  "solid_mass_g": 30.3,
+  "bottom_z": 258.2,
+  "top_z": 322.0,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    61.4,
+    53.7,
+    63.8
+   ]
+  }
+ },
+ "hair": {
+  "watertight": true,
+  "bodies": 1,
+  "bbox_mm": [
+   92.1,
+   95.8,
+   91.8
+  ],
+  "solid_mass_g": 185.6,
+  "bottom_z": 269.1,
+  "top_z": 360.9,
+  "saved_file": {
+   "watertight": true,
+   "volume": true,
+   "bodies": 1,
+   "bbox_mm": [
+    92.1,
+    95.8,
+    91.8
+   ]
+  }
+ },
+ "total": {
+  "solid_mass_g": 215.9,
+  "com_mm": [
+   -17.4,
+   0.9,
+   317.4
+  ],
+  "rim_z": 266.2
+ },
+ "overlap_mm3": {
+  "face/hair": 0.0
+ },
+ "t06_overlap_mm3": {
+  "face": 0.0,
+  "hair": 0.0
+ },
+ "hair_lift_mm3": 0.0,
+ "screws": {
+  "back": {
+   "length_mm": 12.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.34,
+   "tip_clear_mm": 1.1,
+   "head_seat": 1.0,
+   "driver_path_mm3": 0.0
+  },
+  "left": {
+   "length_mm": 12.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.32,
+   "tip_clear_mm": 1.1,
+   "head_seat": 1.0,
+   "driver_path_mm3": 0.0
+  },
+  "right": {
+   "length_mm": 12.0,
+   "core_hits_mm3": 0.0,
+   "thread_mm": 5.32,
+   "tip_clear_mm": 1.1,
+   "head_seat": 1.0,
+   "driver_path_mm3": 0.0
+  }
+ },
+ "neck_driver_paths_mm3": {
+  "180": 0.0,
+  "75": 0.0,
+  "-75": 0.0
+ },
+ "passage_overlap_mm3": 0.0
+}
