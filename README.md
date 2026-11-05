@@ -826,6 +826,21 @@ capacitor feeds the hips and each knee separately.
 per lead) is an estimate that I'll replace with measurements on the robot. Per-servo requirements, component sizing and limits
 are in [power and wiring](hardware/leg_p0/power.md).
 
+**First measurements on the robot.** These are full-body numbers: both legs carrying the complete robot, torso and head
+included, on a 5 V bench supply. They are the sum over all 8 servos, read from each servo's current register while it
+moves (`biped_bench.py <routine> --current`):
+
+| activity | mean | peak (all 8 servos at once) | busiest servo | bus voltage |
+|---|---|---|---|---|
+| standing, holding the stance pose (10 s) | 55 mA | ~100 mA | right hip roll, 16 mA mean | 5.2 V |
+| marching in place on the ground (alternate knee lifts, 27 s) | 123 mA | 273 mA | knees, 160–180 mA peak | 5.0–5.2 V |
+
+So holding a stance and slow single-leg balance cost almost nothing: well under 0.5 A even after adding each servo's
+own electronics, roughly 10–20 mA apiece, which the register leaves out. This doesn't bear on the walking estimate
+above. The bench routines take about a second per move with gentle acceleration, while the simulated walk steps several
+times a second and strikes the ground. The register also reads only in 6.5 mA steps, and sampling every ~50 ms can miss
+short spikes. Fast routines and a meter on the supply are next.
+
 ## Limitations and next steps
 
 - **Sim-to-real transfer is the next milestone.** The robot legs are assembled and the policies are trained on a model

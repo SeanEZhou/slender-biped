@@ -1,0 +1,15 @@
+# Bench configuration for the RIGHT P0 leg (mirror of the left). Use with:  --config bench_config_right.yaml
+# Same joint names and sign conventions as the left leg (README "sign conventions": yaw + = toe out,
+# roll + = abduction, pitch + = flexion/foot forward, knee + = flexion/foot back), so routines work unchanged.
+# IDs 5-8 so both legs can later share one bus with the left leg's 1-4.
+port: /dev/ttyACM0
+baudrate: 1000000
+speed_counts_per_s: 250
+acceleration: 20
+
+# direction: verified per joint by `routine check` on 2026-11-04 (all four are flipped vs the left leg: mirrored mounts turn each servo 180 deg).
+joints:
+  hip_yaw:   {id: 5, center: 2048, direction: -1,  min_deg: -15, max_deg: 25}   # 2026-11-04: zeroed; direction verified by routine check
+  hip_roll:  {id: 6, center: 2048, direction: 1, min_deg: -10, max_deg: 25}   # 2026-11-04: zeroed; direction verified by routine check
+  hip_pitch: {id: 7, center: 2048, direction: -1, min_deg: -25, max_deg: 80}   # 2026-11-04: zeroed (offset 2013); +5 went BACK with dir 1, flipped to -1; verified by routine check 2026-11-04
+  knee:      {id: 8, center: 2048, direction: 1,  min_deg: 0,   max_deg: 105}  # 2026-11-04: zeroed (offset 2014); +5 from straight pushed shin FORWARD with dir -1, flipped to +1; verified by routine check 2026-11-04

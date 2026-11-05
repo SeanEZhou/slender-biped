@@ -65,3 +65,5 @@ assets/bench_test/
 .vscode/
 .idea/
 .DS_Store
+.venv-hw/
+hardware/leg_p0/software/current_*.csv

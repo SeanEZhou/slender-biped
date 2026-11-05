@@ -9,6 +9,7 @@ Software stop is NOT an emergency stop: keep a hand on the hardware power switch
     python feetech_bench.py zero --id 1            # make the CURRENT shaft angle read 2048 (no motion)
     python feetech_bench.py zero --id 1 --reset    # clear the stored offset (back to factory reading)
     python feetech_bench.py torque-off             # relax every configured joint
+    python feetech_bench.py current --with bench_config_right.yaml   # motor current, both legs (no motion)
     python feetech_bench.py move knee 10 --enable  # move ONE joint to +10 deg (from neutral), slowly
     python feetech_bench.py jog hip_yaw --enable   # keyboard nudges; `z` sets this angle as neutral
     python feetech_bench.py sweep hip_yaw --amp 10 --enable    # slow single-joint test, then torque off
@@ -17,6 +18,7 @@ Software stop is NOT an emergency stop: keep a hand on the hardware power switch
     python feetech_bench.py routine check --enable   # whole-leg routines: check, stance, squat, knee_lift, kick,
     python feetech_bench.py routine squat --enable --speed 0.5   #   step, circle, look (--speed = tempo factor)
     python feetech_bench.py routine kick --enable --demo         # demo mode: 2.5x tempo, sharp acceleration
+    python feetech_bench.py routine stance --stay --enable       # go to the standing pose and HOLD (torque-off releases)
     python feetech_bench.py wave --amp 10 --cycles 2 --enable   # low-amplitude 4-joint test, logged to CSV
 
 Every command that moves a motor requires --enable and refuses targets outside the configured limits.
@@ -101,11 +103,12 @@ class Bus:
         self.w1(sid, ADDR["TORQUE_ENABLE"], 1 if on else 0)
 
     def present(self, sid):
-        """Position, speed, load, voltage, temperature (registers 56-63) in ONE bus transaction."""
+        """Position, speed, load, voltage, temperature, current (registers 56-70) in ONE bus transaction."""
         signed = lambda v, b: -(v & ~(1 << b)) if v & (1 << b) else v  # noqa: E731  sign-magnitude
-        d = self._txrx(lambda: self.pk.readTxRx(self.port, sid, ADDR["PRESENT_POS"], 8), f"read id {sid} status")[0]
+        d = self._txrx(lambda: self.pk.readTxRx(self.port, sid, ADDR["PRESENT_POS"], 15), f"read id {sid} status")[0]
         return dict(pos=SCS_MAKEWORD(d[0], d[1]), speed=signed(SCS_MAKEWORD(d[2], d[3]), 15),
-                    load=signed(SCS_MAKEWORD(d[4], d[5]), 10), volt=d[6] / 10, temp=d[7])
+                    load=signed(SCS_MAKEWORD(d[4], d[5]), 10), volt=d[6] / 10, temp=d[7],
+                    current_ma=abs(signed(SCS_MAKEWORD(d[13], d[14]), 15)) * 6.5)   # 69-70: 6.5 mA per count
 
 
 def load_cfg(path):
@@ -154,6 +157,44 @@ def cmd_read(bus, a):
                   f"load {p['load']:5d}  {p['volt']:.1f} V  {p['temp']} C")
         except IOError as e:
             print(f"{name:10s} id {j['id']}: no answer ({e})")
+
+
+CURRENT_MA_PER_LSB = 6.5     # STS3215 Present Current (69-70): 6.5 mA per count, sign in bit 15
+
+
+def cmd_current(bus, a):
+    """Sample motor current on every joint (this config plus any --with configs on the same bus). Never moves."""
+    def tag(path):          # bench_config.yaml -> left, bench_config_right.yaml -> right
+        return Path(path).stem.replace("bench_config", "").lstrip("_") or "left"
+    joints = {f"{tag(a.config)}:{n}": j for n, j in bus.cfg["joints"].items()}
+    for path in a.with_cfg:
+        joints.update({f"{tag(path)}:{n}": j for n, j in load_cfg(path)["joints"].items()})
+    samples = {n: [] for n in joints}
+    t0 = time.time()
+    while time.time() - t0 < a.seconds:
+        for n, j in joints.items():
+            try:
+                raw = bus.r2(j["id"], ADDR["PRESENT_CURRENT"])
+                samples[n].append(abs(-(raw & 0x7FFF) if raw & 0x8000 else raw) * CURRENT_MA_PER_LSB)
+            except IOError:
+                pass
+        time.sleep(0.05)
+    total_mean = total_peak_sum = 0.0
+    print(f"{'joint':18s} {'id':>3s} {'deg':>7s} {'load':>5s} {'torque':>6s} {'mean mA':>8s} {'max mA':>7s}  temp  volt")
+    for n, j in joints.items():
+        s = samples[n]
+        if not s:
+            print(f"{n:18s} {j['id']:3d}  no answer")
+            continue
+        p = bus.present(j["id"])
+        mean = sum(s) / len(s)
+        total_mean += mean
+        total_peak_sum += max(s)
+        print(f"{n:18s} {j['id']:3d} {counts_to_deg(j, p['pos']):7.1f} {p['load']:5d} "
+              f"{bus.r1(j['id'], ADDR['TORQUE_ENABLE']):6d} {mean:8.0f} {max(s):7.0f}  {p['temp']:3d} C {p['volt']:.1f} V")
+    print(f"TOTAL motor current: mean {total_mean:.0f} mA, sum of per-joint peaks {total_peak_sum:.0f} mA "
+          f"({len(next(iter(samples.values()), []))} samples over {a.seconds:g} s). Excludes each servo's own "
+          f"electronics (~10-20 mA idle): measure the supply with a meter for the true draw.")
 
 
 def cmd_set_id(bus, a):
@@ -395,7 +436,8 @@ def cmd_routine(bus, a):
         sys.exit("REFUSED: motion needs --enable (keep a hand on the power switch)")
     joints = bus.cfg["joints"]
     frames, pose = [], {n: 0.0 for n in joints}
-    for target, dur in ROUTINES[a.name] + [({n: 0.0 for n in joints}, 2.5)]:   # always end at neutral
+    finale = [] if a.stay else [({n: 0.0 for n in joints}, 2.5)]    # end at neutral unless --stay
+    for target, dur in ROUTINES[a.name] + finale:
         pose = {**pose, **target}
         frames.append((dict(pose), dur / (a.speed * (DEMO_TEMPO if a.demo else 1.0))))
     for pose, _ in frames:                                   # pre-check the whole routine before moving anything
@@ -422,6 +464,7 @@ def _play(bus, a, joints, frames):
     cur = {n: counts_to_deg(j, bus.r2(j["id"], ADDR["PRESENT_POS"])) for n, j in joints.items()}
     if any(abs(d) > 30 for d in cur.values()):
         print("note: some joints start far from neutral:", {n: round(d) for n, d in cur.items()})
+    log, t_start = ([] if getattr(a, "current", False) else None), time.time()
     for k, (pose, dur) in enumerate(frames):
         for n, j in joints.items():                          # speed per joint so all arrive together
             counts = abs(pose[n] - cur[n]) * COUNTS_PER_DEG
@@ -430,6 +473,8 @@ def _play(bus, a, joints, frames):
         t0 = time.time()
         while time.time() - t0 < dur + 0.3:
             ps = {n: bus.present(j["id"]) for n, j in joints.items()}
+            if log is not None:
+                log.append((time.time() - t_start, k + 1, pose, ps))
             print(f"\r{a.name} {k + 1}/{len(frames)} | " + "  ".join(
                 f"{n.replace('hip_', '')} {counts_to_deg(joints[n], p['pos']):6.1f}/{pose[n]:5.1f} ({p['load']:4d})"
                 for n, p in ps.items()) + f" | {next(iter(ps.values()))['volt']:.1f} V ", end="")
@@ -440,10 +485,40 @@ def _play(bus, a, joints, frames):
             print(f"\n  lagging: {late}", end="")
         cur = pose
     print()
-    if not a.hold:
+    if log:
+        current_report(a, joints, log)
+    if a.stay:
+        print("holding the final pose (torque ON): run `torque-off` to release")
+    elif not a.hold:
         for j in joints.values():
             bus.torque(j["id"], False)
         print("torque off")
+
+
+def current_report(a, joints, log):
+    """Per-joint and whole-robot motor current over a routine; full samples to a CSV."""
+    path = Path(a.current_log or f"current_{a.name}_{time.strftime('%Y%m%d_%H%M%S')}.csv")
+    with path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["t", "frame", "joint", "target_deg", "measured_deg", "current_mA", "load", "volt", "temp"])
+        for t, k, pose, ps in log:
+            for n, p in ps.items():
+                w.writerow([round(t, 3), k, n, round(pose[n], 2), round(counts_to_deg(joints[n], p["pos"]), 2),
+                            p["current_ma"], p["load"], p["volt"], p["temp"]])
+    totals = [sum(p["current_ma"] for p in ps.values()) for _, _, _, ps in log]
+    volts = [min(p["volt"] for p in ps.values()) for _, _, _, ps in log]
+    print(f"\nmotor current over `{a.name}` ({len(log)} samples, {log[-1][0]:.1f} s):")
+    print(f"  {'joint':12s} {'mean mA':>8s} {'peak mA':>8s} {'max C':>6s}")
+    for n in joints:
+        s = [ps[n]["current_ma"] for _, _, _, ps in log]
+        print(f"  {n:12s} {sum(s) / len(s):8.0f} {max(s):8.0f} {max(ps[n]['temp'] for *_, ps in log):6d}")
+    by_frame = {}
+    for (_, k, _, _), tot in zip(log, totals):
+        by_frame.setdefault(k, []).append(tot)
+    worst = max(by_frame, key=lambda k: max(by_frame[k]))
+    print(f"  {'TOTAL':12s} {sum(totals) / len(totals):8.0f} {max(totals):8.0f}   "
+          f"(peak in frame {worst}; lowest bus voltage {min(volts):.1f} V)")
+    print(f"  motor current only (+~10-20 mA per servo for its electronics); samples logged to {path}")
 
 
 def cmd_wave(bus, a):
@@ -489,6 +564,10 @@ def main():
     sp.add_argument("--target", type=int, default=2048)
     sp.add_argument("--reset", action="store_true", help="clear the offset instead")
     sub.add_parser("torque-off")
+    sp = sub.add_parser("current", help="sample motor current on every joint (no motion)")
+    sp.add_argument("--seconds", type=float, default=5.0)
+    sp.add_argument("--with", dest="with_cfg", action="append", default=[], metavar="CONFIG",
+                    help="also sample the joints of another config on the same bus (e.g. bench_config_right.yaml)")
     sp = sub.add_parser("move")
     sp.add_argument("joint")
     sp.add_argument("deg", type=float)
@@ -511,6 +590,10 @@ def main():
     sp.add_argument("--demo", action="store_true",
                     help=f"demo mode: {DEMO_TEMPO:g}x tempo, sharp acceleration, full torque limit (hold the leg firmly)")
     sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
+    sp.add_argument("--stay", action="store_true",
+                    help="skip the return to neutral and hold the routine's last pose (e.g. `routine stance --stay`)")
+    sp.add_argument("--current", action="store_true", help="measure motor current during the routine (summary + CSV)")
+    sp.add_argument("--current-log", help="CSV path for --current (default current_<routine>_<time>.csv)")
     sp.add_argument("--enable", action="store_true")
     sp = sub.add_parser("wave")
     sp.add_argument("--amp", type=float, default=10.0)
@@ -519,7 +602,7 @@ def main():
     sp.add_argument("--enable", action="store_true")
     a = ap.parse_args()
     bus = Bus(load_cfg(a.config))
-    {"scan": cmd_scan, "read": cmd_read, "set-id": cmd_set_id, "zero": cmd_zero, "torque-off": cmd_torque_off,
+    {"scan": cmd_scan, "read": cmd_read, "set-id": cmd_set_id, "zero": cmd_zero, "torque-off": cmd_torque_off, "current": cmd_current,
      "move": cmd_move, "sweep": cmd_sweep, "jog": cmd_jog, "routine": cmd_routine, "wave": cmd_wave}[a.cmd](bus, a)
 
 
