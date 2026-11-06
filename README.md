@@ -1,5 +1,18 @@
 # Slender-leg biped: can an ankle-less, footless robot leg balance and walk?
 
+<table>
+<tr>
+<td valign="top"><img src="assets/photos/full_body_small.jpg" width="560" alt="The assembled robot: both legs, torso and head"><br><sub>The assembled robot: two printed legs, eight hobby servos, torso and head (§12).</sub></td>
+<td valign="top"><img src="assets/gifs/full_body_march.gif" width="200" height="355" alt="The full robot marching in place"><br><sub>Full-body load test: marching in place under its own weight. Open-loop keyframes with no self-balancing yet, so a hand steadies the head.</sub></td>
+</tr>
+</table>
+
+**Contents**
+- **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
+- **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
+- **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
+- **Reference:** [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
+
 An end-to-end robotics design study:
 1. **Concept:** a novel leg concept from character art.
 2. **Physical model:** built from off-the-shelf servos with realistic mass, packaging and motor
@@ -59,9 +72,10 @@ An end-to-end robotics design study:
   the line (depending on the training seed); with a ~$15 downward optical-flow sensor **100 %, with a median offset of
   4 cm**, a 61 mm catwalk track, and better stops (walk → stop → walk 98 %, no falls).
 
-> **Status: simulation, plus a first printed leg.** One P0 leg is printed, assembled and bench-tested
-> (servos calibrated, whole-leg routines, and it stands and squats on its own pad, §5); the two-leg robot
-> has not walked yet. All standing and walking
+> **Status: simulation, plus a fully assembled robot.** Both legs, the torso and the head are printed and assembled.
+> All 8 servos are calibrated, and the robot stands and marches in place on its pads under its own weight, running
+> open-loop keyframes (§12). An IMU is bench-tested (§13). No balance control or walking policy has run on the hardware
+> yet. All standing and walking
 > numbers come from held-out evaluation seeds in an independent simulator. Simulated feasibility is not
 > validated hardware capability.
 
@@ -383,6 +397,8 @@ scripts/gpu_python.sh scripts/train.py --name my_walk --model baseline_A_8dof --
 | `hardware/head_p0/` | printable head: build script, print files, fit report, renders, paint previews |
 | `hardware/head_p1/` | second head, H2, with sticker face: four design versions, each with build script, print files, fit report, renders |
 | `hardware/leg_p0/power.md` | power requirements per servo, wiring layouts and component sizing |
+| `hardware/leg_p0/software/` | servo bench tools: per-leg calibration configs, `feetech_bench.py` (one leg: zero, jog, sweep, routines, current), `biped_bench.py` (both legs together) |
+| `hardware/imu/` | IMU test script for the RP2040 + MPU6050/6500 (MicroPython) |
 | `runs/` | config and learning curve of every run; weights of the selected policies |
 | `results/` | evaluation JSONs behind every number; plots |
 | `docs/` | [spec](docs/project_spec.md) · [morphology](docs/morphology.md) · [actuator research](docs/actuator_research.md) · [feasibility](docs/actuator_feasibility.md) · [experiment log](docs/experiments.md) · [sim-to-real risks](docs/sim2real_risks.md) |
@@ -452,8 +468,8 @@ rated 7.4 V.
 
 **Status:**
 - **Left leg:** printed in PLA, assembled, calibrated (all four joints) and load-tested.
-- **P08 pelvis:** a one-piece two-leg pelvis with 80 mm hips, designed and print-ready.
-- **Right leg:** the mirrored part set, print-ready.
+- **P08 pelvis:** a one-piece two-leg pelvis with 80 mm hips, printed and in use.
+- **Right leg:** the mirrored part set, printed, assembled and calibrated (§12).
 
 ### 5.3 Unexpected setbacks
 
@@ -826,20 +842,89 @@ capacitor feeds the hips and each knee separately.
 per lead) is an estimate that I'll replace with measurements on the robot. Per-servo requirements, component sizing and limits
 are in [power and wiring](hardware/leg_p0/power.md).
 
-**First measurements on the robot.** These are full-body numbers: both legs carrying the complete robot, torso and head
-included, on a 5 V bench supply. They are the sum over all 8 servos, read from each servo's current register while it
-moves (`biped_bench.py <routine> --current`):
+The first currents measured on the assembled robot, standing and marching, are in §12.3.
+
+## 12. Full-body assembly and load test
+
+<img src="assets/photos/full_body_small.jpg" width="900" alt="The assembled robot: both legs, torso and head">
+
+Both legs are now built and hang from the P08 pelvis under the printed torso and head. This is the first time the
+whole robot has been on its feet, carrying its full weight.
+
+### 12.1 Bringing up the right leg
+
+The right leg went up the same way as the left (§5.2), one servo on the bus at a time. Each servo got its own ID: 5–8
+for yaw, roll, pitch and knee, so both legs can share one bus with the left leg's 1–4. Then each was jogged until its
+joint was square and zeroed there. The mirrored pockets hold every servo turned 180°, so **all four right-leg joint
+directions come out opposite to the left's**. Each was checked with a small move before any sweep, then confirmed with
+a one-joint-at-a-time check routine. Keeping the same joint names and sign conventions on both legs
+(yaw + = toe out, roll + = leg out to the side, pitch + = leg forward, knee + = foot back) means one routine definition
+drives either leg. The right leg's calibration lives in its own
+[`bench_config_right.yaml`](hardware/leg_p0/software/bench_config_right.yaml).
+
+The left knee servo was also replaced during this round. The new one was given the old ID, zeroed straight and swept
+clean before it carried load.
+
+### 12.2 Moving both legs together
+
+[`biped_bench.py`](hardware/leg_p0/software/biped_bench.py) runs both legs from one bus as eight joints and plays
+whole-body keyframe routines, with every servo arriving at each pose at the same time. The routines are stand, squat,
+sway, turn, march and an in-the-air walk. Before anything moves, every pose, and the motion between poses, is checked
+against each joint's limits and against the pelvis collision rule: the legs collide if both swing inward by more than
+about 5° (from the CAD check in the [leg README](hardware/leg_p0/README.md#two-leg-bench-p08)). One leg in while the other goes out is allowed, which is how the pelvis sways side to side.
+
+<img src="assets/gifs/full_body_march.gif" width="240" height="426" alt="The full robot marching in place">
+
+**Marching in place (`march`).** From the standing pose (hip 16°, knee 32°), each leg in turn lifts to hip 45° / knee 80°,
+so the robot spends half of each cycle on one leg. The legs carry the whole robot: torso and head on top, running on a
+5 V bench supply. The hand on the head only keeps it upright. These are open-loop keyframes with no balance control
+yet, so nothing else would stop it tipping.
+
+### 12.3 Measured current
+
+Running any routine with `--current` logs every servo's current while it moves. These are full-body numbers for the
+complete robot, torso and head included, on the 5 V supply: the sum over all 8 servos.
 
 | activity | mean | peak (all 8 servos at once) | busiest servo | bus voltage |
 |---|---|---|---|---|
 | standing, holding the stance pose (10 s) | 55 mA | ~100 mA | right hip roll, 16 mA mean | 5.2 V |
-| marching in place on the ground (alternate knee lifts, 27 s) | 123 mA | 273 mA | knees, 160–180 mA peak | 5.0–5.2 V |
+| marching in place on the ground (27 s) | 123 mA | 273 mA | knees, 160–180 mA peak | 5.0–5.2 V |
 
-So holding a stance and slow single-leg balance cost almost nothing: well under 0.5 A even after adding each servo's
-own electronics, roughly 10–20 mA apiece, which the register leaves out. This doesn't bear on the walking estimate
-above. The bench routines take about a second per move with gentle acceleration, while the simulated walk steps several
-times a second and strikes the ground. The register also reads only in 6.5 mA steps, and sampling every ~50 ms can miss
-short spikes. Fast routines and a meter on the supply are next.
+Holding a stance and slow single-leg balance cost almost nothing: well under 0.5 A even after adding about 10–20 mA per
+servo for its own electronics, which the register leaves out. As expected, the knees do the work, peaking during
+single-leg stance. These numbers don't change the walking estimate in §11. Each bench move takes about a second with
+gentle acceleration, while the simulated walk steps several times a second and strikes the ground. The register also
+reads only in 6.5 mA steps, and sampling every ~50 ms can miss short spikes. Faster routines and a meter on the supply
+are next.
+
+## 13. IMU
+
+<img src="assets/photos/imu_small.jpg" width="360" alt="MPU6050 breakout soldered to an RP2040-Zero">
+
+The walking policies balance on gravity direction and turn rate from a 6-axis IMU (§8), so the next sensor on the
+bench is an MPU6050-class IMU. I soldered an MPU6050 breakout to an RP2040-Zero, wired over I2C (SDA on GP0, SCL on
+GP1), and tested it from MicroPython over USB.
+
+What the first test found:
+- **The chip is really an MPU6500.** It answers at address 0x68, but its ID register reads 0x70, which is an MPU6500's
+  ID; a genuine MPU6050 reads 0x68. Boards sold as "MPU6050" often carry one. The accelerometer and gyro registers are
+  the same, so the readings don't change.
+- **The RP2040's hardware I2C fails every transfer on this wiring, but software I2C on the same pins is fully reliable.**
+  That points to weak pull-ups. Adding 2.2–4.7 kΩ pull-ups to 3.3 V should bring back hardware I2C, which the faster
+  sampling for balance control will need.
+- **At rest it reads correctly.** Gravity measures 0.998 g. Accelerometer noise is about 0.003 g. The raw gyro
+  offsets are about 1 °/s, which the script measures at startup and subtracts. Gyro noise is 0.14–0.18 °/s on two
+  axes and 0.87 °/s on the third, possibly desk vibration.
+
+[`hardware/imu/imu_live.py`](hardware/imu/imu_live.py) is the test script. It runs on the RP2040 and shows a single
+live line of acceleration, rotation rate, roll, pitch and yaw (`mpremote connect /dev/ttyACM0 run
+hardware/imu/imu_live.py`). Roll and pitch come from a complementary filter, which integrates the gyro and keeps
+nudging the angle toward the accelerometer's gravity direction. Yaw uses the gyro alone, so it drifts: there's no
+magnetometer.
+
+**Status:** tested on the bench, not yet mounted on the robot. Next: pull-ups and hardware I2C, mounting it in the
+pelvis, and measuring the gyro bias stability that the straight-walking result depends on. That result needs the
+bias held to about 0.05 °/s by re-zeroing at every stop (§8).
 
 ## Limitations and next steps
 
@@ -856,7 +941,7 @@ short spikes. Fast routines and a meter on the supply are next.
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
-- **Torso and head.** Designed and checked in CAD. Only the H2 face part is printed so far. The walking policies don't yet include their mass,
+- **Torso and head.** Printed and assembled on the robot (§12). The walking policies don't yet include their mass,
   so they need retraining before walking with them on.
 - **Next steps:**
   1. merge standing and walking into one policy (today: a hand-over between two);
