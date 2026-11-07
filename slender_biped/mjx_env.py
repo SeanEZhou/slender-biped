@@ -44,7 +44,16 @@ class EnvConfig:
     slew: float = 8.0
     latency_sub: int = 2               # nominal command latency in physics substeps (4 ms)
     deadzone: float = 0.0015
-    strength_scale: float = 1.0        # global torque scale (actuator-strength ablation)
+    strength_scale: float = 1.0        # global torque scale (actuator-strength ablation; 5 V on 7.4 V servos ~ 0.68)
+    speed_scale: float = 1.0           # global no-load-speed scale (supply voltage: 5 V on 7.4 V servos ~ 0.68)
+    # measured servo firmware behaviour (hardware step tests 2026-11-06, docs/servo_identification.md). Defaults keep
+    # the original idealized servo, so older runs evaluate unchanged.
+    prof_acc: tuple = (0.0, 0.0)       # optional 3rd entry: hip pitch; (hip, knee) rad/s^2 of the firmware motion profile the internal target follows
+                                       # (accelerate, then brake to stop on the command); 0 = off (slew-limited target)
+    delay_steps: int = 0               # extra command dead time in whole control steps, on top of latency_sub
+    dr_prof_acc: tuple = (1.0, 1.0)    # per-joint multiplier on prof_acc when dr
+    dr_delay_steps: tuple = (0, 0)     # dead-time range (control steps) when dr; replaces delay_steps
+    dr_volt: tuple = (1.0, 1.0)        # per-episode supply factor on strength and speed together (sag, 5 V vs 7.4 V)
     # domain randomization
     dr: bool = False
     dr_strength: tuple = (0.8, 1.05)
@@ -163,7 +172,11 @@ class SlenderBipedEnv(Env):
         specs = [act["catalog"][act["assignments"][self.meta["cfg"]["actuator_set"]][j.split("_", 1)[1]]]
                  for j in self.joints]
         self.ts = jp.array([s["stall_torque"] for s in specs]) * cfg.strength_scale
-        self.w0 = jp.array([s["noload_speed"] for s in specs])
+        self.w0 = jp.array([s["noload_speed"] for s in specs]) * cfg.speed_scale
+        self.prof_acc = jp.array([cfg.prof_acc[1] if j.endswith("knee") else
+                                   cfg.prof_acc[2] if j.endswith("hip_pitch") and len(cfg.prof_acc) > 2 else
+                                   cfg.prof_acc[0] for j in self.joints])
+        self.max_delay = max(cfg.delay_steps, cfg.dr_delay_steps[1] if cfg.dr else 0)
         self.q_nom = jp.array(self.meta["nominal_q"])
         lo = np.array([m.jnt_range[m.actuator_trnid[i, 0]][0] for i in range(self.nj)])
         hi = np.array([m.jnt_range[m.actuator_trnid[i, 0]][1] for i in range(self.nj)])
@@ -257,14 +270,17 @@ class SlenderBipedEnv(Env):
 
     def _sample_servo(self, rng):
         c = self.cfg
-        k = jax.random.split(rng, 5)
+        k = jax.random.split(rng, 8)
         u = lambda kk, lohi, n=self.nj: jax.random.uniform(kk, (n,), minval=lohi[0], maxval=lohi[1])  # noqa: E731
         if not c.dr:
             return dict(strength=jp.ones(self.nj), speed=jp.ones(self.nj), kp=jp.ones(self.nj),
-                        latency=jp.array(c.latency_sub, jp.int32), deadzone=jp.full(self.nj, c.deadzone))
-        return dict(strength=u(k[0], c.dr_strength), speed=u(k[1], c.dr_speed), kp=u(k[2], c.dr_kp),
+                        latency=jp.array(c.latency_sub, jp.int32), deadzone=jp.full(self.nj, c.deadzone),
+                        acc=self.prof_acc, delay=jp.array(c.delay_steps, jp.int32))
+        volt = jax.random.uniform(k[5], (), minval=c.dr_volt[0], maxval=c.dr_volt[1])
+        return dict(strength=u(k[0], c.dr_strength) * volt, speed=u(k[1], c.dr_speed) * volt, kp=u(k[2], c.dr_kp),
                     latency=jax.random.randint(k[3], (), c.dr_latency_sub[0], c.dr_latency_sub[1] + 1),
-                    deadzone=u(k[4], c.dr_deadzone))
+                    deadzone=u(k[4], c.dr_deadzone), acc=self.prof_acc * u(k[6], c.dr_prof_acc),
+                    delay=jax.random.randint(k[7], (), c.dr_delay_steps[0], c.dr_delay_steps[1] + 1))
 
     def _sample_cmd(self, rng):
         c = self.cfg
@@ -309,7 +325,8 @@ class SlenderBipedEnv(Env):
         info = dict(
             rng=rng, servo=servo, cmd=cmd, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
-            prev_cmd=qj, q_tgt=qj, phase=jp.array(0.0), air_time=jp.zeros(2),
+            prev_cmd=qj, q_tgt=qj, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qj, (self.max_delay + 1, 1)),
+            phase=jp.array(0.0), air_time=jp.zeros(2),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
             # round 5: cycle-averaged heading-frame velocity (reward), odometry and accelerometer state, history
             line_p0=qpos[0:2], line_yc=jp.array(0.0), y_est=jp.array(0.0), y_true=jp.array(0.0),
@@ -351,11 +368,30 @@ class SlenderBipedEnv(Env):
         w0 = self.w0 * s_["speed"]
         kp = c.kp * s_["kp"]
         dt = c.sim_dt
+        # dead time: commands wait s_["delay"] whole control steps in a FIFO (delay 0 = the original model)
+        old_buf = state.info["cmd_buf"]
+        new_buf = jp.concatenate([q_cmd[None], old_buf[:-1]], 0)
+        cmd_now, cmd_prev = new_buf[s_["delay"]], old_buf[s_["delay"]]
+        a_prof = s_["acc"]
+
+        def target_update(q_tgt, v_tgt, cmd):
+            """Slew-limited target (original), or the firmware motion profile where a_prof > 0: the target
+            accelerates at a_prof toward the command and brakes in time to stop on it, speed capped at slew."""
+            slewed = q_tgt + jp.clip(cmd - q_tgt, -c.slew * dt, c.slew * dt)
+            e = cmd - q_tgt
+            v_des = jp.sign(e) * jp.minimum(c.slew, jp.sqrt(2.0 * a_prof * jp.abs(e)))
+            v_new = v_tgt + jp.clip(v_des - v_tgt, -a_prof * dt, a_prof * dt)
+            step = v_new * dt
+            arrive = (jp.sign(step) == jp.sign(e)) & (jp.abs(step) >= jp.abs(e))   # would pass the command: land on it
+            prof_q = jp.where(arrive, cmd, q_tgt + step)
+            prof_v = jp.where(arrive, 0.0, v_new)
+            on = a_prof > 0
+            return jp.where(on, prof_q, slewed), jp.where(on, prof_v, 0.0)
 
         def sub(carry, i):
-            data, q_tgt, acc = carry
-            cmd = jp.where(i < s_["latency"], state.info["prev_cmd"], q_cmd)
-            q_tgt = q_tgt + jp.clip(cmd - q_tgt, -c.slew * dt, c.slew * dt)
+            data, q_tgt, v_tgt, acc = carry
+            cmd = jp.where(i < s_["latency"], cmd_prev, cmd_now)
+            q_tgt, v_tgt = target_update(q_tgt, v_tgt, cmd)
             q = data.qpos[7:]
             qd = data.qvel[6:]
             e = q_tgt - q
@@ -370,11 +406,11 @@ class SlenderBipedEnv(Env):
                        over=jp.maximum(acc["over"], jp.mean(jp.abs(qd) > w0)),
                        peak=jp.maximum(acc["peak"], jp.max(jp.abs(tau) / self.ts)),
                        tau=tau)
-            return (data, q_tgt, acc), None
+            return (data, q_tgt, v_tgt, acc), None
 
         acc0 = dict(tau2=0.0, over_rated=0.0, sat=0.0, over=0.0, peak=0.0, tau=jp.zeros(self.nj))
-        (data, q_tgt, acc), _ = jax.lax.scan(sub, (state.pipeline_state, state.info["q_tgt"], acc0),
-                                            jp.arange(self.n_sub))
+        (data, q_tgt, v_tgt, acc), _ = jax.lax.scan(
+            sub, (state.pipeline_state, state.info["q_tgt"], state.info["v_tgt"], acc0), jp.arange(self.n_sub))
 
         info = dict(state.info)
         rng, k_cmd, k_ct, k_push, k_pt, k_obs, k_odo, k_acc = jax.random.split(info["rng"], 8)
@@ -532,7 +568,7 @@ class SlenderBipedEnv(Env):
         info["y_est"] = jp.where(resample, 0.0, info["y_est"])
         info["y_true"] = jp.where(resample, 0.0, info["y_true"])
 
-        info.update(rng=rng, last_act=action, prev_cmd=q_cmd, q_tgt=q_tgt, air_time=air,
+        info.update(rng=rng, last_act=action, prev_cmd=q_cmd, q_tgt=q_tgt, v_tgt=v_tgt, cmd_buf=new_buf, air_time=air,
                     contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1)
         metrics = dict(state.metrics)
         for k, v in terms.items():
@@ -596,7 +632,8 @@ class SlenderBipedEnv(Env):
             jp.concatenate([g_body * fy, w_body * fw, sw(q), 0.1 * sw(qd), action, cmd, clock]),
             v_body * fy, data.qpos[2:3], jp.where(mir, con[::-1], con), tip_rel,
             jp.array([self.sys.pair_friction[self.tip_pairs[0], 0], jp.sum(self.sys.body_mass)]),
-            jp.array([jp.mean(s_["strength"]), jp.mean(s_["speed"]), s_["latency"] * c.sim_dt * 100,
+            jp.array([jp.mean(s_["strength"]), jp.mean(s_["speed"]),
+                      (s_["latency"] * c.sim_dt + s_["delay"] * c.ctrl_dt) * 100,      # total command delay
                       jp.mean(s_["deadzone"]) * 100]),
             sw(tau / self.ts), sw(s_["kp"]), sw(s_["deadzone"]) * 100,
         ])

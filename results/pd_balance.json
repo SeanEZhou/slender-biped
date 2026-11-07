@@ -1,0 +1,93 @@
+{
+ "volt_0.68": {
+  "gains": {
+   "kp_p": 0.5,
+   "kd_p": -0.05,
+   "kp_r": -0.5,
+   "kd_r": 0.05,
+   "kk_p": 0.0,
+   "kk_d": 0.0
+  },
+  "volt": 0.68,
+  "quiet": {
+   "survive": 0.25,
+   "mean_time": 3.0362500000000003,
+   "mean_tilt": 11.940042972043615
+  },
+  "push_0.3": {
+   "survive": 0.0,
+   "mean_time": 1.355,
+   "mean_tilt": 12.23659301630423
+  },
+  "baseline_quiet": {
+   "survive": 0.1875,
+   "mean_time": 2.49625,
+   "mean_tilt": 12.137003500770016
+  }
+ },
+ "volt_0.68_hw": {
+  "gains": {
+   "kp_p": -0.5,
+   "kd_p": -0.05,
+   "kp_r": -1.0,
+   "kd_r": 0.15,
+   "kk_p": 0.0,
+   "kk_d": 0.0
+  },
+  "volt": 0.68,
+  "start": "hw",
+  "quiet": {
+   "survive": 1.0,
+   "mean_time": 20.0,
+   "mean_tilt": 5.879454991753346
+  },
+  "push_0.3": {
+   "survive": 0.0,
+   "mean_time": 3.70875,
+   "mean_tilt": 7.190985823655758
+  },
+  "baseline_quiet": {
+   "survive": 0.9375,
+   "mean_time": 18.86625,
+   "mean_tilt": 6.24789757052006
+  },
+  "baseline_push_0.3": {
+   "survive": 0.0,
+   "mean_time": 3.9175,
+   "mean_tilt": 7.388343957866194
+  }
+ },
+ "volt_0.68_hw_push0.3": {
+  "gains": {
+   "kp_p": 0.0,
+   "kd_p": -0.15,
+   "kp_r": -0.5,
+   "kd_r": 0.0,
+   "kk_p": 0.0,
+   "kk_d": 0.0
+  },
+  "volt": 0.68,
+  "start": "hw",
+  "quiet": {
+   "survive": 0.9375,
+   "mean_time": 19.12625,
+   "mean_tilt": 5.991278739273406
+  },
+  "push_0.3": {
+   "survive": 0.0,
+   "mean_time": 4.08,
+   "mean_tilt": 7.257228097949293
+  },
+  "baseline_quiet": {
+   "survive": 0.9375,
+   "mean_time": 18.86625,
+   "mean_tilt": 6.24789757052006
+  },
+  "baseline_push_0.3": {
+   "survive": 0.0,
+   "mean_time": 3.9175,
+   "mean_tilt": 7.388343957866194
+  },
+  "tune_push": 0.3
+ }
+}

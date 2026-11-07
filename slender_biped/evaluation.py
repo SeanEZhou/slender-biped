@@ -46,6 +46,20 @@ class NumpyPolicy:
 
 
 # ---------------------------------------------------------------- env (numpy mirror)
+def target_update(q_tgt, v_tgt, cmd, a_prof, slew, dt):
+    """Servo internal target (mirror of mjx_env): slew-limited, or the firmware motion profile where a_prof > 0."""
+    slewed = q_tgt + np.clip(cmd - q_tgt, -slew * dt, slew * dt)
+    e = cmd - q_tgt
+    v_des = np.sign(e) * np.minimum(slew, np.sqrt(2.0 * a_prof * np.abs(e)))
+    v_new = v_tgt + np.clip(v_des - v_tgt, -a_prof * dt, a_prof * dt)
+    step = v_new * dt
+    arrive = (np.sign(step) == np.sign(e)) & (np.abs(step) >= np.abs(e))
+    on = a_prof > 0
+    return (np.where(on, np.where(arrive, cmd, q_tgt + step), slewed),
+            np.where(on, np.where(arrive, 0.0, v_new), 0.0))
+
+
+
 def quat_rot_t(q, v):
     w, x, y, z = q
     R = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
@@ -65,6 +79,12 @@ class EvalConfig:
     deadzone: float = 0.0015
     action_scale: float = 0.35
     strength_scale: float = 1.0
+    speed_scale: float = 1.0           # supply-voltage speed scale (mjx_env.EnvConfig)
+    prof_acc: tuple = (0.0, 0.0)       # optional 3rd entry: hip pitch; firmware motion profile (hip, knee) rad/s^2, 0 = off (mjx_env.EnvConfig)
+    delay_steps: int = 0               # extra command dead time, whole control steps
+    dr_prof_acc: tuple = (1.0, 1.0)
+    dr_delay_steps: tuple = (0, 0)
+    dr_volt: tuple = (1.0, 1.0)
     gait_hz: float = 1.6
     obs_noise: float = 1.0
     dr: bool = False
@@ -100,7 +120,7 @@ class EvalConfig:
     def from_train(cls, env_cfg: dict, **over):
         keep = {k: env_cfg[k] for k in cls.__dataclass_fields__ if k in env_cfg}
         keep.update(over)
-        for k in ("push_interval_s",):
+        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt"):
             if k in keep:
                 keep[k] = tuple(keep[k])
         return cls(**keep)
@@ -128,7 +148,11 @@ class CpuBiped:
         act = load_actuators()
         specs = [act["catalog"][act["assignments"][self.meta["cfg"]["actuator_set"]][j.split("_", 1)[1]]] for j in self.joints]
         self.ts0 = np.array([s["stall_torque"] for s in specs]) * cfg.strength_scale
-        self.w00 = np.array([s["noload_speed"] for s in specs])
+        self.w00 = np.array([s["noload_speed"] for s in specs]) * cfg.speed_scale
+        self.prof_acc = np.array([cfg.prof_acc[1] if j.endswith("knee") else
+                                   cfg.prof_acc[2] if j.endswith("hip_pitch") and len(cfg.prof_acc) > 2 else
+                                   cfg.prof_acc[0] for j in self.joints])
+        self.max_delay = max(cfg.delay_steps, cfg.dr_delay_steps[1] if cfg.dr else 0)
         self.rated = np.array([s.get("rated_torque") or np.nan for s in specs])
         self.q_nom = np.array(self.meta["nominal_q"])
         self.q_lo = np.array([m.jnt_range[m.actuator_trnid[i, 0]][0] for i in range(self.nj)])
@@ -179,7 +203,8 @@ class CpuBiped:
         m.dof_frictionloss[:] = self.m0_fl
         m.pair_friction[:] = self.pf0
         self.servo = dict(strength=np.ones(self.nj), speed=np.ones(self.nj), kp=np.ones(self.nj),
-                          latency=c.latency_sub, deadzone=np.full(self.nj, c.deadzone))
+                          latency=c.latency_sub, deadzone=np.full(self.nj, c.deadzone),
+                          acc=self.prof_acc.copy(), delay=c.delay_steps)
         if c.dr:
             fr = rng.uniform(0.5, 1.2)
             for i in self.tip_pairs:
@@ -193,7 +218,13 @@ class CpuBiped:
             m.dof_frictionloss[6:] *= rng.uniform(0.5, 2.0, m.nv - 6)
             self.servo = dict(strength=rng.uniform(0.8, 1.05, self.nj), speed=rng.uniform(0.8, 1.05, self.nj),
                               kp=rng.uniform(0.75, 1.25, self.nj), latency=int(rng.integers(0, 7)),
-                              deadzone=rng.uniform(0.0, 0.015, self.nj))
+                              deadzone=rng.uniform(0.0, 0.015, self.nj), acc=self.prof_acc.copy(), delay=c.delay_steps)
+            if c.dr_volt != (1.0, 1.0) or c.dr_prof_acc != (1.0, 1.0) or c.dr_delay_steps != (0, 0):
+                volt = rng.uniform(*c.dr_volt)          # new draws only for configs that use them: older evaluations
+                self.servo["strength"] *= volt          # keep their exact random sequence
+                self.servo["speed"] *= volt
+                self.servo["acc"] = self.prof_acc * rng.uniform(*c.dr_prof_acc, self.nj)
+                self.servo["delay"] = int(rng.integers(c.dr_delay_steps[0], c.dr_delay_steps[1] + 1))
         if c.friction is not None:
             for i in self.tip_pairs:
                 m.pair_friction[i, 0:2] = c.friction
@@ -213,6 +244,8 @@ class CpuBiped:
         mujoco.mj_forward(m, d)
         self.prev_cmd = qj.copy()
         self.q_tgt = qj.copy()
+        self.v_tgt = np.zeros(self.nj)
+        self.cmd_buf = np.tile(qj, (self.max_delay + 1, 1))
         self.last_act = np.zeros(self.nj)
         self.phase = 0.0
         self.cmd = np.array(cmd, float)
@@ -315,9 +348,13 @@ class CpuBiped:
         kp = c.kp * s_["kp"]
         n_sub = int(round(c.ctrl_dt / c.sim_dt))
         log = dict(tau=[], qd=[], u_req=[])
+        old_buf = self.cmd_buf
+        self.cmd_buf = np.concatenate([q_cmd[None], old_buf[:-1]], 0)
+        cmd_now, cmd_prev = self.cmd_buf[s_["delay"]], old_buf[s_["delay"]]
+        a_prof = s_["acc"]
         for i in range(n_sub):
-            cmd = self.prev_cmd if i < s_["latency"] else q_cmd
-            self.q_tgt = self.q_tgt + np.clip(cmd - self.q_tgt, -c.slew * c.sim_dt, c.slew * c.sim_dt)
+            cmd = cmd_prev if i < s_["latency"] else cmd_now
+            self.q_tgt, self.v_tgt = target_update(self.q_tgt, self.v_tgt, cmd, a_prof, c.slew, c.sim_dt)
             q, qd = d.qpos[7:], d.qvel[6:]
             e = self.q_tgt - q
             e = np.sign(e) * np.maximum(np.abs(e) - s_["deadzone"], 0)

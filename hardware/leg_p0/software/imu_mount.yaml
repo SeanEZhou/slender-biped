@@ -1,0 +1,13 @@
+# IMU mounting: v_pelvis = R_sensor_to_pelvis @ v_sensor. Written by `policy_stand.py imu-calib` 2026-11-06 21:20.
+# Redo it whenever the IMU board is moved.
+R_sensor_to_pelvis:
+- - 0.99508
+  - 0.08626
+  - 0.04873
+- - 0.08606
+  - -0.99627
+  - 0.0062
+- - 0.04908
+  - -0.00198
+  - -0.99879
+forward_tilt_used_deg: 17.0

@@ -11,6 +11,7 @@
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
 - **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
 - **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
+- **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot)
 - **Reference:** [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
 
 An end-to-end robotics design study:
@@ -74,8 +75,9 @@ An end-to-end robotics design study:
 
 > **Status: simulation, plus a fully assembled robot.** Both legs, the torso and the head are printed and assembled.
 > All 8 servos are calibrated, and the robot stands and marches in place on its pads under its own weight, running
-> open-loop keyframes (§12). An IMU is bench-tested (§13). No balance control or walking policy has run on the hardware
-> yet. All standing and walking
+> open-loop keyframes (§12). With the IMU on the pelvis (§13), trained stand policies now run on the robot (legs and
+> pelvis only): it stands on its own for minutes once balanced, and steps in reaction to a fall, though the steps
+> don't yet reliably catch it (§14). No walking policy has run on the hardware yet. All other standing and walking
 > numbers come from held-out evaluation seeds in an independent simulator. Simulated feasibility is not
 > validated hardware capability.
 
@@ -897,6 +899,15 @@ gentle acceleration, while the simulated walk steps several times a second and s
 reads only in 6.5 mA steps, and sampling every ~50 ms can miss short spikes. Faster routines and a meter on the supply
 are next.
 
+### 12.4 First policy on the robot, and what the servos really do
+
+The first stand policy run on the robot (legs and pelvis, IMU on the pelvis) fell within about a second. Step tests
+showed why: the servos' firmware drives every move along a slow motion profile (about 400 deg/s^2 on the hips), so
+small corrections start 4-9x later than the simulator's servo model assumed. A servo model fitted to those tests
+matches the measured joints 4x better; retrained on it, stand policies hold a quiet stance in 96 % of randomized
+simulated runs and ride out light (~0.05 m/s) shoves, but not yet on the robot. Simulation also says the hip servos'
+profile, not the supply voltage, limits push recovery. Details: [servo identification and retraining](docs/servo_identification.md); continued in §14.
+
 ## 13. IMU
 
 <img src="assets/photos/imu_small.jpg" width="360" alt="MPU6050 breakout soldered to an RP2040-Zero">
@@ -922,16 +933,48 @@ hardware/imu/imu_live.py`). Roll and pitch come from a complementary filter, whi
 nudging the angle toward the accelerometer's gravity direction. Yaw uses the gyro alone, so it drifts: there's no
 magnetometer.
 
-**Status:** tested on the bench, not yet mounted on the robot. Next: pull-ups and hardware I2C, mounting it in the
-pelvis, and measuring the gyro bias stability that the straight-walking result depends on. That result needs the
-bias held to about 0.05 °/s by re-zeroing at every stop (§8).
+**Status:** mounted on the pelvis and feeding the stand policies on the robot (§14), via a firmware that streams
+gravity and turn rate at ~92 Hz with ~5 ms latency ([`imu_stream.py`](hardware/imu/imu_stream.py)). Tape doesn't hold
+it steady, so a small printed slab bolts it to the hip plate instead
+([`imu_slab.py`](hardware/imu/cad/imu_slab.py)). Still to do: pull-ups and hardware I2C, and measuring the gyro bias
+stability that the straight-walking result depends on. That result needs the bias held to about 0.05 °/s by
+re-zeroing at every stop (§8).
+
+## 14. Sim to real: standing and recovering on the robot
+
+The first stand policy run on the robot fell within a second. This section tracks the fixes, run on the legs and
+pelvis only (no torso or head), on the 5 V supply. Full detail, with numbers and the policies kept for each phase:
+[docs/sim_to_real.md](docs/sim_to_real.md).
+
+1. **Measure what the servos really do.** Step tests showed that the servo firmware drives every move along a slow
+   constant-acceleration ramp: ~400 °/s² on the 1:345 hips, ~1900 °/s² on the 1:191 knees. Small corrections
+   started 4–9× later than the simulator assumed. A servo model fitted to the tests matches the hips 4× better
+   ([servo identification](docs/servo_identification.md)).
+2. **Retrain on the fitted model.** The original policy was fragile in exactly the ways hardware differs: in
+   simulation, 1° of backlash took it from 75 % to 6 % of quiet stands. Policies retrained with the measured servo
+   behaviour, randomized around it, hold a quiet stance in 96 % of simulated runs. On the robot, the retrained policy
+   stood on its own for up to 5 minutes once it was in balance.
+3. **Get the balance point right.** With no ankles and a 30 mm pad, ~2° of forward lean puts the weight past the
+   pad's edge. The robot actually balances 1–2.5° away from where the IMU says upright, so the runner now takes a
+   pitch trim.
+4. **Recovering needs a step, and a step needs fast hips.** Standing with both feet down absorbs only ~0.05–0.09 m/s.
+   When disturbed, the policy started steps the slow hips couldn't finish, and fell. Recovery training on the real
+   hips plateaued. With both hip-pitch servos swapped to 1:191, simulated recovery from a 0.15 m/s sudden speed went
+   from 0–33 % to 100 %, and from 0.1 m/s repeated shoves from 17 % to 83 %. More voltage didn't help; the ramp is the
+   limit.
+5. **The swap on the robot.** With the spare 1:191 servos on the hip pitches, the robot now steps in reaction to a
+   fall, and sensibly. Whether the steps catch it is still open, partly because only the left new servo is fast; the
+   right one ramps like the old hips and is being checked.
+
+**Status:** quiet standing works on the robot. Recovery stepping has started but doesn't yet reliably catch a fall.
 
 ## Limitations and next steps
 
-- **Sim-to-real transfer is the next milestone.** The robot legs are assembled and the policies are trained on a model
-  built from the same CAD, but no policy has run on the hardware yet. The main gaps to close:
-  - Feetech specs come from retailer listings; rotor inertia, gear friction and thermal behaviour
-    are estimates.
+- **Sim-to-real transfer is under way (§14).** Quiet standing transfers; recovery stepping has started but doesn't
+  yet catch falls reliably. The walking policies were trained on the original servo model, without the firmware's
+  motion profile, so they need retraining on the fitted one. The main gaps to close:
+  - The servo model is fitted to 5 V step tests on the hips and knees; 7.4 V and the swapped hip-pitch servos still
+    need measuring. Rotor inertia, gear friction and thermal behaviour are estimates.
   - Real rubber pads, floor compliance and belt backlash will differ from MuJoCo's soft contacts.
 - **Seeds.** Most results come from one training seed per configuration. The pad's quiet stance
   reproduced on 1 of 2; the round-4 walking and catwalk results on 2 of 2; round 5's gain in straightness on 2 of 2

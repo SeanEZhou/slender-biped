@@ -11,5 +11,5 @@ acceleration: 20
 joints:
   hip_yaw:   {id: 5, center: 2048, direction: -1,  min_deg: -15, max_deg: 25}   # 2026-11-04: zeroed; direction verified by routine check
   hip_roll:  {id: 6, center: 2048, direction: 1, min_deg: -10, max_deg: 25}   # 2026-11-04: zeroed; direction verified by routine check
-  hip_pitch: {id: 7, center: 2048, direction: -1, min_deg: -25, max_deg: 80}   # 2026-11-04: zeroed (offset 2013); +5 went BACK with dir 1, flipped to -1; verified by routine check 2026-11-04
+  hip_pitch: {id: 7, center: 2048, direction: -1, min_deg: -25, max_deg: 80}   # 2026-11-06: swapped to a spare sold as C044 1:191, zeroed via jog, direction -1 verified by `biped_bench.py check`; step test still shows the slow ~420 deg/s^2 profile (docs/sim_to_real.md 3.7)
   knee:      {id: 8, center: 2048, direction: 1,  min_deg: 0,   max_deg: 105}  # 2026-11-04: zeroed (offset 2014); +5 from straight pushed shin FORWARD with dir -1, flipped to +1; verified by routine check 2026-11-04

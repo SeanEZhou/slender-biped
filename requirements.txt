@@ -4,7 +4,7 @@ glfw==2.11.0
 gymnasium==1.4.0
 imageio==2.38.1
 imageio-ffmpeg==0.6.0
-jax==0.12.0.1
+jax[cuda12]==0.12.0.1     # the cuda12 extra pulls the NVIDIA CUDA/cuDNN libraries; without it JAX silently runs on the CPU
 jax-cuda12-pjrt==0.12.0.1
 jax-cuda12-plugin==0.12.0.1
 jaxlib==0.12.0.1

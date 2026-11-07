@@ -51,6 +51,13 @@ runs/*/*
 !runs/r5p_flow/params_0020M.pkl
 !runs/r5q_legs_path/params_0030M.pkl
 !runs/r5n_line_cont/params_0020M.pkl
+# sim to real (docs/sim_to_real.md): one policy per phase, plus the checkpoints they were fine-tuned from
+!runs/hw_stand_fit5v_p01/params_0060M.pkl
+!runs/hw_stand_fit5v_p005/params_0060M.pkl
+!runs/hw_stand_fasthip5v/params_0060M.pkl
+!runs/hw_stand_fit5v_step/params_0060M.pkl
+!runs/hw_recover_slowhip/params_0040M.pkl
+!runs/hw_recover_p191/params_0081M.pkl
 *.log
 checkpoints/
 *.zip
@@ -67,3 +74,5 @@ assets/bench_test/
 .DS_Store
 .venv-hw/
 hardware/leg_p0/software/current_*.csv
+hardware/leg_p0/software/stand_*.csv
+hardware/leg_p0/software/steptest_*.csv
