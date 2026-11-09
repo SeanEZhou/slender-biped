@@ -292,6 +292,12 @@ assignments:
     hip_roll: STS3215_C001_7V4
     hip_pitch: STS3215_C044_7V4
     knee: STS3215_C044_7V4
+  hw_p0_c044_pitch_ankleroll:  # design study 2026-11-09: as built + an ankle roll servo (C001 1:345, 7.4 V) per leg
+    hip_yaw: STS3215_C001_7V4
+    hip_roll: STS3215_C001_7V4
+    hip_pitch: STS3215_C044_7V4
+    knee: STS3215_C044_7V4
+    ankle_roll: STS3215_C001_7V4
   hw_p0_c044_all:    # escalation: 1:191 everywhere except yaw (faster hips, less torque)
     hip_yaw: STS3215_C001_7V4
     hip_roll: STS3215_C044_7V4

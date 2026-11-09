@@ -1008,7 +1008,16 @@ pads: [hardware/feet_p1](hardware/feet_p1/README.md).
 
 With the big pads, standing on a rug is nearly passive; walking is not. Simulated walkers walk (the RL walker survives
 20 s on simulated rugs 80–100 % of the time at ~3 cm/s), but on the robot every approach so far falls on the first
-or second step. Full record: [docs/walking.md](docs/walking.md); the RL walker round: [docs/walking_b150.md](docs/walking_b150.md).
+or second step. In simulation, adding an **ankle roll servo per leg** fixes it. Full record:
+[docs/walking.md](docs/walking.md); the RL walker round: [docs/walking_b150.md](docs/walking_b150.md).
+
+<table>
+<tr><th>With ankle roll: one foot, scripted (simulation)</th><th>With ankle roll: six-plus steps, RL (simulation)</th></tr>
+<tr>
+<td><img src="assets/gifs/ankle_one_foot.gif" width="320"></td>
+<td><img src="assets/gifs/ankle_walk.gif" width="320"></td>
+</tr>
+</table>
 
 **What we tried:**
 
@@ -1019,12 +1028,20 @@ or second step. Full record: [docs/walking.md](docs/walking.md); the RL walker r
    the step (cancels the fall during the swing; the robot falls after touchdown, about half the time).
 3. **Step-and-settle RL walkers** (short steps with a pause; a slower version leaning back and waiting for the frame
    to settle). Far fewer first-step falls in simulation; on the robot they got stuck in place.
+4. **Shift and step together, slowly** (a hip-roll weight shift built into every step, a full rebalance in between),
+   played open loop and as RL residuals, aiming for six steps without falling. On the frame as built the best policy
+   takes six steps in a quarter of simulated hard-floor walks and falls in 40 %; one-foot balance lasts 0.2 s.
+5. **An ankle roll design study** (one STS3215 1:345 servo per leg, simulation only): the robot balances on one foot
+   for 2–3 s and the RL walker takes six or more steps in 16 of 16 hard-floor walks and 14 of 16 on a firm rug
+   without a fall, also with torso and head on, and with the robot's IMU filter and a tilt-reading offset in the
+   loop (10 of 10 on both).
 
 **What we learned:**
 
 - **No ankle roll is the root cause.** With both boards down the centre of mass sits 15.5 mm outside either board's
   inner edge, and a flat board can't tilt its leg sideways, so every step starts a sideways fall. It grows by e every
-  0.16 s, while a swing takes ≥ 0.3–0.4 s on the servos (acceleration-limited, ~0.1 s lag).
+  0.16 s, while a swing takes ≥ 0.3–0.4 s on the servos (acceleration-limited, ~0.1 s lag). With ankle roll the hips
+  and ankles lean both legs together, the weight moves over one flat board, and the step stops being a fall.
 - **No static one-foot pose exists within the joint limits** (best: the centre of mass 0.3 mm outside the standing
   board). A hip-roll "parallelogram" shift moves the weight over one board but leaves both boards on edges.
 - **Flat boards fix the shin angle**: no skiing, no level staggered stance without moving the pelvis 38 mm, and
@@ -1032,8 +1049,9 @@ or second step. Full record: [docs/walking.md](docs/walking.md); the RL walker r
 - **Rewards that pay for standing still win** (velocity kernels, contact imitation); progress and foot-lift terms
   that are zero when standing fixed that.
 
-**Status:** not walking on the robot yet. In progress: RL policies that combine the hip-roll shift and the step, and
-an ankle-roll design study.
+**Status:** not walking on the robot yet. The next step is a hardware decision: add an ankle roll servo per leg (two
+STS3215 C001, ~160 g; the shins shortened to fit), which in simulation turns walking from a controlled fall into
+weight-shift-and-step.
 
 ## Limitations and next steps
 

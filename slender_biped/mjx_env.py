@@ -31,6 +31,13 @@ from . import feet
 from .config import MODEL_DIR, load_actuators
 
 
+def _tilt_obs(g, off):
+    """Gravity direction as read by an IMU mounted off by (roll, pitch) = off rad: rotate about x, then y."""
+    cr, sr, cp, sp = jp.cos(off[0]), jp.sin(off[0]), jp.cos(off[1]), jp.sin(off[1])
+    g = jp.array([g[0], cr * g[1] - sr * g[2], sr * g[1] + cr * g[2]])
+    return jp.array([cp * g[0] + sp * g[2], g[1], -sp * g[0] + cp * g[2]])
+
+
 @dataclass
 class EnvConfig:
     model: str = "baseline_A_8dof"
@@ -90,6 +97,10 @@ class EnvConfig:
     reset_ref_pose: bool = False       # start in the reference's zero-speed pose instead of the stance pose
     # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
     # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
+    # IMU mounting / calibration error (2026-11-09: the robot reads ~+2 deg roll standing level): the observed gravity
+    # direction is rotated by a fixed (roll, pitch) bias plus a per-episode uniform offset of +-dr_imu_tilt rad
+    imu_tilt_bias: tuple = (0.0, 0.0)
+    dr_imu_tilt: float = 0.0
     settle_gate_u: tuple = ()
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
@@ -385,6 +396,7 @@ class SlenderBipedEnv(Env):
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
             prev_cmd=qj, q_tgt=qj, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qj, (self.max_delay + 1, 1)),
             phase=jp.array(0.0), air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
+            imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
             # round 5: cycle-averaged heading-frame velocity (reward), odometry and accelerometer state, history
             line_p0=qpos[0:2], line_yc=jp.array(0.0), y_est=jp.array(0.0), y_true=jp.array(0.0),
@@ -680,6 +692,7 @@ class SlenderBipedEnv(Env):
         c = self.cfg
         quat = data.qpos[3:7]
         g_body = info["g_est"] if c.imu_filter else _quat_rot_t(quat, jp.array([0.0, 0.0, -1.0]))
+        g_body = _tilt_obs(g_body, info["imu_off"])
         w_body = data.qvel[3:6]
         if c.gyro_range > 0:
             w_body = jp.clip(w_body, -c.gyro_range, c.gyro_range)

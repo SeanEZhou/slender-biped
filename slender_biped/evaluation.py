@@ -90,6 +90,8 @@ class EvalConfig:
     gait_hz: float = 1.6
     cmd_vx_slew: float = 0.0           # see mjx_env.EnvConfig
     reset_ref_pose: bool = False
+    imu_tilt_bias: tuple = (0.0, 0.0)  # see mjx_env.EnvConfig
+    dr_imu_tilt: float = 0.0
     settle_gate_u: tuple = ()
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
@@ -133,7 +135,7 @@ class EvalConfig:
     def from_train(cls, env_cfg: dict, **over):
         keep = {k: env_cfg[k] for k in cls.__dataclass_fields__ if k in env_cfg}
         keep.update(over)
-        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u"):
+        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias"):
             if k in keep:
                 keep[k] = tuple(keep[k])
         return cls(**keep)
@@ -288,6 +290,7 @@ class CpuBiped:
         self.last_act = np.zeros(self.nj)
         self.phase = 0.0
         self.gate_held = 0
+        self.imu_off = np.array(c.imu_tilt_bias, float) + (c.dr_imu_tilt * self.est_rng.uniform(-1, 1, 2) if c.dr_imu_tilt else 0.0)
         if hasattr(self, "_cmd"):
             del self._cmd
         self.cmd = np.array(cmd, float)
@@ -326,6 +329,11 @@ class CpuBiped:
         c, d = self.cfg, self.d
         quat = d.qpos[3:7]
         g = self.g_est.copy() if c.imu_filter else quat_rot_t(quat, np.array([0, 0, -1.0]))
+        off = getattr(self, "imu_off", np.zeros(2))
+        if off.any():                          # IMU mounting / calibration error (mjx_env._tilt_obs)
+            cr, sr, cp, sp = np.cos(off[0]), np.sin(off[0]), np.cos(off[1]), np.sin(off[1])
+            g = np.array([g[0], cr * g[1] - sr * g[2], sr * g[1] + cr * g[2]])
+            g = np.array([cp * g[0] + sp * g[2], g[1], -sp * g[0] + cp * g[2]])
         w = d.qvel[3:6].copy()
         if c.gyro_range > 0:
             w = np.clip(w, -c.gyro_range, c.gyro_range)

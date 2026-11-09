@@ -117,8 +117,16 @@ def balance_pose(t, p, on):
     return q, stance, z
 
 
+def with_ankles(q):
+    """8-joint pose -> 10 joints (ankle roll after each knee) for the ankle-roll design study: each ankle roll undoes
+    its hip roll's offset from the stance pose, so the boards stay flat while the legs lean (the shift moves the
+    centre of mass over the stance board instead of rolling the boards onto their edges)."""
+    return np.r_[q[:4], -(q[1] - Q_NOM[1]), q[4:], -(q[5] - Q_NOM[5])]
+
+
 def build(kind, p, vs, nphase):
-    Q = np.zeros((len(vs), nphase, 8)); S = np.zeros((len(vs), nphase, 2)); Z = np.zeros((len(vs), nphase, 2))
+    nj = 10 if p.get("ankle") else 8
+    Q = np.zeros((len(vs), nphase, nj)); S = np.zeros((len(vs), nphase, 2)); Z = np.zeros((len(vs), nphase, 2))
     if kind == "step":
         Tc = 2 * p["T_step"]
     else:
@@ -130,7 +138,7 @@ def build(kind, p, vs, nphase):
                 q, st, z = step_pose(t, p["T_step"], v * p["T_step"], p)
             else:
                 q, st, z = balance_pose(t, p, v > 0)
-            Q[iv, ip], S[iv, ip], Z[iv, ip] = q, st, z
+            Q[iv, ip], S[iv, ip], Z[iv, ip] = (with_ankles(q) if nj == 10 else q), st, z
     return dict(q=Q, tip_z=Z, stance=S, v=np.asarray(vs, float), nphase=nphase, gait_hz=1.0 / Tc, ik_err=0.0,
                 params=json.dumps(dict(p, kind=kind)))
 
@@ -154,10 +162,11 @@ def main():
     ap.add_argument("--vmax", type=float, default=0.016)
     ap.add_argument("--nv", type=int, default=5)
     ap.add_argument("--nphase", type=int, default=256)
+    ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
     a = ap.parse_args()
     p = dict(T_step=a.T_step, settle0=a.settle0, shift_t=a.shift_t, swing_t=a.swing_t, release_t=a.release_t,
              shift=a.shift, out=a.out, lift_knee=a.lift_knee, lift_hip=a.lift_hip, swing_h=a.swing_h, hold=a.hold,
-             settle1=a.settle1)
+             settle1=a.settle1, ankle=a.ankle)
     vs = np.linspace(0, a.vmax, a.nv) if a.kind == "step" else np.array([0.0, a.vmax])
     t = build(a.kind, p, vs, a.nphase)
     REF_DIR.mkdir(exist_ok=True)

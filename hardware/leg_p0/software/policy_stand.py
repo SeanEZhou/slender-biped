@@ -665,6 +665,10 @@ def cmd_run(a):
         c, s = math.cos(math.radians(a.pitch_trim)), math.sin(math.radians(a.pitch_trim))
         R = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]]) @ R
         print(f"pitch trim {a.pitch_trim:+.1f} deg: the policy sees pitch reduced by that much")
+    if a.roll_trim:               # rotate the pelvis frame about x so the reported roll drops by roll_trim
+        c, s = math.cos(math.radians(a.roll_trim)), math.sin(math.radians(a.roll_trim))
+        R = np.array([[1.0, 0.0, 0.0], [0.0, c, s], [0.0, -s, c]]) @ R
+        print(f"roll trim {a.roll_trim:+.1f} deg: the policy sees roll (+ = leaning left) reduced by that much")
     bus = open_bus(a.servo_port)
     sv = Servos(bus)
     if list(sv.joints) != meta["joints"]:
@@ -900,6 +904,10 @@ def main():
     sp.add_argument("--pitch-trim", type=float, default=0.0,
                     help="deg subtracted from the IMU pitch (+ = the robot balances leaning forward by this much "
                          "more than the IMU zero says; 2026-11-06 quiet stands read +1.7..+3.4 vs +0.8 in sim)")
+    sp.add_argument("--roll-trim", type=float, default=0.0,
+                    help="deg subtracted from the IMU roll (+ = leaning left). 2026-11-09: standing still on the big "
+                         "pads the IMU read +1.4..+3.3 deg in every trial; level the pelvis with a spirit level, and if "
+                         "it is level, --roll-trim 2 (or re-run imu-calib)")
     sp.add_argument("--accel", type=int, default=254, help=ACCEL_HELP)
     sp.add_argument("--log", help="CSV path (default stand_<run>_<time>.csv)")
     sp.add_argument("--vx", type=float, default=0.0,

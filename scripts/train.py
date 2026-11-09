@@ -236,7 +236,7 @@ TASKS = {
     "shift_b150": dict(cmd_vx=(0.006, 0.016), cmd_vy=(0.0, 0.0), cmd_wz=(-0.2, 0.2), cmd_zero_prob=0.15,
                        cmd_vx_slew=0.01, reset_ref_pose=True, phase_when_still=False, track_sigma=0.0005,
                        heading_cmd=True, track_ang_sigma=0.1, gait_hz=0.2, ref_table="b150L_shift",
-                       ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.03, vy_avg_mode="box",
+                       ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.03, vy_avg_mode="ema", vy_avg_tau=5.0,  # a 250-sample box buffer made training ~5x slower
                        settle_gate_u=(0.235, 0.735), settle_gate_w=0.3, settle_gate_max=1.0,
                        rw=dict(track_lin=1.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=0.0,
                                ref_contact=0.0, ref_swing=6.0, progress=4.0, stride=20.0, settle=-0.3, slip=-10.0,
