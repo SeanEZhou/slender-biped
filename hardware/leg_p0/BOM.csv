@@ -13,7 +13,7 @@ Idler (rear) horn + its centre screw,4,sets,horn for the passive rear shaft,one 
 Horn-to-bracket screws,32,pcs,M3 x 6 pan head (head <= 5.6 mm) - same as the SO-101 arm,4 per horn x 2 horns x 4 joints; through a 3.5 mm arm (~2.5 mm into the horn),shipped with STS3215 kits / any M3 assortment,usually,no - matches the SO-101 follower,required
 Case mounting screws (self-tapping into the servo case),16,pcs,M2 x 6 self-tapping (the smallest screws in the servo bag); pan head <= 4.2 mm,4 per cradle x 4 cradles; counterbored so 2.0 mm of wall sits under the head (~3.6 mm into the case),shipped with STS3215 kits / any M2 self-tapping assortment,usually,no - matches the SO-101 follower,required
 Tongue bolts + nuts,4,sets,M3 x 16 socket head + M3 hex nut,P02 to P01 lap joint,any M3 assortment,no,no,required
-Pad retaining screw,1,pcs,M2 x 8 self-tapping,through the shin tip into the pad stem (from the back),any M2 assortment,no,no,required
+Pad retaining screws,2,pcs,M3 x 10 socket cap,through the shin tip (3.4 mm) into the pad stem's 2.9 mm pilot: one from the front and one from the back,any M3 assortment,no,no,required
 C-clamps (G-clamps),2,pcs,>= 60 mm opening,clamp P02 to the desk,hardware store,no,no,required
 Zip ties,10,pcs,2.5 mm x 100 mm,cable strain relief on the thigh lugs and brackets,hardware store,no,no,required
 Servo bus adapter,1,pcs,Feetech FE-URT-1 or Waveshare Bus Servo Adapter (A) (USB to half-duplex TTL),PC <-> servo bus,already purchased,no,YES - confirm it accepts a 5 V servo supply and the polarity of its terminals,required

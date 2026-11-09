@@ -388,11 +388,16 @@ def part_shin():
     zm = z_top + (z_bot - z_top) * sh["mid_frac"]
     shell = tube([(z_bot, sh["bot"]), (zm, sh["mid"]), (z_top, sh["top"])], cx=0.0, cy=HY + 0.5, wall=sh["wall"])
     body = arms + crotch + shell
-    # pad socket in the tip + a rear M2 cross screw into the pad stem
-    st = pad["stem"]
-    body -= box(-st["d"] / 2 - 0.2, st["d"] / 2 + 0.2, HY + 0.5 - st["w"] / 2 - 0.2, HY + 0.5 + st["w"] / 2 + 0.2,
-                z_bot - 1, z_bot + st["h"] + 0.3)
-    body -= Pos(-sh["bot"]["d"] / 2, HY + 0.5, z_bot + st["h"] / 2) * (Rot(0, 90, 0) * Cylinder(FIT["m2_clear_d"] / 2, 12))
+    # pad socket in the tip + two M3 screws along X, one through the front wall and one through the back, into the
+    # pad stem; each head sits on a flat spot face that leaves `grip` mm of wall under it
+    st, ps = pad["stem"], FIT["pad_screw"]
+    xs = st["d"] / 2 + 0.2
+    body -= box(-xs, xs, HY + 0.5 - st["w"] / 2 - 0.2, HY + 0.5 + st["w"] / 2 + 0.2, z_bot - 1, z_bot + st["h"] + 0.3)
+    zs = z_bot + st["h"] / 2
+    body -= Pos(0, HY + 0.5, zs) * (Rot(0, 90, 0) * Cylinder(FIT["m3_clear_d"] / 2, sh["bot"]["d"] + 10))
+    for s in (1, -1):
+        x0 = s * (xs + ps["grip"])
+        body -= Pos(x0 + s * 5, HY + 0.5, zs) * (Rot(0, 90, 0) * Cylinder(ps["seat_d"] / 2, 10))
     return body
 
 
@@ -408,7 +413,7 @@ def part_pad():
     p -= cutter.rotate(Axis((-L / 2, cy, Z_PAD), (0, -1, 0)), pad["stance_pitch"])
     p = try_fillet(p, p.edges().filter_by(Axis.Z), pad["corner_r"])
     p += box(-st["d"] / 2, st["d"] / 2, cy - st["w"] / 2, cy + st["w"] / 2, Z_SHIN_TIP - 0.5, Z_SHIN_TIP + st["h"])
-    p -= Pos(0, cy, Z_SHIN_TIP + st["h"] / 2) * (Rot(0, 90, 0) * Cylinder(0.8, st["d"] + 2))   # M2 pilot
+    p -= Pos(0, cy, Z_SHIN_TIP + st["h"] / 2) * (Rot(0, 90, 0) * Cylinder(FIT["m3_pilot_d"] / 2, st["d"] + 2))  # M3 pilots, front + back
     return p
 
 

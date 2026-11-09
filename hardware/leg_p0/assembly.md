@@ -90,7 +90,8 @@ Disconnect power before mechanical work.
 4. Fit 8 × M3×6 horn screws. The inner (idler-side) fork arm is deliberately short at the back: it
    must not touch the knee servo's connector.
 5. Push the **P07 pad** stem into the shin tip with the long side front-to-back and the thicker edge
-   at the **back**. Fit 1 × M2×8 through the back of the shin tip.
+   at the **back**. Fit 2 × M3×10, one through the front of the shin tip and one through the back. They
+   self-tap into the stem's 2.9 mm pilot, so stop at snug.
 
 **Hang the thigh:**
 1. Slide the P05 fork up onto the pitch horns, main horn outside and idler inside.

@@ -8,7 +8,8 @@
                            coaxial support, so there is no separate bearing/shaft to test).
     D  hole_and_nut_gauge  M2 clearance 2.2/2.4/2.6, M2 self-tap pilots 1.6/1.8/2.0, M3 clearance 3.2/3.4/3.6,
                            M3 nut traps 5.5/5.7/5.9 AF, and the 4.6 mm screw-head seat used on the cradles.
-    E  pad_socket_coupon   the shin-tip socket + pad stem pair (stem should slide in with light friction).
+    E  pad_socket_coupon   the shin-tip socket + pad stem pair (stem should slide in with light friction;
+                           2 x M3x10 front and back should thread in firmly).
 
 After printing: measure (see verification.md) and edit params.yaml -> fit.* / servo.*, then rebuild.
 """
@@ -81,11 +82,15 @@ def coupon_d():
 
 
 def coupon_e():
-    st = P["pad"]["stem"]
-    sock = box(-st["d"] / 2 - 3, st["d"] / 2 + 3, -st["w"] / 2 - 3, st["w"] / 2 + 3, 0, st["h"] + 2)
-    sock -= box(-st["d"] / 2 - 0.2, st["d"] / 2 + 0.2, -st["w"] / 2 - 0.2, st["w"] / 2 + 0.2, 2, st["h"] + 3)
-    stem = Pos(30, 0, 0) * (box(-10, 10, -7, 7, 0, 3) + box(-st["d"] / 2, st["d"] / 2, -st["w"] / 2, st["w"] / 2, 3, 3 + st["h"]))
-    return sock + stem
+    st, ps = P["pad"]["stem"], FIT["pad_screw"]
+    xs = st["d"] / 2 + 0.2
+    xo = xs + ps["grip"]                          # same wall under the screw heads as the shin tip
+    sock = box(-xo, xo, -st["w"] / 2 - 3, st["w"] / 2 + 3, 0, st["h"] + 2)
+    sock -= box(-xs, xs, -st["w"] / 2 - 0.2, st["w"] / 2 + 0.2, 2, st["h"] + 3)
+    sock -= Pos(0, 0, 2 + st["h"] / 2) * (Rot(0, 90, 0) * Cylinder(FIT["m3_clear_d"] / 2, 2 * xo + 2))   # 2 x M3x10
+    stem = box(-10, 10, -7, 7, 0, 3) + box(-st["d"] / 2, st["d"] / 2, -st["w"] / 2, st["w"] / 2, 3, 3 + st["h"])
+    stem -= Pos(0, 0, 3 + st["h"] / 2) * (Rot(0, 90, 0) * Cylinder(FIT["m3_pilot_d"] / 2, st["d"] + 2))
+    return sock + Pos(30, 0, 0) * stem
 
 
 def build():

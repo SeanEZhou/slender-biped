@@ -61,8 +61,11 @@ fit:
   horn_screw: {clear_d: 3.4, head_d: 5.6, head_h: 2.4, len: 6.0}
   case_screw: {clear_d: 2.4, head_d: 4.0, head_h: 1.6, len: 6.0, grip: 2.0, seat_d: 4.6}   # grip = wall under the head
   horn_face_gap: 0.0           # arms sit flat on the horn faces
-  m2_clear_d: 2.4              # M2 clearance (pad screw)
+  m2_clear_d: 2.4              # M2 clearance
   m3_clear_d: 3.4
+  m3_pilot_d: 2.9              # M3 self-tapping into print (torso_p0 thread test on the A1)
+  pad_screw: {len: 10.0, grip: 3.5, seat_d: 6.4}   # 2 x M3x10, front and back of the shin tip into the pad stem;
+                               # grip = shin wall left under the head (flat spot face), tips stop ~2.4 mm apart
   m3_nut_af: 5.7               # M3 nut across flats + clearance (captive nut traps)
   m3_nut_h: 2.6
   min_wall: 2.4
