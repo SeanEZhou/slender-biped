@@ -5,8 +5,10 @@
 # Output, 100 lines/s on the USB serial port, in the SENSOR's own axes (the host maps them to the pelvis):
 #     I <gx> <gy> <gz> <wx> <wy> <wz> <seq>
 #   g = gravity direction, unit vector pointing DOWN (complementary filter: gyro-propagated, pulled toward the
-#       accelerometer with a ~0.25 s time constant), w = angular rate in rad/s with the startup bias removed,
+#       accelerometer with a ~0.25 s time constant while it reads within 0.15 g of 1 g), w = angular rate in rad/s
+#       (+-1000 dps range) with the startup bias removed,
 #   seq = sample counter (the host checks for gaps).
+#     W i2c <n>  = running count of failed I2C transfers (retried), at most once a second
 # Input (single characters on the same port): 'b' = re-measure the gyro bias (hold still for 1 s).
 #
 # Wiring as tested: I2C0, SDA = GP0, SCL = GP1, address 0x68. SoftI2C, because hardware I2C failed on this
@@ -21,19 +23,23 @@ from machine import Pin, SoftI2C
 
 SDA, SCL, ADDR = 0, 1, 0x68
 ACC_LSB = 16384.0                      # +-2 g
-GYR_RAD = math.pi / 180 / 131.0        # +-250 dps -> rad/s per LSB
+GYR_RAD = math.pi / 180 / 32.8         # +-1000 dps -> rad/s per LSB (+-250 saturated on the robot: the pelvis
+                                       # twists at up to ~300 dps while it steps)
 DT_US = 5000                           # 200 Hz filter rate
 PRINT_EVERY = 2                        # -> 100 Hz output
 ALPHA = 0.02                           # accelerometer weight per 5 ms step (time constant ~0.25 s)
+GATE = 0.15                            # use the accelerometer only while |a| is within this many g of 1 g: while the
+                                       # pelvis accelerates hard it does not point along gravity (sim: imu_gate)
 
 i2c = SoftI2C(sda=Pin(SDA), scl=Pin(SCL), freq=100000)    # 100 kHz: tested reliable; 14 bytes take ~1.8 ms
 
 
-def setup():
+def setup(wait=True):
     i2c.writeto_mem(ADDR, 0x6B, b"\x00")       # wake
-    time.sleep_ms(100)
+    if wait:
+        time.sleep_ms(100)
     i2c.writeto_mem(ADDR, 0x1C, b"\x00")       # accel +-2 g
-    i2c.writeto_mem(ADDR, 0x1B, b"\x00")       # gyro +-250 dps
+    i2c.writeto_mem(ADDR, 0x1B, b"\x10")       # gyro +-1000 dps
     i2c.writeto_mem(ADDR, 0x1A, b"\x03")       # DLPF ~44 Hz
 
 
@@ -42,22 +48,30 @@ def read():
     return ax / ACC_LSB, ay / ACC_LSB, az / ACC_LSB, gx * GYR_RAD, gy * GYR_RAD, gz * GYR_RAD
 
 
+errors = 0                             # I2C transfers that failed (reported as "W i2c <total>" once a second)
+
+
 def read_retry():
-    """read(), but wait out a missing sensor (loose wire) with a message instead of crashing."""
-    t_msg = 0
-    while True:
+    """read(), retrying at once on a glitch (servo noise on the weak-pull-up wires), so one bad transfer costs ~2 ms
+    instead of stalling the stream. Only a sensor that stays silent gets re-initialised, with a message."""
+    global errors
+    for _ in range(5):
         try:
             return read()
         except OSError:
-            if time.ticks_diff(time.ticks_ms(), t_msg) > 1000:
-                sys.stdout.write("E no answer from the IMU at 0x%02x on SDA=GP%d SCL=GP%d: check the wiring\n"
-                                 % (ADDR, SDA, SCL))
-                t_msg = time.ticks_ms()
-            time.sleep_ms(50)
-            try:
-                setup()
-            except OSError:
-                pass
+            errors += 1
+    t_msg = 0
+    while True:
+        if time.ticks_diff(time.ticks_ms(), t_msg) > 1000:
+            sys.stdout.write("E no answer from the IMU at 0x%02x on SDA=GP%d SCL=GP%d: check the wiring\n"
+                             % (ADDR, SDA, SCL))
+            t_msg = time.ticks_ms()
+        try:
+            setup(wait=False)
+            return read()
+        except OSError:
+            errors += 1
+            time.sleep_ms(20)
 
 
 def measure_bias(n=200):
@@ -87,6 +101,7 @@ poll = select.poll()
 poll.register(sys.stdin, select.POLLIN)
 seq = 0
 k = 0
+errors_sent = 0
 t_next = time.ticks_us()
 while True:
     ax, ay, az, wx, wy, wz = read_retry()
@@ -96,12 +111,17 @@ while True:
     gx = g[0] - (wy * g[2] - wz * g[1]) * dt
     gy = g[1] - (wz * g[0] - wx * g[2]) * dt
     gz = g[2] - (wx * g[1] - wy * g[0]) * dt
+    an = math.sqrt(ax * ax + ay * ay + az * az)
+    al = ALPHA if abs(an - 1.0) < GATE else 0.0
     a = norm(-ax, -ay, -az)
-    g = norm((1 - ALPHA) * gx + ALPHA * a[0], (1 - ALPHA) * gy + ALPHA * a[1], (1 - ALPHA) * gz + ALPHA * a[2])
+    g = norm((1 - al) * gx + al * a[0], (1 - al) * gy + al * a[1], (1 - al) * gz + al * a[2])
     k += 1
     if k % PRINT_EVERY == 0:
         seq += 1
         sys.stdout.write("I %.4f %.4f %.4f %.4f %.4f %.4f %d\n" % (g[0], g[1], g[2], wx, wy, wz, seq))
+        if seq % 100 == 0 and errors != errors_sent:
+            sys.stdout.write("W i2c %d\n" % errors)
+            errors_sent = errors
     if poll.poll(0):
         c = sys.stdin.read(1)
         if c == "b":

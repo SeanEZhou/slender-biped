@@ -76,3 +76,19 @@ assets/bench_test/
 hardware/leg_p0/software/current_*.csv
 hardware/leg_p0/software/stand_*.csv
 hardware/leg_p0/software/steptest_*.csv
+
+# Personal notes (local only)
+personal-notes/
+# foot-pad round (docs/foot_pads.md); hw_recover_soft is their starting point
+!runs/hw_recover_soft/params_0121M.pkl
+!runs/b150_walkstride_L/params_0020M.pkl
+!runs/b150_walksafe_L/params_0015M.pkl
+!runs/b150_walksafe_F2/params_0030M.pkl
+!runs/b150_step3_L/params_0030M.pkl
+!runs/b150_step4_L/params_0010M.pkl
+!runs/b150_step4_L/params_0030M.pkl
+!runs/pad_board120w/params_0040M.pkl
+!runs/rug_board120w/params_0101M.pkl
+!runs/rug_board120w_long/params_0060M.pkl
+!runs/pad_board150w/params_0040M.pkl
+!runs/pad_board150w_legs/params_0040M.pkl

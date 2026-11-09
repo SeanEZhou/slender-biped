@@ -62,10 +62,18 @@ def main():
     ap.add_argument("--width", type=int, default=360)
     ap.add_argument("--fps", type=int, default=15)
     ap.add_argument("--side", type=float, default=90.0, help="camera azimuth relative to the initial heading")
+    ap.add_argument("--floor-tc", type=float, help="rug: tip-floor solref time constant (0.1 / 0.2 / 0.3 = rug1-3)")
+    ap.add_argument("--vx", type=float, help="forward command instead of the test's (heading held)")
+    ap.add_argument("--imu", action="store_true", help="the robot's IMU filter")
     a = ap.parse_args()
     cfg, run_dir = load_run(a.run)
-    t = TESTS[a.test]
-    ec = EvalConfig.from_train(cfg["env"], push_vel=t.get("push", 0.0))
+    t = dict(TESTS[a.test])
+    if a.vx is not None:
+        t.update(sched=[(0.0, (a.vx, 0.0, 0.0))], heading_hold=True)
+    over = dict(floor_tc=a.floor_tc) if a.floor_tc is not None else {}
+    if a.imu:
+        over.update(imu_filter=True, imu_gate=0.15, gyro_range=17.45)
+    ec = EvalConfig.from_train(cfg["env"], push_vel=t.get("push", 0.0), **over)
     env = CpuBiped(cfg["env"]["model"], ec, seed=a.seed)
     env.m.mat_reflectance[:] = 0.0
     rw = max(480, a.width)  # render at least at output width so the GIF is never upscaled
@@ -87,7 +95,12 @@ def main():
         write_video(mp4, frames, fps=int(1 / (2 * ec.ctrl_dt)))
         vf = (f"fps={a.fps},scale={a.width}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];"
               "[b][p]paletteuse=dither=none:diff_mode=rectangle")
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(mp4), "-vf", vf, str(out)], check=True)
+        try:                                   # system ffmpeg, else the one bundled with imageio
+            import shutil
+            ff = shutil.which("ffmpeg") or __import__("imageio_ffmpeg").get_ffmpeg_exe()
+        except Exception:
+            ff = "ffmpeg"
+        subprocess.run([ff, "-v", "error", "-y", "-i", str(mp4), "-vf", vf, str(out)], check=True)
     print(out, f"{out.stat().st_size / 1e6:.2f} MB  survived {res['survived_s']:.1f}s fell={res['fell']} "
                f"touchdowns={res['touchdowns']} forward={res['forward_m']:.2f}m")
 

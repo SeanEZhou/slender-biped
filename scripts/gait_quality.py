@@ -28,12 +28,19 @@ ap.add_argument("--params", default="params.pkl")
 ap.add_argument("--vx", type=float, default=0.15)
 ap.add_argument("--seeds", type=int, default=5)
 ap.add_argument("--seconds", type=float, default=20.0)
+ap.add_argument("--floor-tc", type=float, help="tip-floor solref time constant (s), e.g. 0.1 / 0.2 / 0.3 = rug1-3")
+ap.add_argument("--friction", type=float)
+ap.add_argument("--imu", action="store_true", help="the robot's IMU filter (+-1000 dps gyro, 0.15 g gate)")
+ap.add_argument("--tag", default="", help="suffix of the output file name")
 a = ap.parse_args()
 cfg, rd = load_run(a.run)
 pol = NumpyPolicy(rd / a.params)
+over = {k: v for k, v in (("floor_tc", a.floor_tc), ("friction", a.friction)) if v is not None}
+if a.imu:
+    over.update(imu_filter=True, imu_gate=0.15, gyro_range=17.45)
 rows = []
 for s in range(a.seeds):
-    env = CpuBiped(cfg["env"]["model"], EvalConfig.from_train(cfg["env"]), seed=20000 + s)
+    env = CpuBiped(cfg["env"]["model"], EvalConfig.from_train(cfg["env"], **over), seed=20000 + s)
     obs = env.reset((a.vx, 0.0, 0.0))
     yaw0 = yaw_of(env.d.qpos[3:7])
     low, c = env.tip_low()
@@ -78,7 +85,8 @@ for s in range(a.seeds):
     st = np.array(steps) if steps else np.zeros((0, 3))
     late = st[len(st) // 5:] if len(st) > 5 else st          # skip the first second-ish of start-up steps
     y = np.cumsum(lat) * env.cfg.ctrl_dt
-    y = y - np.convolve(y, np.ones(50) / 50, mode="same")    # remove drift: sway about a 1 s moving mean
+    if len(y) >= 50:                                          # (an episode can fall inside the first second)
+        y = y - np.convolve(y, np.ones(50) / 50, mode="same")    # remove drift: sway about a 1 s moving mean
     rows.append(dict(
         survived_s=dur, body_vx=float(np.mean(vbx[50:])) if len(vbx) > 60 else 0.0,
         yaw_drift_dps=float(np.degrees((yaw_of(env.d.qpos[3:7]) - yaw0 + np.pi) % (2 * np.pi) - np.pi)) / dur, vx=float((env.d.qpos[0:2] - x0) @ np.array([np.cos(yaw0), np.sin(yaw0)])) / dur,
@@ -93,5 +101,6 @@ for s in range(a.seeds):
 med = {k: float(np.median([r[k] for r in rows])) for k in rows[0]}
 out = ROOT / "results" / "gait"
 out.mkdir(parents=True, exist_ok=True)
-(out / f"{a.run}__{a.vx:.2f}.json").write_text(json.dumps(dict(params=a.params, median=med, rows=rows), indent=1))
-print(f"{a.run} {a.params} vx_cmd {a.vx}: " + " | ".join(f"{k} {v:.3g}" for k, v in med.items()))
+(out / f"{a.run}__{a.vx:.2f}{a.tag}.json").write_text(json.dumps(dict(params=a.params, median=med, rows=rows), indent=1))
+med["survive_frac"] = float(np.mean([r["survived_s"] >= a.seconds - 0.05 for r in rows]))
+print(f"{a.run} {a.params} vx_cmd {a.vx}{a.tag}: " + " | ".join(f"{k} {v:.3g}" for k, v in med.items()))

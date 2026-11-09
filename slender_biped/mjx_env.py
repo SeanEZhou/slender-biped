@@ -27,6 +27,7 @@ import numpy as np
 from brax.envs.base import Env, State
 from mujoco import mjx
 
+from . import feet
 from .config import MODEL_DIR, load_actuators
 
 
@@ -65,6 +66,17 @@ class EnvConfig:
     # resets / disturbances
     reset_joint_noise: float = 0.08
     reset_tilt: float = 0.04
+    # hand-placement starts (2026-11-07): with probability reset_hard_prob the tilt magnitude is instead uniform in
+    # reset_hard_tilt (rad, random direction), and the robot starts already tipping at reset_angvel (rad/s std per
+    # horizontal axis, pivoting about the feet). 0 = off (older runs unchanged)
+    reset_hard_prob: float = 0.0
+    reset_hard_tilt: tuple = (0.0, 0.0)
+    reset_angvel: float = 0.0
+    # floor randomization when dr: tip-floor friction, and contact softness as the solref time constant (s) and
+    # damping ratio. 0.004 / 1 is the hard floor; larger time constants let the pads sink in and rock (mats, carpet)
+    dr_friction: tuple = (0.5, 1.2)
+    dr_floor_tc: tuple = (0.004, 0.004)
+    dr_floor_damp: tuple = (1.0, 1.0)
     push_interval_s: tuple = (2.0, 4.0)
     push_vel: float = 0.0              # m/s std of random base velocity kicks (0 = off)
     # commands
@@ -73,6 +85,14 @@ class EnvConfig:
     cmd_wz: tuple = (0.0, 0.0)
     cmd_zero_prob: float = 1.0
     cmd_resample_s: tuple = (3.0, 6.0)
+    cmd_vx_slew: float = 0.0           # m/s^2: the forward command the policy sees (and the reference uses) ramps toward
+                                       # the sampled one at this rate (0 = jumps); from rest the first steps are short
+    reset_ref_pose: bool = False       # start in the reference's zero-speed pose instead of the stance pose
+    # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
+    # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
+    settle_gate_u: tuple = ()
+    settle_gate_w: float = 0.3
+    settle_gate_max: float = 0.5
     heading_cmd: bool = False          # yaw-rate command = clip(k * heading error) (legged-gym style)
     heading_gain: float = 1.0
     gait_hz: float = 1.6               # clock frequency (full gait cycle)
@@ -86,7 +106,7 @@ class EnvConfig:
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
-        track_vy=0.0, line=0.0, alive=0.5, termination=-20.0))
+        track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, alive=0.5, termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
     track_ang_sigma: float = 0.05      # yaw-rate tracking kernel width (rad/s)^2
@@ -102,7 +122,9 @@ class EnvConfig:
     ref_sigma_q: float = 0.1           # joint-tracking kernel width (rad^2, summed over joints)
     ref_sigma_tip: float = 0.0002      # tip-height tracking kernel width (m^2, summed over tips)
     ref_yaw_weight: float = 1.0        # weight of the hip-yaw joints in ref_q (0 = free for steering)
+    ref_swing_h: float = 0.008         # m: lift at which the ref_swing term is fully paid
     width_target: float = 0.08         # m, lateral tip separation (body frame) above which the width term penalizes
+    airborne_h: float = 0.0015         # m: a foot counts as off the floor for the airborne (skiing) term above this
     tip_condim: int = 3                # tip-floor contact dims; 4 adds the pad's torsional (yaw) friction, which the
                                        # model specifies (0.004) but condim 3 ignores
     # sideways drift (round 5). Extra policy inputs go in FRONT of the 35-dim base state, so the base layout (and
@@ -123,6 +145,14 @@ class EnvConfig:
     flow_noise: float = 0.02           # m/s per-sample noise of the flow sensor
     acc_noise: float = 0.01            # g, white noise per sample
     acc_bias: float = 0.03             # g, per-episode bias half-range per axis
+    # IMU as on the robot (2026-11-08): the policy's gravity input is the RP2040 firmware's complementary filter
+    # (gyro-propagated, pulled toward the accelerometer, which also feels the pelvis accelerating) instead of the true
+    # gravity direction. imu_gate: the accelerometer is only used while its magnitude is within this many g of 1 g
+    # (0 = always, the original firmware). gyro_range: rad/s clip (0 = none; 4.36 = the original +-250 dps).
+    imu_filter: bool = False
+    imu_alpha: float = 0.0776          # accelerometer weight per 20 ms (firmware: 0.02 per 5 ms step)
+    imu_gate: float = 0.15
+    gyro_range: float = 0.0
     vy_avg_tau: float = 0.67           # s, low-pass on heading-frame velocity for track_vy (~ one gait cycle)
     vy_avg_sigma: float = 0.0004       # (m/s)^2 kernel of the cycle-averaged lateral-velocity reward
     vy_avg_mode: str = "ema"           # "ema" (tau above; leaves ~+-0.035 m/s of the gait sway) | "box" (mean over
@@ -185,12 +215,9 @@ class SlenderBipedEnv(Env):
         sid = lambda n: mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_SITE, n)  # noqa: E731
         bid = lambda n: mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, n)  # noqa: E731
         gid = lambda n: mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, n)  # noqa: E731
-        self.tip_gid = np.array([gid("L_tip"), gid("R_tip")])
-        size = m.geom_size[self.tip_gid].copy()
-        sphere = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_SPHERE
-        size[sphere] = size[sphere][:, :1].repeat(3, 1)
-        self.tip_semi = jp.array(size)                      # semi-axes for the support function
-        self.tip_box = jp.array(m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_BOX)  # flat soles (control frame)
+        fg, ft, fs = feet.foot_geoms(m)                     # (2, K): every primitive of each foot pad
+        self.foot_gid, self.foot_typ, self.foot_size = fg, jp.array(ft), jp.array(fs)
+        self.tip_gid = fg[:, 0]                             # pad centre geom
         self.knee_bid = np.array([bid("L_shin"), bid("R_shin")])
         self.pelvis_bid = bid("pelvis")
         self.knee_r = float(m.geom_size[gid("L_knee_col")][0])
@@ -203,15 +230,25 @@ class SlenderBipedEnv(Env):
         self.tip_pairs = np.array([i for i in range(m.npair)
                                    if {mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, m.pair_geom1[i]),
                                        mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, m.pair_geom2[i])} in
-                                   ({"floor", "L_tip"}, {"floor", "R_tip"})])
-        assert len(self.tip_pairs) == 2, self.tip_pairs
+                                   [{"floor", n} for n in feet.foot_names(m)]])
+        assert len(self.tip_pairs) == fg.size, self.tip_pairs
         TIP_PAIRS = jp.array(self.tip_pairs)
+        global FLOOR_DR
+        # a larger sole sinks less into the same rug: MuJoCo's soft-contact sinkage ~ timeconst^2 and doesn't see
+        # the area, so the time constant is scaled by sqrt(reference area / pad area) (reference: the 31 x 18 mm pad)
+        tc_scale = float(np.sqrt(PAD_AREA_REF / self.meta["pad_area"])) if "pad_area" in self.meta else 1.0
+        FLOOR_DR = dict(friction=tuple(cfg.dr_friction), tc=tuple(cfg.dr_floor_tc), damp=tuple(cfg.dr_floor_damp),
+                        tc_scale=tc_scale)
         self.ref = None
         if cfg.ref_table:
             from .ref_gait import load
             self.ref = load(cfg.ref_table, jp)
             self.ref_w = jp.array([cfg.ref_yaw_weight if j.endswith("hip_yaw") else 1.0 for j in self.joints])
             assert abs(self.ref["gait_hz"] - cfg.gait_hz) < 1e-6, (self.ref["gait_hz"], cfg.gait_hz)
+        self._reset_pitch = 0.0
+        if cfg.reset_ref_pose and self.ref is not None:
+            from .ref_gait import level_pitch, lookup
+            self._reset_pitch = level_pitch(self.mj_model, self.joints, np.asarray(lookup(self.ref, 0.0, 0.0, jp)[0]))
         self._cycle_n = int(round(1.0 / (cfg.gait_hz * cfg.ctrl_dt)))  # control steps per gait cycle
         # obs sizes
         self._frame_size = 3 + 3 + 3 * self.nj                       # history frame: gravity, gyro, q, qd, action
@@ -262,11 +299,9 @@ class SlenderBipedEnv(Env):
     # ------------------------------------------------------------------ helpers
     def _tip_low(self, data):
         """Lowest world point of each tip (support function along -z) and the tip centre."""
-        c = data.geom_xpos[self.tip_gid]                       # (2,3)
-        R = data.geom_xmat[self.tip_gid]                       # (2,3,3)
-        h = jp.where(self.tip_box, jp.sum(jp.abs(self.tip_semi * R[:, 2, :]), axis=-1),
-                      jp.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1))
-        return c[:, 2] - h, c
+        low = feet.lowest(jp, data.geom_xpos[self.foot_gid], data.geom_xmat[self.foot_gid], self.foot_typ,
+                          self.foot_size)
+        return low, data.geom_xpos[self.tip_gid]
 
     def _sample_servo(self, rng):
         c = self.cfg
@@ -299,13 +334,28 @@ class SlenderBipedEnv(Env):
         c = self.cfg
         rng, k1, k2, k3, k4, k5, k6, k7 = jax.random.split(rng, 8)
         qpos = self.qpos0
-        qj = self.q_nom + c.reset_joint_noise * jax.random.normal(k1, (self.nj,))
+        q0 = self.q_nom
+        if c.reset_ref_pose and self.ref is not None:
+            from .ref_gait import lookup
+            q0 = lookup(self.ref, jp.array(0.0), jp.array(0.0), jp)[0]
+        qj = q0 + c.reset_joint_noise * jax.random.normal(k1, (self.nj,))
         qj = jp.clip(qj, self.q_lo, self.q_hi)
+        k2, k2h, k2p, k2a, k2w = jax.random.split(k2, 5)
         tilt = c.reset_tilt * jax.random.normal(k2, (2,))
+        ang = jax.random.uniform(k2a, minval=-np.pi, maxval=np.pi)
+        hard = jax.random.uniform(k2p) < c.reset_hard_prob
+        mag = jax.random.uniform(k2h, minval=c.reset_hard_tilt[0], maxval=c.reset_hard_tilt[1])
+        tilt = jp.where(hard, mag * jp.array([jp.cos(ang), jp.sin(ang)]), tilt)
+        w_tip = jp.where(hard, c.reset_angvel * jax.random.normal(k2w, (2,)), jp.zeros(2))
         yaw = jax.random.uniform(k3, minval=-np.pi, maxval=np.pi)
         # small-angle quaternion from roll/pitch then yaw
         q_rp = jp.array([1.0, tilt[0] / 2, tilt[1] / 2, 0.0])
         q_rp = q_rp / jp.linalg.norm(q_rp)
+        if self._reset_pitch:                               # start pose with the pelvis leaned (boards level)
+            a = self._reset_pitch
+            w1, x1, y1, z1 = q_rp
+            q_rp = jp.array([w1 * np.cos(a / 2) - y1 * np.sin(a / 2), x1 * np.cos(a / 2) + z1 * np.sin(a / 2),
+                             w1 * np.sin(a / 2) + y1 * np.cos(a / 2), z1 * np.cos(a / 2) - x1 * np.sin(a / 2)])
         q_y = jp.array([jp.cos(yaw / 2), 0, 0, jp.sin(yaw / 2)])
         w1, x1, y1, z1 = q_y
         w2, x2, y2, z2 = q_rp
@@ -318,15 +368,23 @@ class SlenderBipedEnv(Env):
         qpos = qpos.at[2].add(-jp.min(low) + 0.0005)
         data = data.replace(qpos=qpos)
         data = mjx.forward(self.sys, data)
+        if c.reset_angvel > 0:                              # already tipping: rotation about the feet
+            w = jp.array([w_tip[0], w_tip[1], 0.0])         # world frame
+            r = jp.array([0.0, 0.0, qpos[2]])               # base above the floor contact
+            qvel = jp.zeros(self.sys.nv).at[0:3].set(jp.cross(w, r)).at[3:6].set(data.xmat[1].T @ w)
+            data = mjx.forward(self.sys, data.replace(qvel=qvel))
         servo = self._sample_servo(k4)
-        cmd = self._sample_cmd(k5)
+        cmd_goal = self._sample_cmd(k5)
+        cmd = cmd_goal.at[0].set(0.0) if c.cmd_vx_slew > 0 else cmd_goal
         low, centre = self._tip_low(data)
         rng, kb1, kb2, kb3, kb4 = jax.random.split(rng, 5)
+        g0 = _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0]))
         info = dict(
-            rng=rng, servo=servo, cmd=cmd, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
+            g_est=g0,
+            rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
             prev_cmd=qj, q_tgt=qj, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qj, (self.max_delay + 1, 1)),
-            phase=jp.array(0.0), air_time=jp.zeros(2),
+            phase=jp.array(0.0), air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
             # round 5: cycle-averaged heading-frame velocity (reward), odometry and accelerometer state, history
             line_p0=qpos[0:2], line_yc=jp.array(0.0), y_est=jp.array(0.0), y_true=jp.array(0.0),
@@ -334,7 +392,7 @@ class SlenderBipedEnv(Env):
             odo_bias=c.odo_bias * jax.random.normal(kb1, (2,)),
             odo_scale=1.0 + jax.random.uniform(kb2, minval=-c.odo_scale, maxval=c.odo_scale),
             acc_bias=jax.random.uniform(kb3, (3,), minval=-c.acc_bias, maxval=c.acc_bias),
-            acc=jp.array([0.0, 0.0, 1.0]), v_prev=jp.zeros(3), hist=jp.zeros((c.obs_hist, self._frame_size)),
+            acc=jp.array([0.0, 0.0, 1.0]), v_prev=data.qvel[0:3], hist=jp.zeros((c.obs_hist, self._frame_size)),
             mirror=(jax.random.uniform(kb4) < 0.5) & c.mirror_aug,
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
@@ -345,7 +403,7 @@ class SlenderBipedEnv(Env):
 
     def _metric_keys(self):
         return ["r_" + k for k in self.cfg.rw] + ["sat_frac", "overspeed_frac", "peak_tau_frac", "touchdowns",
-                                                   "both_contact", "vx", "height", "vy_avg_abs"]
+                                                   "both_contact", "vx", "height", "vy_avg_abs", "air_frac", "swing_clear"]
 
     # ------------------------------------------------------------------ step
     def step(self, state: State, action):
@@ -440,6 +498,16 @@ class SlenderBipedEnv(Env):
         air = info["air_time"] + c.ctrl_dt
         air_rew = jp.sum(jp.where(touchdown, jp.clip(air - c.air_time_target, -0.3, 0.3), 0.0))
         air = jp.where(contact, 0.0, air)
+        if c.settle_gate_u:
+            u0, u1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
+            cross = jp.zeros((), bool)
+            for g in c.settle_gate_u:
+                cross = cross | (jp.mod(u0 - g, 1.0) > jp.mod(u1 - g, 1.0))
+            moving_now = jp.linalg.norm(info["cmd"]) > 1e-3
+            hold = (cross & moving_now & (jp.sum(data.qvel[3:5] ** 2) > c.settle_gate_w ** 2)
+                    & (info["gate_held"] < int(c.settle_gate_max / c.ctrl_dt)))
+            info["gate_held"] = jp.where(hold, info["gate_held"] + 1, 0)
+            phase_next = jp.where(hold, state.info["phase"], phase_next)
         info["phase"] = phase_next
         # left stance when sin(phase) >= 0, right when < 0
         s = jp.sin(info["phase"])
@@ -482,6 +550,17 @@ class SlenderBipedEnv(Env):
         f_imu = (_quat_rot_t(quat, (v_world - info["v_prev"]) / c.ctrl_dt + jp.array([0.0, 0.0, 9.81])) / 9.81
                  + info["acc_bias"] + c.acc_noise * jax.random.normal(k_acc, (3,)))
         info.update(v_avg=v_avg, odo_v=odo_v, odo_p=p_meas, acc=f_imu, v_prev=v_world)
+        if c.imu_filter:
+            w_g = data.qvel[3:6]
+            if c.gyro_range > 0:
+                w_g = jp.clip(w_g, -c.gyro_range, c.gyro_range)
+            g_e = info["g_est"]
+            g_p = g_e - jp.cross(w_g, g_e) * c.ctrl_dt
+            fn = jp.linalg.norm(f_imu)
+            use = (jp.abs(fn - 1.0) < c.imu_gate) if c.imu_gate > 0 else jp.array(True)
+            al = c.imu_alpha * use
+            g_n = (1 - al) * g_p + al * (-f_imu / jp.maximum(fn, 1e-3))
+            info["g_est"] = g_n / jp.linalg.norm(g_n)
         # path: line through line_p0 along the commanded heading, shifted sideways by the integrated vy command
         hc, hs = jp.cos(info["heading"]), jp.sin(info["heading"])
         rel = data.qpos[0:2] - info["line_p0"]
@@ -506,9 +585,13 @@ class SlenderBipedEnv(Env):
             ref_terms = dict(
                 ref_q=jp.exp(-jp.sum(self.ref_w * (data.qpos[7:] - q_ref) ** 2) / c.ref_sigma_q),
                 ref_tip=jp.exp(-jp.sum((jp.maximum(low, 0.0) - z_ref) ** 2) / c.ref_sigma_tip),
-                ref_contact=jp.mean(contact == st_ref))
+                ref_contact=jp.mean(contact == st_ref),
+                # step-and-settle (2026-11-08): body rotation rate while the reference has both boards down
+                settle=jp.where(moving & jp.all(st_ref), jp.sum(w_body[:2] ** 2), 0.0),
+                # the scheduled foot is up during its swing (lowest point, up to ref_swing_h): standing earns nothing
+                ref_swing=jp.where(moving, jp.sum(jp.where(st_ref, 0.0, jp.clip(low, 0.0, c.ref_swing_h) / c.ref_swing_h)), 0.0))
         else:
-            ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0)
+            ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0, settle=0.0, ref_swing=0.0)
         terms = dict(
             track_lin=jp.exp(-jp.sum((cmd[:2] - v_body[:2]) ** 2) / c.track_sigma),
             track_ang=jp.exp(-(cmd[2] - w_body[2]) ** 2 / c.track_ang_sigma),
@@ -537,7 +620,12 @@ class SlenderBipedEnv(Env):
             width=jp.where(moving, jp.maximum(jp.abs(_quat_rot_t(quat, centre[0] - centre[1])[1]) - c.width_target, 0.0) ** 2
                            * 1e4, 0.0),
             track_vy=jp.exp(-(cmd[1] - v_avg[1]) ** 2 / c.vy_avg_sigma),
+            # 2026-11-08: forward progress over the last gait cycle as a fraction of the command (0 for standing still,
+            # unlike the velocity kernel, which pays standing ~half at small commands); use vy_avg_mode="box"
+            progress=jp.where(moving & (cmd[0] > 0.005), jp.clip(v_avg[0] / jp.maximum(cmd[0], 0.005), -1.0, 1.2), 0.0),
             line=jp.where(moving, jp.exp(-y_true ** 2 / c.line_sigma), 0.0),
+            # skiing (2026-11-08): feet lifted off the floor while moving (penalized: both boards stay on the snow)
+            airborne=jp.where(moving, jp.sum(low > c.airborne_h).astype(float), 0.0),
             alive=1.0,
             termination=0.0,
         )
@@ -555,7 +643,12 @@ class SlenderBipedEnv(Env):
         info["cmd_timer"] = info["cmd_timer"] - 1
         resample = info["cmd_timer"] <= 0
         new_cmd = self._sample_cmd(k_cmd)
-        info["cmd"] = jp.where(resample, new_cmd, cmd)
+        goal = jp.where(resample, new_cmd, info["cmd_goal"])
+        info["cmd_goal"] = goal
+        if c.cmd_vx_slew > 0:
+            ds = c.cmd_vx_slew * c.ctrl_dt
+            goal = goal.at[0].set(cmd[0] + jp.clip(goal[0] - cmd[0], -ds, ds))
+        info["cmd"] = goal
         yaw_now = jp.arctan2(2 * (quat[0] * quat[3] + quat[1] * quat[2]), 1 - 2 * (quat[2] ** 2 + quat[3] ** 2))
         if c.heading_cmd:
             # sampled wz becomes a heading offset; the command the policy sees is the corrective yaw rate
@@ -575,7 +668,8 @@ class SlenderBipedEnv(Env):
             metrics["r_" + k] = rw[k] * v
         metrics.update(sat_frac=acc["sat"], overspeed_frac=acc["over"], peak_tau_frac=acc["peak"],
                        touchdowns=jp.sum(touchdown).astype(float), both_contact=jp.all(contact).astype(float),
-                       vx=v_body[0], height=z, vy_avg_abs=jp.abs(v_avg[1]))
+                       vx=v_body[0], height=z, vy_avg_abs=jp.abs(v_avg[1]),
+                    air_frac=jp.mean(~contact), swing_clear=jp.max(jp.where(contact, 0.0, low)))
         obs, frame = self._obs(data, info, action, acc["tau"], k_obs)
         if c.obs_hist:
             info["hist"] = jp.concatenate([info["hist"][1:], frame[None]], 0)
@@ -585,8 +679,10 @@ class SlenderBipedEnv(Env):
     def _obs(self, data, info, action, tau, rng):
         c = self.cfg
         quat = data.qpos[3:7]
-        g_body = _quat_rot_t(quat, jp.array([0.0, 0.0, -1.0]))
+        g_body = info["g_est"] if c.imu_filter else _quat_rot_t(quat, jp.array([0.0, 0.0, -1.0]))
         w_body = data.qvel[3:6]
+        if c.gyro_range > 0:
+            w_body = jp.clip(w_body, -c.gyro_range, c.gyro_range)
         q = data.qpos[7:] - self.q_nom
         qd = data.qvel[6:]
         k = jax.random.split(rng, 4)
@@ -641,14 +737,21 @@ class SlenderBipedEnv(Env):
 
 
 TIP_PAIRS = jp.array([0, 1])  # set by SlenderBipedEnv from pair names (tip-floor pairs)
+FLOOR_DR = dict(friction=(0.5, 1.2), tc=(0.004, 0.004), damp=(1.0, 1.0), tc_scale=1.0)  # set by SlenderBipedEnv
+from .feet import PAD_AREA_REF  # noqa: E402  (rug softness reference area)
 
 
 def randomization_fn(sys, rng, num_envs=None):
     """Per-env model randomization: tip friction, link masses/inertias, armature, gear friction."""
     def rand(key):
-        k = jax.random.split(key, 5)
-        fr = jax.random.uniform(k[0], minval=0.5, maxval=1.2)
+        k = jax.random.split(key, 7)
+        fr = jax.random.uniform(k[0], minval=FLOOR_DR["friction"][0], maxval=FLOOR_DR["friction"][1])
         pair_friction = sys.pair_friction.at[TIP_PAIRS, 0:2].set(fr)
+        # softness: log-uniform time constant (most mats are mildly soft), one per episode for both pads
+        lo, hi = np.log(FLOOR_DR["tc"][0]), np.log(FLOOR_DR["tc"][1])
+        tc = jp.maximum(jp.exp(jax.random.uniform(k[5], minval=lo, maxval=hi)) * FLOOR_DR["tc_scale"], 0.004)
+        dmp = jax.random.uniform(k[6], minval=FLOOR_DR["damp"][0], maxval=FLOOR_DR["damp"][1])
+        pair_solref = sys.pair_solref.at[TIP_PAIRS].set(jp.array([tc, dmp]))
         ms = jax.random.uniform(k[1], sys.body_mass.shape, minval=0.85, maxval=1.15).at[0].set(1.0)
         body_mass = sys.body_mass * ms
         body_inertia = sys.body_inertia * ms[:, None]
@@ -656,13 +759,13 @@ def randomization_fn(sys, rng, num_envs=None):
         body_ipos = sys.body_ipos.at[1].add(pel_off)
         arm = sys.dof_armature.at[6:].multiply(jax.random.uniform(k[3], (sys.nv - 6,), minval=0.6, maxval=1.6))
         fl = sys.dof_frictionloss.at[6:].multiply(jax.random.uniform(k[4], (sys.nv - 6,), minval=0.5, maxval=2.0))
-        return pair_friction, body_mass, body_inertia, body_ipos, arm, fl
+        return pair_friction, body_mass, body_inertia, body_ipos, arm, fl, pair_solref
 
     keys = rng if num_envs is None else jax.random.split(rng, num_envs)
-    pf, bm, bi, bp, arm, fl = jax.vmap(rand)(keys)
+    pf, bm, bi, bp, arm, fl, ps = jax.vmap(rand)(keys)
     in_axes = jax.tree_util.tree_map(lambda x: None, sys)
     in_axes = in_axes.tree_replace({"pair_friction": 0, "body_mass": 0, "body_inertia": 0, "body_ipos": 0,
-                                    "dof_armature": 0, "dof_frictionloss": 0})
+                                    "dof_armature": 0, "dof_frictionloss": 0, "pair_solref": 0})
     sys_v = sys.tree_replace({"pair_friction": pf, "body_mass": bm, "body_inertia": bi, "body_ipos": bp,
-                              "dof_armature": arm, "dof_frictionloss": fl})
+                              "dof_armature": arm, "dof_frictionloss": fl, "pair_solref": ps})
     return sys_v, in_axes

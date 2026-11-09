@@ -88,10 +88,10 @@ class _Unpickler(pickle.Unpickler):
 class Policy:
     """Deterministic Brax PPO policy (same maths as slender_biped/evaluation.py NumpyPolicy), numpy only."""
 
-    def __init__(self, run):
+    def __init__(self, run, params=None):
         d = ROOT / "runs" / run
         pkls = sorted(d.glob("params_*M.pkl")) or [d / "params.pkl"]
-        self.path = pkls[-1]
+        self.path = d / params if params else pkls[-1]
         with open(self.path, "rb") as f:
             norm, pol = _Unpickler(f).load()[:2]
         self.mean = np.asarray(vars(norm)["mean"]["state"], float)
@@ -112,6 +112,53 @@ class Policy:
             if i < len(self.W) - 1:
                 x = x / (1.0 + np.exp(-x))          # swish
         return np.tanh(x[: x.shape[-1] // 2])
+
+
+def ref_lookup(table, vx, phase):
+    """Reference-gait joint targets at (forward speed, gait phase): slender_biped/ref_gait.py lookup, numpy only."""
+    v, nph = table["v"], table["q"].shape[1]
+    fv = float(np.clip(vx / v[-1] * (len(v) - 1), 0.0, len(v) - 1.0))
+    i0 = int(np.clip(math.floor(fv), 0, len(v) - 2))
+    wv = fv - i0
+    fp = (phase % (2 * math.pi)) / (2 * math.pi) * nph
+    j0 = int(math.floor(fp)) % nph
+    j1 = (j0 + 1) % nph
+    wp = fp - math.floor(fp)
+    Q = table["q"]
+    a = Q[i0, j0] * (1 - wp) + Q[i0, j1] * wp
+    b = Q[i0 + 1, j0] * (1 - wp) + Q[i0 + 1, j1] * wp
+    return a * (1 - wv) + b * wv
+
+
+DET_NAMES = ("lift", "sine", "cpg", "rock", "step", "shiftwalk")
+
+
+class Rocker:
+    """Deterministic (non-learning) controllers from slender_biped/rock_walk.py, as tried in simulation with
+    scripts/det_walk.py: lift (lift the left board and hold), sine (open-loop side-to-side rock on the hip rolls),
+    cpg (the same rock, amplitude regulated on the IMU roll), rock (rock + swing + pitch feedback), step (one quick
+    step with the right leg from the stance, then hold: fwd, out, T, lift_knee, lift_hip, t0, shift, release),
+    shiftwalk (the shift-and-step reference b150L_shift played open loop: vx, slew, gate_w, gate_max). Run name
+    <controller> for legs only, <controller>_full for torso and head on; parameters with --det k=v (defaults otherwise;
+    'rock' also reads results/rock_walk_<L|F>.json if present). Same call signature as Policy; actions are radians from
+    the stance pose (action_scale 1). Each ramps itself in, so run them with --ramp 0."""
+
+    def __init__(self, name, params=None):
+        sys.path.insert(0, str(ROOT))
+        from slender_biped.rock_walk import CONTROLLERS
+        kind, full = name.removesuffix("_full"), name.endswith("_full")
+        self.path = ROOT / "slender_biped" / "rock_walk.py"
+        p = {}
+        tuned = ROOT / "results" / f"rock_walk_{'F' if full else 'L'}.json"
+        if kind == "rock" and tuned.exists():
+            p = json.loads(tuned.read_text())["params"]
+            self.path = tuned
+        p.update(params or {})
+        self.ctl = CONTROLLERS[kind](p)
+        self.env = dict(self.ctl.env, model="hw_pad_board150w_8dof" if full else "hw_pad_board150w_legs_8dof")
+
+    def __call__(self, obs):
+        return self.ctl(obs)
 
 
 class Balancer:
@@ -142,6 +189,7 @@ class Imu:
         self.t = 0.0
         self.seq = None
         self.gaps = 0
+        self.i2c_errors = 0                          # firmware's count of retried I2C transfers (W lines)
         self.msgs = []
         self._stop = False
         self._buf = b""
@@ -191,14 +239,27 @@ class Imu:
                     self.g_s, self.w_s, self.t = np.array(v[:3]), np.array(v[3:]), time.time()
                 elif p and p[0] in ("B", "E"):
                     self.msgs.append(" ".join(p))
+                elif len(p) == 3 and p[:2] == ["W", "i2c"]:
+                    self.i2c_errors = int(p[2])
 
     def latest(self):
         """(gravity unit vector, angular rate rad/s) in the pelvis frame, and the sample's age in s."""
         return self.R @ self.g_s, self.R @ self.w_s, time.time() - self.t
 
     def rebias(self):
+        """Re-zero the gyro (hold still). Waits for the board's B reply, not a fixed time."""
+        n = len(self.msgs)
         self.ser.write(b"b")
-        time.sleep(1.4)
+        t0 = time.time()
+        while time.time() - t0 < 3.0:
+            if any(m.startswith("B ") for m in self.msgs[n:]):
+                break
+            time.sleep(0.02)
+        else:
+            print("  (IMU gave no gyro re-zero reply within 3 s)")
+        t0 = time.time()                             # and the stream is flowing again
+        while time.time() - self.t > 0.05 and time.time() - t0 < 1.0:
+            time.sleep(0.01)
 
     def close(self):
         self._stop = True
@@ -231,7 +292,18 @@ class Servos:
         self.rd = GroupSyncRead(bus.port, bus.pk, fb.ADDR["PRESENT_POS"], 4)
         for i in self.ids:
             self.rd.addParam(i)
-        self.wr = GroupSyncWrite(bus.port, bus.pk, fb.ADDR["GOAL_POS"], 2)
+        self.set_accel(None)
+
+    def set_accel(self, accel):
+        """accel None: goal positions only. Otherwise every write also sends the acceleration register (41) and goal
+        speed 0 (max) with each goal, in one packet from 41 to 47, the way Feetech's own WritePosEx does. 2026-11-07:
+        with the acceleration written once, a new hip-pitch servo intermittently ran the slow default ramp although
+        the register read back correctly."""
+        self.accel = accel
+        if accel is None:
+            self.wr = GroupSyncWrite(self.bus.port, self.bus.pk, fb.ADDR["GOAL_POS"], 2)
+        else:
+            self.wr = GroupSyncWrite(self.bus.port, self.bus.pk, fb.ADDR["ACCEL"], 7)
 
     def read(self):
         """Joint angles (rad) and speeds (rad/s) in the policy's joint order and sign convention."""
@@ -253,7 +325,8 @@ class Servos:
         self.wr.clearParam()
         for (n, j), q in zip(self.joints.items(), q_rad):
             c = fb.deg_to_counts(j, math.degrees(q))
-            self.wr.addParam(j["id"], [c & 0xFF, (c >> 8) & 0xFF])
+            goal = [c & 0xFF, (c >> 8) & 0xFF]
+            self.wr.addParam(j["id"], goal if self.accel is None else [self.accel] + goal + [0, 0, 0, 0])
         res = self.wr.txPacket()
         if res != COMM_SUCCESS:
             raise IOError(f"sync write: {self.bus.pk.getTxRxResult(res)}")
@@ -433,6 +506,27 @@ def _step_metrics(t, q, q0, q1):
     return dict(t10=t10, t90=t90, over=max(0.0, (np.max(x) - 1.0)) * 100, err=float(np.mean(tail) - q1))
 
 
+def set_motion_regs(bus, ids, accel, names):
+    """Write the acceleration and goal-speed registers on every servo and read them back. 2026-11-07: a new
+    hip-pitch servo was intermittently left on the slow default ramp (~400 deg/s^2) in step tests, with the other
+    one fast, swapping between runs; this shows whether the register write is what fails."""
+    bad = []
+    for i, n in zip(ids, names):
+        for _ in range(3):
+            try:
+                bus.w1(i, fb.ADDR["ACCEL"], accel)
+                bus.w2(i, fb.ADDR["GOAL_SPEED"], 0)
+                if bus.r1(i, fb.ADDR["ACCEL"]) == accel and bus.r2(i, fb.ADDR["GOAL_SPEED"]) == 0:
+                    break
+            except IOError:
+                pass
+        else:
+            bad.append(n)
+    print(f"acceleration {accel} read back on all {len(ids)} servos" if not bad else
+          f"WARNING: acceleration/speed registers did not read back on {bad}")
+    return bad
+
+
 def cmd_step_test(a):
     if not a.enable:
         sys.exit("REFUSED: the joints move; pass --enable (hand on the power switch)")
@@ -473,9 +567,8 @@ def cmd_step_test(a):
         time.sleep(3.0)
         print(f"servo acceleration register for the test: {a.accel} ({a.accel * 100 / fb.COUNTS_PER_DEG:.0f} "
               "deg/s^2; 0 = firmware-dependent: no ramp on the new knee, a slow default ramp on the older servos)")
-        for i in sv.ids:                               # same settings as a policy run
-            bus.w1(i, fb.ADDR["ACCEL"], a.accel)
-            bus.w2(i, fb.ADDR["GOAL_SPEED"], 0)
+        set_motion_regs(bus, sv.ids, a.accel, sv.names)   # same settings as a policy run
+        sv.set_accel(a.accel)
         for jn in joints:
             k = names.index(jn)
             amp = math.radians(a.amp)
@@ -504,6 +597,7 @@ def cmd_step_test(a):
         print("\nCtrl-C")
     finally:
         try:
+            sv.set_accel(None)                       # back to goal-only writes: keep the gentle bench settings
             for i in sv.ids:
                 bus.w1(i, fb.ADDR["ACCEL"], bus.cfg["acceleration"])
                 bus.w2(i, fb.ADDR["GOAL_SPEED"], bus.cfg["speed_counts_per_s"])
@@ -550,10 +644,16 @@ def stance_rad(n=8):
     return np.radians([0.0, 0.0, 16.0, 32.0] * 2)[:n]
 
 
+def kv_float(s):
+    k, v = s.split("=")
+    return k, float(v)
+
+
 def cmd_run(a):
     if not (a.enable or a.dry_run):
         sys.exit("REFUSED: pass --dry-run (servos limp) or --enable (motion; keep a hand on the power switch)")
-    pol = Balancer() if a.run == "balancer" else Policy(a.run)
+    pol = (Balancer() if a.run == "balancer" else Rocker(a.run, dict(kv_float(x) for x in a.det))
+           if a.run.removesuffix("_full") in DET_NAMES else Policy(a.run, a.params))
     env = pol.env
     dt, hz, scale = env["ctrl_dt"], env["gait_hz"], env["action_scale"]
     meta = json.loads((ROOT / "models" / f"{env['model']}.json").read_text())
@@ -578,10 +678,41 @@ def cmd_run(a):
     both_in = math.radians(bb.BOTH_ADDUCT_LIMIT)
     if isinstance(pol, Balancer):
         print(f"non-learning balancer, gains {pol.gains}")
+    if isinstance(pol, Rocker):
+        print(f"deterministic controller {a.run}, parameters {pol.ctl.p}")
+        if a.ramp > 0:
+            print("  (it ramps itself in; --ramp 0 is enough)")
     print(f"policy {pol.path.relative_to(ROOT)} ({env['model']}, task {env['task']}), {1 / dt:.0f} Hz, "
           f"action scale {scale} rad, gait clock {hz} Hz")
     g, _, _ = imu.latest()
     print(f"IMU tilt now {tilt_deg(g)[0]:.1f} deg. Tilt cut-out at {a.max_tilt:.0f} deg.")
+    # walking / skiing policies (2026-11-08): a forward-speed command, heading held on the integrated gyro yaw rate as
+    # in training (yaw-rate command = clip(gain x heading error, +-0.3)), and the reference gait as the action base
+    ref = None
+    if env.get("ref_table") and env.get("ref_residual"):
+        z = np.load(ROOT / "models" / "ref" / f"{env['ref_table']}.npz")
+        ref = {k: np.asarray(z[k]) for k in ("q", "v")}
+        print(f"reference gait {env['ref_table']} (residual), forward command {a.vx:.2f} m/s")
+    elif a.vx:
+        print(f"forward command {a.vx:.2f} m/s")
+    cmd_v = np.array([a.vx, 0.0, 0.0])
+    # step-and-settle walkers (2026-11-08) were trained starting in the reference's zero-speed "ready" pose with the
+    # forward command ramping up: blend into that pose first (clock stopped, no policy action), then ramp vx
+    slew = float(env.get("cmd_vx_slew", 0.0))
+    ready = a.ready if a.ready is not None else (2.0 if env.get("reset_ref_pose") and ref is not None else 0.0)
+    q_ready = ref_lookup(ref, 0.0, 0.0) if (ready > 0 and ref is not None) else q_nom
+    if ready > 0:
+        print(f"ready pose first: {ready:.1f} s blend to the gait's start pose, then the policy; forward command "
+              f"ramps at {slew:.2f} m/s^2" if slew else f"ready pose first: {ready:.1f} s")
+    if slew > 0:
+        cmd_v[0] = 0.0
+    gate_u = tuple(env.get("settle_gate_u", ()))
+    gate_w = float(env.get("settle_gate_w", 0.3))
+    gate_n = int(float(env.get("settle_gate_max", 0.5)) / dt)
+    gate_held = 0
+    if gate_u:
+        print(f"settle gate: the next step waits until the body turns slower than {gate_w:.2f} rad/s "
+              f"(at most {gate_n * dt:.1f} s)")
     log_path = Path(a.log or f"stand_{a.run}_{time.strftime('%Y%m%d_%H%M%S')}.csv")
 
     with Keys() as keys:
@@ -601,10 +732,9 @@ def cmd_run(a):
             except KeyboardInterrupt:
                 sv.torque(False)
                 sys.exit("\nCtrl-C: torque off")
-            for i in sv.ids:                            # the policy's servo model has no speed/accel ramp: as fast as
-                                                        # the register allows (0 means a slow default on old firmware)
-                bus.w1(i, fb.ADDR["ACCEL"], a.accel)
-                bus.w2(i, fb.ADDR["GOAL_SPEED"], 0)
+            # the fitted servo model assumes the fastest ramp the register allows (0 = a slow default on some units)
+            set_motion_regs(bus, sv.ids, a.accel, sv.names)
+            sv.set_accel(a.accel)
             imu.rebias()                                # re-zero the gyro while it stands still
             print("\nRobot on its pads, standing? Keep a hand near it.\n"
                   "  Enter = ENGAGE the policy      q = abort (holds the stance pose)")
@@ -619,7 +749,8 @@ def cmd_run(a):
         print("ENGAGED. Enter / q / space = stop.\n" if a.enable else "")
         last_a = np.zeros(8)
         phase = 0.0
-        stop_reason, overruns, k = "user", 0, 0
+        yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
+        stop_reason, overruns, k, stale = "user", 0, 0, 0
         loop_ms = []
         t_next = time.perf_counter()
         f = log_path.open("w", newline="")
@@ -633,24 +764,49 @@ def cmd_run(a):
                 t0 = time.perf_counter()
                 q, qd = sv.read()
                 g, wv, age = imu.latest()
-                if age > 0.1:
+                if age > 0.03:
+                    stale += 1                          # run on the last sample through a short dropout
+                if age > a.imu_timeout:
                     stop_reason = f"IMU silent for {age * 1000:.0f} ms"
                     break
                 tilt = tilt_deg(g)[0]
                 if tilt > a.max_tilt:
                     stop_reason = f"tilt {tilt:.0f} deg > {a.max_tilt:.0f}"
                     break
-                obs = np.concatenate([g, wv, q - q_nom, 0.1 * qd, last_a, np.zeros(3),
-                                      [math.sin(phase), math.cos(phase)]])
-                act = np.clip(pol(obs), -1.0, 1.0)
-                ramp = min(1.0, (t0 - t_start) / a.ramp) if a.ramp > 0 else 1.0
-                q_cmd = np.clip(q_nom + ramp * scale * act, lo, hi)
+                t_run = t0 - t_start
+                if t_run < ready:                       # blend into the ready pose, nothing else
+                    r = 0.5 - 0.5 * math.cos(math.pi * t_run / ready)
+                    act = np.zeros(8)
+                    q_cmd = np.clip(q_nom + r * (q_ready - q_nom), lo, hi)
+                else:
+                    if slew > 0:
+                        cmd_v[0] += float(np.clip(a.vx - cmd_v[0], -slew * dt, slew * dt))
+                    if a.vx:
+                        cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
+                    obs = np.concatenate([g, wv, q - q_nom, 0.1 * qd, last_a, cmd_v,
+                                          [math.sin(phase), math.cos(phase)]])
+                    act = np.clip(pol(obs), -1.0, 1.0)
+                    ramp = min(1.0, (t_run - ready) / a.ramp) if a.ramp > 0 else 1.0
+                    q_base = q_nom
+                    if ref is not None:
+                        q_base = q_ready + ramp * (ref_lookup(ref, cmd_v[0], phase + 2 * math.pi * hz * dt) - q_ready)
+                    q_cmd = np.clip(q_base + ramp * scale * act, lo, hi)
                 if q_cmd[roll_idx[0]] < 0 and q_cmd[roll_idx[1]] < 0:       # pelvis rule: legs collide if both
                     q_cmd[roll_idx] = np.maximum(q_cmd[roll_idx], both_in)  # swing inward by more than ~5 deg
                 if a.enable:
                     sv.write(q_cmd)
                 last_a = act
-                phase = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
+                if t_run >= ready:
+                    ph_new = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
+                    if gate_u:                          # settle gate (as trained): hold the clock at a lift-off
+                        u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)   # while the body still rotates
+                        cross = any(((u0 - gu) % 1.0) > ((u1 - gu) % 1.0) for gu in gate_u)
+                        hold = (cross and a.vx and float(wv[0] ** 2 + wv[1] ** 2) > gate_w ** 2 and gate_held < gate_n)
+                        gate_held = gate_held + 1 if hold else 0
+                        if hold:
+                            ph_new = phase
+                    phase = ph_new
+                    yaw += float(-(wv @ g)) * dt              # yaw rate about the vertical (g points down)
                 el = (time.perf_counter() - t0) * 1000
                 loop_ms.append(el)
                 w.writerow([round(t0 - t_start, 4), round(el, 2)] + list(np.round(g, 4)) + list(np.round(wv, 4))
@@ -681,6 +837,7 @@ def cmd_run(a):
             if a.enable:
                 if stop_reason == "user" or stop_reason == "Ctrl-C":
                     try:
+                        sv.set_accel(None)
                         for i in sv.ids:
                             bus.w1(i, fb.ADDR["ACCEL"], bus.cfg["acceleration"])
                             bus.w2(i, fb.ADDR["GOAL_SPEED"], bus.cfg["speed_counts_per_s"])
@@ -697,7 +854,12 @@ def cmd_run(a):
     n = len(loop_ms)
     secs = n * dt
     print(f"stopped by: {stop_reason}. {n} steps ({secs:.1f} s at 50 Hz), loop work median "
-          f"{np.median(loop_ms) if n else 0:.1f} ms, {overruns} overruns, IMU gaps {imu.gaps}. Log: {log_path}")
+          f"{np.median(loop_ms) if n else 0:.1f} ms, {overruns} overruns, IMU gaps {imu.gaps}, stale IMU steps {stale}, "
+          f"I2C retries {imu.i2c_errors}. Log: {log_path}")
+    for m in imu.msgs:
+        if m.startswith("E "):
+            print(f"  IMU board: {m[2:]}")
+            break
 
 
 def main():
@@ -722,17 +884,27 @@ def main():
     sp.add_argument("--log", help="CSV path (default steptest_<mode>_<time>.csv)")
     sub.add_parser("reset-gains", help="servo P gains back to the factory 32 (no motion)")
     sp = sub.add_parser("run", help="run the stand policy")
-    sp.add_argument("--run", default=DEFAULT_RUN, help=f"policy run in runs/ (default {DEFAULT_RUN}), or "
-                    "'balancer' for the non-learning stance balancer (scripts/pd_balance.py)")
+    sp.add_argument("--run", default=DEFAULT_RUN, help=f"policy run in runs/ (default {DEFAULT_RUN}), "
+                    "'balancer' for the non-learning stance balancer (scripts/pd_balance.py), or a deterministic controller "
+                    "(slender_biped/rock_walk.py): lift / sine / cpg / rock, with _full for torso and head on")
+    sp.add_argument("--det", nargs="*", default=[], metavar="K=V", help="deterministic controller parameters")
+    sp.add_argument("--params", help="checkpoint file in the run (e.g. params_0010M.pkl; default the newest)")
     sp.add_argument("--enable", action="store_true", help="send the policy's targets to the servos")
     sp.add_argument("--dry-run", action="store_true", help="servos limp; compute and show the policy's targets")
     sp.add_argument("--max-tilt", type=float, default=25.0, help="deg from vertical: torque off beyond this")
+    sp.add_argument("--imu-timeout", type=float, default=0.2,
+                    help="s without an IMU sample before the safety stop (shorter gaps run on the last sample)")
     sp.add_argument("--ramp", type=float, default=1.0, help="s to blend the policy in from the plain stance")
+    sp.add_argument("--ready", type=float, help="s to blend into the gait's start pose before the policy engages "
+                    "(default 2 for policies trained from that pose, step-and-settle walkers; else 0)")
     sp.add_argument("--pitch-trim", type=float, default=0.0,
                     help="deg subtracted from the IMU pitch (+ = the robot balances leaning forward by this much "
                          "more than the IMU zero says; 2026-11-06 quiet stands read +1.7..+3.4 vs +0.8 in sim)")
     sp.add_argument("--accel", type=int, default=254, help=ACCEL_HELP)
     sp.add_argument("--log", help="CSV path (default stand_<run>_<time>.csv)")
+    sp.add_argument("--vx", type=float, default=0.0,
+                    help="forward speed command, m/s, for walking / skiing policies (e.g. 0.08); 0 = stand")
+    sp.add_argument("--heading-gain", type=float, default=1.0, help="yaw-rate command per rad of heading error")
     a = ap.parse_args()
     {"ports": cmd_ports, "imu-calib": cmd_imu_calib, "imu-check": cmd_imu_check, "timing": cmd_timing,
      "step-test": cmd_step_test, "reset-gains": cmd_reset_gains, "run": cmd_run}[a.cmd](a)

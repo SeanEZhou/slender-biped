@@ -1,0 +1,80 @@
+{
+ "params": "params_0010M.pkl",
+ "median": {
+  "survived_s": 20.0,
+  "body_vx": -7.883760879509752e-05,
+  "yaw_drift_dps": 0.07117350605620136,
+  "vx": 0.0006239910685354086,
+  "cadence": 0.025,
+  "air_ms": 30.0,
+  "step_cm": -0.0029729108165257013,
+  "clear_mm": 1.3464880034350768,
+  "width_mm": 0.0,
+  "slide_frac": 0.9767835831723093,
+  "double_support": 0.9984999999999999,
+  "sway_mm": 15.866085063476474,
+  "tilt_rms_deg": 2.0083682768277753
+ },
+ "rows": [
+  {
+   "survived_s": 1.08,
+   "body_vx": 0.0,
+   "yaw_drift_dps": 5.836656051199159,
+   "vx": 0.18514792033751606,
+   "cadence": 0.0,
+   "air_ms": 0.0,
+   "step_cm": 0.0,
+   "clear_mm": 0.0,
+   "width_mm": 0.0,
+   "slide_frac": 1.0,
+   "double_support": 1.0,
+   "sway_mm": 0.0,
+   "tilt_rms_deg": 18.48976599571351
+  },
+  {
+   "survived_s": 20.0,
+   "body_vx": 0.0005181988382389463,
+   "yaw_drift_dps": -0.045805995979007676,
+   "vx": 0.0005852065836127294,
+   "cadence": 0.05,
+   "air_ms": 60.0,
+   "step_cm": -0.1265174524873443,
+   "clear_mm": 8.103887226910059,
+   "width_mm": 0.0,
+   "slide_frac": 0.9535671663446185,
+   "double_support": 0.997,
+   "sway_mm": 17.64299620692677,
+   "tilt_rms_deg": 1.7801994763174371
+  },
+  {
+   "survived_s": 20.0,
+   "body_vx": -0.00015767521759019505,
+   "yaw_drift_dps": 0.08219263098088697,
+   "vx": 0.0006627755534580877,
+   "cadence": 0.15,
+   "air_ms": 80.0,
+   "step_cm": -0.0059458216330514025,
+   "clear_mm": 2.6929760068701536,
+   "width_mm": 0.0,
+   "slide_frac": 0.8271858684772043,
+   "double_support": 0.988,
+   "sway_mm": 29.495358343510013,
+   "tilt_rms_deg": 2.1084789767424454
+  },
+  {
+   "survived_s": 20.0,
+   "body_vx": -0.0007422132349876125,
+   "yaw_drift_dps": 0.060154381131515756,
+   "vx": -0.0010936506710397223,
+   "cadence": 0.0,
+   "air_ms": 0.0,
+   "step_cm": 0.0,
+   "clear_mm": 0.0,
+   "width_mm": 0.0,
+   "slide_frac": 1.0,
+   "double_support": 1.0,
+   "sway_mm": 14.089173920026177,
+   "tilt_rms_deg": 1.9082575769131054
+  }
+ ]
+}

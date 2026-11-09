@@ -191,6 +191,78 @@ TASKS = {
                               ref_contact=0.5, width=-0.05, track_vy=2.0, line=3.0, stride=1.0, slip=-10.0,
                               ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5, torque=-0.2, over_rated=-3.0,
                               overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # 2026-11-08, F_board150w snowboard pads on the rug. walk_b150: real steps (residual on a 2.4 steps/s reference that
+    # lifts the board's lowest edge ~28 mm), heading held, stance slip penalized so it cannot ski; the rug, servo-profile
+    # and delay randomization go in with --set (scripts/b150_run.sh). The first reference (b150L_w24, pelvis at constant
+    # height) tilted the stance board +-5 deg: without ankles a level sole fixes the shin angle. The policy marched in
+    # place on it for 40 M steps. b150L_flats keeps the stance sole level and lets the pelvis bob instead (smoothed: the
+    # unsmoothed b150L_flat jumps 11 deg at the knee where the IK task switches).
+    "walk_b150": dict(cmd_vx=(0.04, 0.12), cmd_vy=(-0.02, 0.02), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.1,
+                      phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                      gait_hz=1.2, ref_table="b150L_flats", ref_residual=True, ref_yaw_weight=0.0, tip_condim=4,
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.5,
+                              ref_contact=1.0, slip=-10.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0, alive=0.5,
+                              torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # step_b150 (2026-11-08): short quick steps with a pause after each. Joint-space step-and-settle reference
+    # (b150L_settle: 0.3 s swing, 0.325 s with both boards down and nothing moving, level staggered pause poses), episodes
+    # start in its zero-speed pose, the forward command ramps (0.03 m/s^2) so the first steps from rest are short,
+    # a quarter of the commands are "stand" (more starts), body rotation during the pause penalized, softer rugs
+    "step_b150": dict(cmd_vx=(0.02, 0.06), cmd_vy=(-0.01, 0.01), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.25,
+                      cmd_vx_slew=0.03, reset_ref_pose=True, phase_when_still=False, track_sigma=0.002,
+                      heading_cmd=True, track_ang_sigma=0.1, gait_hz=0.8, ref_table="b150L_settle",
+                      ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.03,
+                      rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=1.5,
+                              ref_contact=1.5, stride=6.0, settle=-0.3, slip=-10.0, ang_vel_xy=-0.02, pose=0.0,
+                              termination=-20.0, alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0,
+                              saturation=-1.0, action_rate=-0.05)),
+    # step2_b150 (2026-11-08, after the first robot trials of b150_step3_L: the next step came before the frame had
+    # settled and the centre of mass sat too far forward, so the boards' toes stuck in the rug): one step per second
+    # (0.3 s swing, 0.7 s pause), pelvis leaned back 15 deg (b150L_settle2: centre of mass ~21 mm ahead of the board
+    # centres instead of ~32), and the settle gate: the clock waits at each lift-off until the body turns slower than
+    # 0.3 rad/s (at most 0.5 s). Rewards as in b150_step3_L (progress, stride, ref_swing; no contact/tip imitation)
+    "step2_b150": dict(cmd_vx=(0.015, 0.04), cmd_vy=(-0.01, 0.01), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.25,
+                       cmd_vx_slew=0.02, reset_ref_pose=True, phase_when_still=False, track_sigma=0.002,
+                       heading_cmd=True, track_ang_sigma=0.1, gait_hz=0.5, ref_table="b150L_settle2",
+                       ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.03, vy_avg_mode="box",
+                       settle_gate_u=(0.17, 0.67), settle_gate_w=0.3, settle_gate_max=0.5,
+                       rw=dict(track_lin=1.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=0.0,
+                               ref_contact=0.0, ref_swing=3.0, progress=4.0, stride=20.0, settle=-0.3, slip=-10.0,
+                               ang_vel_xy=-0.02, pose=0.0, termination=-10.0, alive=0.5, torque=-0.2,
+                               over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # shift_b150 (2026-11-09): slow alternating steps on the shift-and-step reference (slender_biped/shift_gait.py,
+    # b150L_shift: per 2.5 s step: settle 0.4 s, hip-roll weight shift 0.8 s (stance leg inward, swing leg outward,
+    # 0.10 rad), 0.35 s swing with the shift blended out over the swing + 0.4 s, settle). The settle gate holds the
+    # clock at each lift-off until the body turns slower than 0.3 rad/s (up to 1 s): rebalance fully between steps.
+    "shift_b150": dict(cmd_vx=(0.006, 0.016), cmd_vy=(0.0, 0.0), cmd_wz=(-0.2, 0.2), cmd_zero_prob=0.15,
+                       cmd_vx_slew=0.01, reset_ref_pose=True, phase_when_still=False, track_sigma=0.0005,
+                       heading_cmd=True, track_ang_sigma=0.1, gait_hz=0.2, ref_table="b150L_shift",
+                       ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.03, vy_avg_mode="box",
+                       settle_gate_u=(0.235, 0.735), settle_gate_w=0.3, settle_gate_max=1.0,
+                       rw=dict(track_lin=1.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=0.0,
+                               ref_contact=0.0, ref_swing=6.0, progress=4.0, stride=20.0, settle=-0.3, slip=-10.0,
+                               ang_vel_xy=-0.05, pose=0.0, termination=-20.0, alive=1.0, torque=-0.2,
+                               over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # bal_b150 (2026-11-09): balance on the left board: shift, lift the right board, hold it up 2 s, lower, unshift,
+    # settle (b150L_bal1, 6 s cycle). Paid for keeping the right board up during the hold (ref_swing) and upright.
+    "bal_b150": dict(cmd_vx=(0.01, 0.01), cmd_vy=(0.0, 0.0), cmd_wz=(0.0, 0.0), cmd_zero_prob=0.0,
+                     reset_ref_pose=True, phase_when_still=False, heading_cmd=True, track_ang_sigma=0.1,
+                     gait_hz=1.0 / 6.0, ref_table="b150L_bal1", ref_residual=True, ref_yaw_weight=0.0, tip_condim=4,
+                     rw=dict(track_lin=0.0, track_ang=1.0, heading=2.0, stop=0.0, ref_q=0.5, ref_tip=0.0,
+                             ref_contact=0.0, ref_swing=8.0, progress=0.0, stride=0.0, settle=0.0, slip=-10.0,
+                             ang_vel_xy=-0.05, pose=0.0, termination=-20.0, alive=1.0, torque=-0.2,
+                             over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # ski_b150: cross-country "classic" stride: the boards slide alternately and never leave the floor (airborne
+    # penalized, no slip penalty), on a 2 strides/s level-sole reference whose gliding board barely skims (8 mm lift
+    # at the centre, the edge stays on the floor)
+    "ski_b150": dict(cmd_vx=(0.04, 0.12), cmd_vy=(-0.02, 0.02), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.1,
+                     phase_when_still=False, track_sigma=0.005, heading_cmd=True, track_ang_sigma=0.1,
+                     gait_hz=1.0, ref_table="b150L_skiflat", ref_residual=True, ref_yaw_weight=0.0, tip_condim=4,
+                     airborne_h=0.006,   # the gliding board's edge drags; only a clearly lifted board counts (1.5 mm
+                                         # with weight -1 cancelled the reference's glide: the skier stood still)
+                     rw=dict(track_lin=3.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=0.0,
+                             ref_contact=0.0, airborne=-0.5, slip=0.0, ang_vel_xy=-0.02, pose=0.0, termination=-5.0,
+                             alive=0.5, torque=-0.2, over_rated=-3.0, overspeed=-2.0, saturation=-1.0,
+                             action_rate=-0.05)),
     "walk_v1": dict(cmd_vx=(0.0, 0.2), cmd_vy=(-0.05, 0.05), cmd_wz=(-0.3, 0.3), cmd_zero_prob=0.2,
                  phase_when_still=True,
                  rw=dict(track_lin=1.5, feet_air_time=1.0, contact_phase=0.5, swing_height=-100.0,

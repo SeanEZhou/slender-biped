@@ -11,7 +11,7 @@
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
 - **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
 - **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
-- **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot)
+- **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot) · [15. Big feet for soft rugs](#15-big-feet-for-soft-rugs) · [16. Walking on the big pads](#16-walking-on-the-big-pads)
 - **Reference:** [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
 
 An end-to-end robotics design study:
@@ -967,6 +967,73 @@ pelvis only (no torso or head), on the 5 V supply. Full detail, with numbers and
    right one ramps like the old hips and is being checked.
 
 **Status:** quiet standing works on the robot. Recovery stepping has started but doesn't yet reliably catch a fall.
+
+## 15. Big feet for soft rugs
+
+On the furry rugs at home the robot couldn't stand at all on its 30 × 18 mm pads, even set down carefully. The
+simulator agreed once it had a rug in it: with the original pads, the robot holding its stance falls over on every rug
+from any tilt. This round changes only the foot pads. Full detail: [docs/foot_pads.md](docs/foot_pads.md); printable
+pads: [hardware/feet_p1](hardware/feet_p1/README.md).
+
+<img src="hardware/feet_p1/renders/pads.png" width="900">
+
+1. **A rug in the simulator.** A soft contact tuned to sink ~3–10 mm under the original pad, softer per unit force
+   for smaller pads (sinkage scales with pressure, as for real fur).
+2. **Thirteen pad designs**, from snowboards to round pads, three-claw and bird feet, built on the same stem so they
+   plug into the unchanged shins. Fore-aft is the weak direction (no ankles, centre of mass 27–35 cm up), so length
+   matters most; width matters on deep fur. Claws and talons sink into fur; domes roll.
+3. **Recommendation: `F_board150w`**, a 150 × 50 mm snowboard with upturned ends. Holding its stance with no
+   balance control, the robot rights itself from 8–10° off vertical on every simulated rug, so it doesn't depend on
+   the policy transferring well. For the robot as tested (legs and pelvis), its policy `pad_board150w_legs` catches
+   100 % of simulated hand placements up to 7° and 95–98 % at 9°, already tipping, with the robot's IMU filter in
+   the loop, and stands with 0.2° of sway. With torso and head on (1.26 kg, centre of mass 8 cm higher) it is
+   ~95 % at 3° (`pad_board150w`).
+4. **The IMU gap, modelled.** The robot's tilt reading was off by ~5° during its own wobble: the gyro saturated at
+   ±250 °/s and the filter trusted an accelerometer that feels the pelvis accelerate. The firmware now runs the gyro
+   at ±1000 °/s and ignores the accelerometer during hard motion; the simulator can emulate the filter. With big
+   pads the policies barely notice it.
+
+**Status:** printed and on the robot: it stands on the rug and takes a firm push to tip over.
+
+## 16. Walking on the big pads
+
+<table>
+<tr><th>RL walker, legs only (simulation)</th><th>Step-and-settle walker (simulation)</th><th>Safe walker, torso and head on (simulation)</th></tr>
+<tr>
+<td><img src="assets/gifs/b150_walk_L.gif" width="260"></td>
+<td><img src="assets/gifs/b150_step_L.gif" width="260"></td>
+<td><img src="assets/gifs/b150_walksafe_F.gif" width="260"></td>
+</tr>
+</table>
+
+With the big pads, standing on a rug is nearly passive; walking is not. Simulated walkers walk (the RL walker survives
+20 s on simulated rugs 80–100 % of the time at ~3 cm/s), but on the robot every approach so far falls on the first
+or second step. Full record: [docs/walking.md](docs/walking.md); the RL walker round: [docs/walking_b150.md](docs/walking_b150.md).
+
+**What we tried:**
+
+1. **RL walkers on a level-sole reference gait.** Good in simulation; on the robot ~70 % of falls came on the first
+   step, toward the lifted foot. Only a softer simulated rug reproduced that.
+2. **Deterministic baselines.** A toy-walker side-to-side rock (floor-dependent: falls on hard floors, no lift on
+   rugs); one quick step from the stance (falls on the robot before the step finishes); a hip-roll weight shift before
+   the step (cancels the fall during the swing; the robot falls after touchdown, about half the time).
+3. **Step-and-settle RL walkers** (short steps with a pause; a slower version leaning back and waiting for the frame
+   to settle). Far fewer first-step falls in simulation; on the robot they got stuck in place.
+
+**What we learned:**
+
+- **No ankle roll is the root cause.** With both boards down the centre of mass sits 15.5 mm outside either board's
+  inner edge, and a flat board can't tilt its leg sideways, so every step starts a sideways fall. It grows by e every
+  0.16 s, while a swing takes ≥ 0.3–0.4 s on the servos (acceleration-limited, ~0.1 s lag).
+- **No static one-foot pose exists within the joint limits** (best: the centre of mass 0.3 mm outside the standing
+  board). A hip-roll "parallelogram" shift moves the weight over one board but leaves both boards on edges.
+- **Flat boards fix the shin angle**: no skiing, no level staggered stance without moving the pelvis 38 mm, and
+  lifting a board needs far more knee travel than a quick swing allows.
+- **Rewards that pay for standing still win** (velocity kernels, contact imitation); progress and foot-lift terms
+  that are zero when standing fixed that.
+
+**Status:** not walking on the robot yet. In progress: RL policies that combine the hip-roll shift and the step, and
+an ankle-roll design study.
 
 ## Limitations and next steps
 

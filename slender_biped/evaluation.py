@@ -16,7 +16,9 @@ import mujoco
 import numpy as np
 from scipy.special import expit
 
+from . import feet
 from .config import MODEL_DIR, ROOT, load_actuators
+from .feet import PAD_AREA_REF
 
 
 # ---------------------------------------------------------------- policy
@@ -86,6 +88,11 @@ class EvalConfig:
     dr_delay_steps: tuple = (0, 0)
     dr_volt: tuple = (1.0, 1.0)
     gait_hz: float = 1.6
+    cmd_vx_slew: float = 0.0           # see mjx_env.EnvConfig
+    reset_ref_pose: bool = False
+    settle_gate_u: tuple = ()
+    settle_gate_w: float = 0.3
+    settle_gate_max: float = 0.5
     obs_noise: float = 1.0
     dr: bool = False
     push_vel: float = 0.0
@@ -95,6 +102,8 @@ class EvalConfig:
     max_tilt: float = 0.7
     min_height_frac: float = 0.6
     friction: float | None = None      # override tip friction
+    floor_tc: float | None = None      # override the tip-floor solref time constant (s): 0.004 hard, ~0.02-0.04 a mat
+    floor_damp: float = 1.0            # damping ratio used with floor_tc
     mass_scale: float | None = None    # uniform mass scale override
     slope_deg: float = 0.0             # floor pitch about Y (positive = uphill when walking +x)
     ref_table: str = ""                # reference gait (round 4): residual action base, see mjx_env
@@ -115,12 +124,16 @@ class EvalConfig:
     flow_noise: float = 0.02
     acc_noise: float = 0.01
     acc_bias: float = 0.03
+    imu_filter: bool = False           # see mjx_env.EnvConfig
+    imu_alpha: float = 0.0776
+    imu_gate: float = 0.15
+    gyro_range: float = 0.0
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
         keep = {k: env_cfg[k] for k in cls.__dataclass_fields__ if k in env_cfg}
         keep.update(over)
-        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt"):
+        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u"):
             if k in keep:
                 keep[k] = tuple(keep[k])
         return cls(**keep)
@@ -159,21 +172,20 @@ class CpuBiped:
         self.q_hi = np.array([m.jnt_range[m.actuator_trnid[i, 0]][1] for i in range(self.nj)])
         self.base_z = self.meta["stand_base_z"]
         g = lambda n: mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, n)  # noqa: E731
-        self.tip_gid = np.array([g("L_tip"), g("R_tip")])
-        size = m.geom_size[self.tip_gid].copy()
-        sph = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_SPHERE
-        size[sph] = size[sph][:, :1].repeat(3, 1)
-        self.tip_semi = size
-        self.tip_box = m.geom_type[self.tip_gid] == mujoco.mjtGeom.mjGEOM_BOX  # flat soles (control frame)
+        self.foot_gid, self.foot_typ, self.foot_size = feet.foot_geoms(m)   # (2, K) primitives per foot pad
+        self.tip_gid = self.foot_gid[:, 0]
         self.tip_pairs = [i for i in range(m.npair)
                           if {mujoco.mj_id2name(m, 5, m.pair_geom1[i]), mujoco.mj_id2name(m, 5, m.pair_geom2[i])}
-                          in ({"floor", "L_tip"}, {"floor", "R_tip"})]
+                          in [{"floor", n} for n in feet.foot_names(m)]]
+        # rug softness scales with the sole area (see mjx_env FLOOR_DR)
+        self.tc_scale = float(np.sqrt(PAD_AREA_REF / self.meta["pad_area"])) if "pad_area" in self.meta else 1.0
         if cfg.tip_condim != 3:
             for i in self.tip_pairs:
                 m.pair_dim[i] = cfg.tip_condim
         self.pf0 = m.pair_friction.copy()
+        self.ps0 = m.pair_solref.copy()
         self.floor_gid = g("floor")
-        self.foot_gids = set(self.tip_gid.tolist())
+        self.foot_gids = set(self.foot_gid.ravel().tolist())
         self.knee_bid = [mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, f"{s}_shin") for s in "LR"]
         self.knee_r = float(m.geom_size[g("L_knee_col")][0])
         self.rng = np.random.default_rng(seed)
@@ -185,13 +197,26 @@ class CpuBiped:
             from .ref_gait import load
             self.ref = load(cfg.ref_table)
 
+    # forward-command slew (cmd_vx_slew): assigning env.cmd sets the goal; env.cmd reads the command in effect, an
+    # array whose vy / wz entries may be written directly (heading hold) and whose vx ramps in step()
+    @property
+    def cmd(self):
+        return self._cmd
+
+    @cmd.setter
+    def cmd(self, v):
+        v = np.array(v, float)
+        self._cmd_goal = v.copy()
+        if self.cfg.cmd_vx_slew > 0 and hasattr(self, "_cmd"):
+            v[0] = self._cmd[0]
+        self._cmd = v
+
     def tip_low(self):
         d = self.d
-        c = d.geom_xpos[self.tip_gid]
-        R = d.geom_xmat[self.tip_gid].reshape(2, 3, 3)
-        h = np.where(self.tip_box, np.abs(self.tip_semi * R[:, 2, :]).sum(-1),
-                     np.linalg.norm(self.tip_semi * R[:, 2, :], axis=-1))
-        return c[:, 2] - h, c.copy()
+        K = self.foot_gid.shape[1]
+        low = feet.lowest(np, d.geom_xpos[self.foot_gid], d.geom_xmat[self.foot_gid].reshape(2, K, 3, 3),
+                          self.foot_typ, self.foot_size)
+        return low, d.geom_xpos[self.tip_gid].copy()
 
     def reset(self, cmd=(0.0, 0.0, 0.0)):
         c, m, d, rng = self.cfg, self.m, self.d, self.rng
@@ -202,6 +227,7 @@ class CpuBiped:
         m.dof_armature[:] = self.m0_arm
         m.dof_frictionloss[:] = self.m0_fl
         m.pair_friction[:] = self.pf0
+        m.pair_solref[:] = self.ps0
         self.servo = dict(strength=np.ones(self.nj), speed=np.ones(self.nj), kp=np.ones(self.nj),
                           latency=c.latency_sub, deadzone=np.full(self.nj, c.deadzone),
                           acc=self.prof_acc.copy(), delay=c.delay_steps)
@@ -228,14 +254,27 @@ class CpuBiped:
         if c.friction is not None:
             for i in self.tip_pairs:
                 m.pair_friction[i, 0:2] = c.friction
+        if c.floor_tc is not None:
+            for i in self.tip_pairs:
+                m.pair_solref[i] = [max(c.floor_tc * self.tc_scale, 0.004), c.floor_damp]
         if c.mass_scale is not None:
             m.body_mass[:] *= c.mass_scale
             m.body_inertia[:] *= c.mass_scale
         mujoco.mj_resetDataKeyframe(m, d, self.kid)
-        qj = np.clip(self.q_nom + c.reset_joint_noise * rng.normal(size=self.nj), self.q_lo, self.q_hi)
+        q0 = self.q_nom
+        if c.reset_ref_pose and self.ref is not None:
+            from .ref_gait import lookup
+            q0 = lookup(self.ref, 0.0, 0.0)[0]
+        qj = np.clip(q0 + c.reset_joint_noise * rng.normal(size=self.nj), self.q_lo, self.q_hi)
         tilt = c.reset_tilt * rng.normal(size=2)
         q_rp = np.array([1.0, tilt[0] / 2, tilt[1] / 2, 0.0])
         d.qpos[3:7] = q_rp / np.linalg.norm(q_rp)
+        if c.reset_ref_pose and self.ref is not None:      # start pose with the pelvis leaned (boards level)
+            from .ref_gait import level_pitch
+            if not hasattr(self, "_reset_pitch"):
+                self._reset_pitch = level_pitch(m, self.joints, q0)
+            qa = np.zeros(4); mujoco.mju_axisAngle2Quat(qa, np.array([0.0, 1.0, 0.0]), self._reset_pitch)
+            qn = np.zeros(4); mujoco.mju_mulQuat(qn, d.qpos[3:7].copy(), qa); d.qpos[3:7] = qn
         d.qpos[7:] = qj
         d.qvel[:] = 0
         mujoco.mj_kinematics(m, d)
@@ -248,7 +287,12 @@ class CpuBiped:
         self.cmd_buf = np.tile(qj, (self.max_delay + 1, 1))
         self.last_act = np.zeros(self.nj)
         self.phase = 0.0
+        self.gate_held = 0
+        if hasattr(self, "_cmd"):
+            del self._cmd
         self.cmd = np.array(cmd, float)
+        if self.cfg.cmd_vx_slew > 0:
+            self._cmd[0] = 0.0
         low, centre = self.tip_low()
         self.contact_prev = low < 0.0015
         self.push_timer = self._steps(c.push_interval_s)
@@ -262,6 +306,7 @@ class CpuBiped:
         self.odo_scale_k = 1.0 + er.uniform(-c.odo_scale, c.odo_scale)
         self.acc_bias_v = er.uniform(-c.acc_bias, c.acc_bias, 3)
         self.acc, self.v_prev = np.array([0.0, 0.0, 1.0]), np.zeros(3)
+        self.sync_imu()
         self.hist = np.zeros((c.obs_hist, 3 + 3 + 3 * self.nj))
         if not c.obs_hist:
             return self.obs()
@@ -272,11 +317,18 @@ class CpuBiped:
     def _steps(self, lohi):
         return int(self.rng.integers(int(lohi[0] / self.cfg.ctrl_dt), int(lohi[1] / self.cfg.ctrl_dt) + 1))
 
+    def sync_imu(self):
+        """IMU filter and accelerometer state from the current pose (call after setting qpos/qvel by hand)."""
+        self.v_prev = self.d.qvel[0:3].copy()
+        self.g_est = quat_rot_t(self.d.qpos[3:7], np.array([0, 0, -1.0]))
+
     def obs(self):
         c, d = self.cfg, self.d
         quat = d.qpos[3:7]
-        g = quat_rot_t(quat, np.array([0, 0, -1.0]))
+        g = self.g_est.copy() if c.imu_filter else quat_rot_t(quat, np.array([0, 0, -1.0]))
         w = d.qvel[3:6].copy()
+        if c.gyro_range > 0:
+            w = np.clip(w, -c.gyro_range, c.gyro_range)
         q = d.qpos[7:] - self.q_nom
         qd = d.qvel[6:].copy()
         n = c.obs_noise
@@ -333,6 +385,13 @@ class CpuBiped:
         self.acc = (quat_rot_t(quat, (v_world - self.v_prev) / c.ctrl_dt + np.array([0.0, 0.0, 9.81])) / 9.81
                     + self.acc_bias_v + c.acc_noise * r.normal(size=3))
         self.v_prev = v_world
+        if c.imu_filter:
+            w_g = d.qvel[3:6] if c.gyro_range <= 0 else np.clip(d.qvel[3:6], -c.gyro_range, c.gyro_range)
+            g_p = self.g_est - np.cross(w_g, self.g_est) * c.ctrl_dt
+            fn = np.linalg.norm(self.acc)
+            al = c.imu_alpha * ((abs(fn - 1.0) < c.imu_gate) if c.imu_gate > 0 else 1.0)
+            g_n = (1 - al) * g_p + al * (-self.acc / max(fn, 1e-3))
+            self.g_est = g_n / np.linalg.norm(g_n)
 
     def step(self, action):
         c, m, d, s_ = self.cfg, self.m, self.d, self.servo
@@ -342,7 +401,9 @@ class CpuBiped:
             from .ref_gait import lookup
             phase_next = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
             q_base = lookup(self.ref, max(self.cmd[0], 0.0), phase_next)[0]
-        q_cmd = np.clip(q_base + c.action_scale * action, self.q_lo, self.q_hi)
+        r = getattr(self, "ramp", 1.0)     # robot runner's start-up blend (policy_stand.py --ramp); 1 = off
+        q_base = self.q_nom + r * (q_base - self.q_nom)
+        q_cmd = np.clip(q_base + r * c.action_scale * action, self.q_lo, self.q_hi)
         ts = self.ts0 * s_["strength"]
         w0 = self.w00 * s_["speed"]
         kp = c.kp * s_["kp"]
@@ -369,7 +430,16 @@ class CpuBiped:
         self.tau = tau
         self.prev_cmd = q_cmd
         self.last_act = action
-        self.phase = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
+        ph_new = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
+        if c.settle_gate_u:                     # mjx_env settle gate: hold the clock at the lift-offs until still
+            u0, u1 = self.phase / (2 * np.pi), ph_new / (2 * np.pi)
+            cross = any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.settle_gate_u)
+            hold = (cross and np.linalg.norm(self.cmd) > 1e-3 and float(np.sum(d.qvel[3:5] ** 2)) > c.settle_gate_w ** 2
+                    and self.gate_held < int(c.settle_gate_max / c.ctrl_dt))
+            self.gate_held = self.gate_held + 1 if hold else 0
+            if hold:
+                ph_new = self.phase
+        self.phase = ph_new
         if c.push_vel > 0:
             self.push_timer -= 1
             if self.push_timer <= 0:
@@ -382,6 +452,9 @@ class CpuBiped:
             self.y_est += (-np.sin(h) * self.odo_vw[0] + np.cos(h) * self.odo_vw[1] - vy_cmd) * c.ctrl_dt
         else:
             self.y_est += (self.odo_v[1] - vy_cmd) * c.ctrl_dt
+        if c.cmd_vx_slew > 0:
+            ds = c.cmd_vx_slew * c.ctrl_dt
+            self._cmd[0] += np.clip(self._cmd_goal[0] - self._cmd[0], -ds, ds)
         obs = self.obs()
         if c.obs_hist:
             self.hist = np.concatenate([self.hist[1:], self._frame[None]], 0)

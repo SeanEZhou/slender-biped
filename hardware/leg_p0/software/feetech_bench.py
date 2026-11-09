@@ -50,8 +50,20 @@ COUNTS_PER_DEG = 4096 / 360.0
 HERE = Path(__file__).resolve().parent
 
 
+def detect_servo_port(default):
+    """The Feetech bus adapter (CH343, USB VID 0x1A86) if one is plugged in, else the configured port. The IMU's
+    RP2040 also shows up as /dev/ttyACM*, and the numbering swaps with plug-in order."""
+    try:
+        from serial.tools import list_ports
+        found = [p.device for p in list_ports.comports() if p.vid == 0x1A86]
+    except Exception:
+        found = []
+    return found[0] if found else default
+
+
 class Bus:
     def __init__(self, cfg):
+        cfg["port"] = detect_servo_port(cfg["port"])
         self.cfg = cfg
         self.port = PortHandler(cfg["port"])
         self.pk = PacketHandler(0)  # protocol_end 0 = STS/SMS
