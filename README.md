@@ -1049,9 +1049,27 @@ or second step. In simulation, adding an **ankle roll servo per leg** fixes it. 
 - **Rewards that pay for standing still win** (velocity kernels, contact imitation); progress and foot-lift terms
   that are zero when standing fixed that.
 
-**Status:** not walking on the robot yet. The next step is a hardware decision: add an ankle roll servo per leg (two
-STS3215 C001, ~160 g; the shins shortened to fit), which in simulation turns walking from a controlled fall into
-weight-shift-and-step.
+**The ankle-roll leg as designed** ([docs/walking_ankle.md](docs/walking_ankle.md)): the servo's socket in the foot, a
+straight shin with the roll fork angled 16° at its end, the usual bent stance. Retrained in simulation on that leg:
+
+<table>
+<tr><th>Quick step (0.35 s swing), 150 mm board</th><th>Slow step: lift, swing on one foot, lower slowly</th></tr>
+<tr>
+<td><img src="assets/gifs/ank3_quick_b150.gif" width="320"></td>
+<td><img src="assets/gifs/ank3_slow_b150.gif" width="320"></td>
+</tr>
+</table>
+
+- Standing straight doesn't work: without ankle pitch a flat foot can't be lifted from straight legs (a singular pose).
+  The fork angle keeps the bent stance, where a little hip and knee lifts a level foot.
+- Long boards beat small pads: the 150 × 50 board walks six steps or more on hard floors and rugs with no falls; a
+  foot-shaped 96 mm pad is next; 80 mm and smaller, and round pads, fall. Without ankle pitch the board's length is
+  the fore-aft support. The feet never touched each other.
+- The slow step lands at 30–90 mm/s instead of ~140 and wobbles less; its quick-step landings couldn't be softened
+  with a penalty.
+
+**Status:** not walking on the robot yet. Next: print the A01 shin and A02 foot ([hardware/ankle_p1](hardware/ankle_p1/README.md),
+two STS3215 C001, ~130 g in all) and run the slow-step policy.
 
 ## Limitations and next steps
 

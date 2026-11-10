@@ -101,3 +101,10 @@ personal-notes/
 !runs/rug_board120w_long/params_0060M.pkl
 !runs/pad_board150w/params_0040M.pkl
 !runs/pad_board150w_legs/params_0040M.pkl
+# 2026-11-09 ankle-roll leg as designed (docs/walking_ankle.md)
+!runs/a3s_b150/params_0020M.pkl
+!runs/a3w_b150/params_0010M.pkl
+!runs/a3w_b150/params_0020M.pkl
+!runs/a3s_foot/params_0020M.pkl
+!runs/a3s_r80/params_0020M.pkl
+!runs/a2f_b150/params_0020M.pkl

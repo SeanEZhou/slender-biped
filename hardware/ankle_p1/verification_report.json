@@ -1,0 +1,214 @@
+{
+ "ankle_axis_point_mm": [
+  0.0,
+  30.5,
+  -344.05
+ ],
+ "ankle_axis_dir": [
+  0.9612616959383189,
+  0.0,
+  0.27563735581699916
+ ],
+ "ankle_axis_from_knee_mm": {
+  "x": 0.0,
+  "z": -111.45
+ },
+ "ankle_axis_above_sole_mm": 38.55,
+ "knee_to_sole_mm": 150.0,
+ "params": {
+  "floor_t": 3.0,
+  "cheek_clear": 14.0,
+  "roll_range": 20.0,
+  "sole_t": 4.0,
+  "board": {
+   "L": 150.0,
+   "W": 50.0,
+   "kick": 15.0,
+   "kick_deg": 25.0
+  },
+  "rib": {
+   "L": 110.0,
+   "W": 16.0,
+   "h": 4.0
+  },
+  "leg_len": 150.0,
+  "fork_pitch": 16.0,
+  "axis_h": 38.550000000000004
+ },
+ "collisions_rest": [],
+ "collisions_old_stance": [],
+ "ankle_roll_rom": {
+  "pos": {
+   "collision_free_to": 30,
+   "first_hit": [
+    35,
+    [
+     [
+      "shin_ankle",
+      "servo_ankle_roll",
+      1.0
+     ]
+    ]
+   ]
+  },
+  "neg": {
+   "collision_free_to": -30,
+   "first_hit": [
+    -35,
+    [
+     [
+      "shin_ankle",
+      "servo_ankle_roll",
+      1.0
+     ]
+    ]
+   ]
+  }
+ },
+ "knee_rom": {
+  "ankle_0": {
+   "collision_free_to": 110,
+   "first_hit": [
+    120,
+    [
+     [
+      "shin_ankle",
+      "thigh",
+      33.4
+     ],
+     [
+      "shin_ankle",
+      "servo_knee",
+      120.3
+     ]
+    ]
+   ]
+  },
+  "ankle_20": {
+   "collision_free_to": 110,
+   "first_hit": [
+    120,
+    [
+     [
+      "shin_ankle",
+      "thigh",
+      33.4
+     ],
+     [
+      "shin_ankle",
+      "servo_knee",
+      120.3
+     ]
+    ]
+   ]
+  },
+  "ankle_-20": {
+   "collision_free_to": 110,
+   "first_hit": [
+    120,
+    [
+     [
+      "shin_ankle",
+      "thigh",
+      33.4
+     ],
+     [
+      "shin_ankle",
+      "servo_knee",
+      120.3
+     ]
+    ]
+   ]
+  }
+ },
+ "sole_normal_at_rest": [
+  -0.0,
+  -0.0,
+  -1.0
+ ],
+ "mass_g": {
+  "shin_ankle": 32.0,
+  "foot_ankle": 28.6,
+  "old_P06_shin": 34.9,
+  "old_F_board150w_pad": 25.0,
+  "servo": 55,
+  "horns_screws_est": 8.0,
+  "note": "printed = solid volume x 1.24 g/cm3 x fill 0.55",
+  "added_per_leg": 63.7
+ },
+ "meshes": {
+  "A01_shin_ankle.stl": {
+   "watertight": true,
+   "volume_cm3": 46.95,
+   "bbox_mm": [
+    50.5,
+    43.4,
+    137.9
+   ]
+  },
+  "A02_foot_ankle.stl": {
+   "watertight": true,
+   "volume_cm3": 41.93,
+   "bbox_mm": [
+    141.5,
+    50.0,
+    46.0
+   ]
+  },
+  "A01_shin_ankle_RIGHT_print.stl": {
+   "watertight": true,
+   "volume_cm3": 46.95,
+   "bbox_mm": [
+    137.9,
+    50.5,
+    43.4
+   ]
+  },
+  "A01_shin_ankle_print.stl": {
+   "watertight": true,
+   "volume_cm3": 46.95,
+   "bbox_mm": [
+    137.9,
+    50.5,
+    43.4
+   ]
+  },
+  "A02_foot_ankle_RIGHT_print.stl": {
+   "watertight": true,
+   "volume_cm3": 41.93,
+   "bbox_mm": [
+    147.2,
+    50.0,
+    24.6
+   ]
+  },
+  "A02_foot_ankle_print.stl": {
+   "watertight": true,
+   "volume_cm3": 41.93,
+   "bbox_mm": [
+    147.2,
+    50.0,
+    24.6
+   ]
+  },
+  "A01_shin_ankle_RIGHT.stl": {
+   "watertight": true,
+   "volume_cm3": 46.95,
+   "bbox_mm": [
+    50.5,
+    43.4,
+    137.9
+   ]
+  },
+  "A02_foot_ankle_RIGHT.stl": {
+   "watertight": true,
+   "volume_cm3": 41.93,
+   "bbox_mm": [
+    141.5,
+    50.0,
+    46.0
+   ]
+  }
+ },
+ "check_seconds": 21.7
+}

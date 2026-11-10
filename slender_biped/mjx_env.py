@@ -117,7 +117,8 @@ class EnvConfig:
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
-        track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, alive=0.5, termination=-20.0))
+        track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, alive=0.5,
+        termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
     track_ang_sigma: float = 0.05      # yaw-rate tracking kernel width (rad/s)^2
@@ -136,6 +137,7 @@ class EnvConfig:
     ref_swing_h: float = 0.008         # m: lift at which the ref_swing term is fully paid
     width_target: float = 0.08         # m, lateral tip separation (body frame) above which the width term penalizes
     airborne_h: float = 0.0015         # m: a foot counts as off the floor for the airborne (skiing) term above this
+    land_h: float = 0.006              # m: land_v penalizes a foot's downward speed below this height (soft touchdown)
     tip_condim: int = 3                # tip-floor contact dims; 4 adds the pad's torsional (yaw) friction, which the
                                        # model specifies (0.004) but condim 3 ignores
     # sideways drift (round 5). Extra policy inputs go in FRONT of the 35-dim base state, so the base layout (and
@@ -638,6 +640,8 @@ class SlenderBipedEnv(Env):
             line=jp.where(moving, jp.exp(-y_true ** 2 / c.line_sigma), 0.0),
             # skiing (2026-11-08): feet lifted off the floor while moving (penalized: both boards stay on the snow)
             airborne=jp.where(moving, jp.sum(low > c.airborne_h).astype(float), 0.0),
+            # 2026-11-09: soft touchdown: downward foot speed (m/s)^2 while the foot is off the floor but close to it
+            land_v=jp.sum(jp.where(~contact & (low < c.land_h), jp.minimum(tip_v[:, 2], 0.0) ** 2, 0.0)),
             alive=1.0,
             termination=0.0,
         )

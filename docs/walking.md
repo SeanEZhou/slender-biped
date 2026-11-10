@@ -229,8 +229,12 @@ rug. The ankle-roll policies need the 10-joint robot.
 
 - Per leg: one STS3215 C001 (1:345, 7.4 V, the hip-roll servo; 55 g) and a bracket, about 70 g on the shin and
   10 g on the foot, a roll hinge ~30 mm above the board along its length, ±20° of travel (the walker uses ±9°).
-- The servo has to fit low on the shin, so the shin gets shorter by roughly the servo's height to keep the leg
-  length (the study model kept the length and only added the mass).
+- Designed in [hardware/ankle_p1](../hardware/ankle_p1/README.md): the servo's socket on the foot (A02, with the
+  board150w sole), the roll fork on a straight shin (A01), the leg straight at rest with the board flat, the leg
+  length unchanged. It differs from the study model: hinge 38.55 mm above the sole (study: 32), straight rest pose
+  (study: hip 16°, knee 32°), and the servo turns with the foot (~85 g on the foot instead of 10 g). Retrained on it,
+  with pads of other shapes and a slow step: [walking_ankle.md](walking_ankle.md) (straight legs don't work; the fork
+  is now angled 16° on the straight shin to keep the bent stance).
 - Two more bus IDs and a 10-joint runner and policy; nothing else on the electronics side.
 - What it buys, in simulation: one-foot balance (2 s and more), and six steps without falling on hard floors and
   firm rugs, with the robot's servo model and IMU filter in the loop. What it doesn't fix: deep rugs, where the

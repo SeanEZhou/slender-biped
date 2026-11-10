@@ -251,6 +251,28 @@ TASKS = {
                              ref_contact=0.0, ref_swing=8.0, progress=0.0, stride=0.0, settle=0.0, slip=-10.0,
                              ang_vel_xy=-0.05, pose=0.0, termination=-20.0, alive=1.0, torque=-0.2,
                              over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    # ank2 (2026-11-09): the ankle-roll leg as designed (hardware/ankle_p1 v2: servo in the foot, straight shin, straight
+    # rest pose; models/hw_ank2_<pad>_legs_10dof). Reference slender_biped/ankle_gait.py: flat feet throughout (shins
+    # vertical, the rear knee bent forward), weight shift by leaning both legs, swing-foot clearance by hip hike, the
+    # foot carried at constant height and lowered slowly; 4 s per step, a full rebalance in between. land_v: soft touchdown.
+    "ank2_step": dict(cmd_vx=(0.004, 0.008), cmd_vy=(0.0, 0.0), cmd_wz=(-0.1, 0.1), cmd_zero_prob=0.15,
+                      cmd_vx_slew=0.004, reset_ref_pose=True, phase_when_still=False, track_sigma=0.0002,
+                      heading_cmd=True, track_ang_sigma=0.1, gait_hz=0.125, ref_table="a2_step",
+                      ref_residual=True, ref_yaw_weight=0.0, tip_condim=4, stride_target=0.05, vy_avg_mode="ema",
+                      vy_avg_tau=8.0, ref_swing_h=0.005, settle_gate_u=(0.175, 0.675), settle_gate_w=0.3,
+                      settle_gate_max=1.0,
+                      rw=dict(track_lin=1.0, track_ang=2.0, heading=3.0, stop=2.0, ref_q=1.0, ref_tip=0.0,
+                              ref_contact=0.0, ref_swing=6.0, progress=4.0, stride=20.0, settle=-0.3, slip=-10.0,
+                              land_v=-200.0, ang_vel_xy=-0.1, pose=0.0, termination=-20.0, alive=1.0, torque=-0.2,
+                              over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
+    "ank2_bal": dict(cmd_vx=(0.01, 0.01), cmd_vy=(0.0, 0.0), cmd_wz=(0.0, 0.0), cmd_zero_prob=0.0,
+                     reset_ref_pose=True, phase_when_still=False, heading_cmd=True, track_ang_sigma=0.1,
+                     gait_hz=1.0 / 5.8, ref_table="a2_bal", ref_residual=True, ref_yaw_weight=0.0, tip_condim=4,
+                     ref_swing_h=0.005,
+                     rw=dict(track_lin=0.0, track_ang=1.0, heading=2.0, stop=0.0, ref_q=0.5, ref_tip=0.0,
+                             ref_contact=0.0, ref_swing=8.0, progress=0.0, stride=0.0, settle=0.0, slip=-10.0,
+                             land_v=-200.0, ang_vel_xy=-0.1, pose=0.0, termination=-20.0, alive=1.0, torque=-0.2,
+                             over_rated=-3.0, overspeed=-2.0, saturation=-1.0, action_rate=-0.05)),
     # ski_b150: cross-country "classic" stride: the boards slide alternately and never leave the floor (airborne
     # penalized, no slip penalty), on a 2 strides/s level-sole reference whose gliding board barely skims (8 mm lift
     # at the centre, the edge stays on the floor)

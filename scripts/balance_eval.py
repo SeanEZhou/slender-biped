@@ -21,6 +21,7 @@ def main():
     ap.add_argument("--n", type=int, default=8)
     ap.add_argument("--seconds", type=float, default=20.0)
     ap.add_argument("--floors", default="0.004,0.1,0.3,0.8")
+    ap.add_argument("--model", help="evaluate on another model")
     a = ap.parse_args()
     cfg, rd = load_run(a.run)
     params = a.params or sorted(rd.glob("params_*M.pkl"))[-1].name
@@ -31,7 +32,7 @@ def main():
         over = dict(floor_tc=tc, push_vel=0.0, imu_filter=True, imu_gate=0.15, gyro_range=17.45)
         rows = []
         for s in range(a.n):
-            env = CpuBiped(cfg["env"]["model"], EvalConfig.from_train(cfg["env"], **over), seed=70000 + s)
+            env = CpuBiped(a.model or cfg["env"]["model"], EvalConfig.from_train(cfg["env"], **over), seed=70000 + s)
             obs = env.reset((vx, 0.0, 0.0)); run_t = best = total = 0.0; fell = False
             for k in range(int(a.seconds / env.cfg.ctrl_dt)):
                 obs, _ = env.step(pol(obs))

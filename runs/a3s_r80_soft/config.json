@@ -1,0 +1,242 @@
+{
+ "args": {
+  "name": "a3s_r80_soft",
+  "model": "hw_ank3_r80_legs_10dof",
+  "task": "shift_b150",
+  "steps": 20000000.0,
+  "dr": true,
+  "push": 0.0,
+  "strength": 1.0,
+  "obs_noise": 1.0,
+  "action_scale": 0.25,
+  "seed": 0,
+  "num_envs": 4096,
+  "episode_length": 1000,
+  "init": null,
+  "rw": [
+   "progress=0.0",
+   "stride=20.0",
+   "ref_swing=6.0",
+   "slip=-50.0",
+   "land_v=-150.0",
+   "ang_vel_xy=-0.2"
+  ],
+  "set": [
+   "prof_acc=[7.0,35.0,35.0]",
+   "dr_delay_steps=[0,1]",
+   "dr_latency_sub=[2,10]",
+   "dr_prof_acc=[0.6,1.5]",
+   "dr_volt=[0.6,1.05]",
+   "dr_friction=[0.4,1.2]",
+   "dr_floor_tc=[0.02,0.3]",
+   "dr_floor_damp=[0.7,2.0]",
+   "dr_floor_tc=[0.02,0.8]",
+   "ref_swing_h=0.005",
+   "ref_table=\"b150A_shift\"",
+   "settle_gate_u=[0.275,0.775]"
+  ],
+  "lr": 0.0003,
+  "entropy": 0.005,
+  "gamma": 0.99
+ },
+ "env": {
+  "model": "hw_ank3_r80_legs_10dof",
+  "task": "shift_b150",
+  "ctrl_dt": 0.02,
+  "sim_dt": 0.002,
+  "solver_iterations": 4,
+  "action_scale": 0.25,
+  "kp": 8.0,
+  "kd": 0.05,
+  "slew": 8.0,
+  "latency_sub": 2,
+  "deadzone": 0.0015,
+  "strength_scale": 1.0,
+  "speed_scale": 1.0,
+  "prof_acc": [
+   7.0,
+   35.0,
+   35.0
+  ],
+  "delay_steps": 0,
+  "dr_prof_acc": [
+   0.6,
+   1.5
+  ],
+  "dr_delay_steps": [
+   0,
+   1
+  ],
+  "dr_volt": [
+   0.6,
+   1.05
+  ],
+  "dr": true,
+  "dr_strength": [
+   0.8,
+   1.05
+  ],
+  "dr_speed": [
+   0.8,
+   1.05
+  ],
+  "dr_kp": [
+   0.75,
+   1.25
+  ],
+  "dr_latency_sub": [
+   2,
+   10
+  ],
+  "dr_deadzone": [
+   0.0,
+   0.015
+  ],
+  "obs_noise": 1.0,
+  "reset_joint_noise": 0.08,
+  "reset_tilt": 0.04,
+  "reset_hard_prob": 0.0,
+  "reset_hard_tilt": [
+   0.0,
+   0.0
+  ],
+  "reset_angvel": 0.0,
+  "dr_friction": [
+   0.4,
+   1.2
+  ],
+  "dr_floor_tc": [
+   0.02,
+   0.8
+  ],
+  "dr_floor_damp": [
+   0.7,
+   2.0
+  ],
+  "push_interval_s": [
+   2.0,
+   4.0
+  ],
+  "push_vel": 0.0,
+  "cmd_vx": [
+   0.006,
+   0.016
+  ],
+  "cmd_vy": [
+   0.0,
+   0.0
+  ],
+  "cmd_wz": [
+   -0.2,
+   0.2
+  ],
+  "cmd_zero_prob": 0.15,
+  "cmd_resample_s": [
+   3.0,
+   6.0
+  ],
+  "cmd_vx_slew": 0.01,
+  "reset_ref_pose": true,
+  "imu_tilt_bias": [
+   0.0,
+   0.0
+  ],
+  "dr_imu_tilt": 0.0,
+  "settle_gate_u": [
+   0.275,
+   0.775
+  ],
+  "settle_gate_w": 0.3,
+  "settle_gate_max": 1.0,
+  "heading_cmd": true,
+  "heading_gain": 1.0,
+  "gait_hz": 0.2,
+  "phase_when_still": false,
+  "max_tilt": 0.7,
+  "min_height_frac": 0.6,
+  "rw": {
+   "track_lin": 1.0,
+   "track_ang": 2.0,
+   "upright": 1.0,
+   "height": 0.5,
+   "lin_vel_z": -1.0,
+   "ang_vel_xy": -0.2,
+   "torque": -0.2,
+   "saturation": -1.0,
+   "overspeed": -2.0,
+   "action_rate": -0.05,
+   "joint_vel": -0.0005,
+   "over_rated": -3.0,
+   "heading": 3.0,
+   "stop": 2.0,
+   "pose": 0.0,
+   "slip": -50.0,
+   "feet_air_time": 0.0,
+   "contact_phase": 0.0,
+   "swing_height": 0.0,
+   "both_feet": 0.0,
+   "touchdown": 0.0,
+   "liftoff": 0.0,
+   "stride": 20.0,
+   "ref_q": 1.0,
+   "ref_tip": 0.0,
+   "ref_contact": 0.0,
+   "width": 0.0,
+   "track_vy": 0.0,
+   "line": 0.0,
+   "airborne": 0.0,
+   "settle": -0.3,
+   "progress": 0.0,
+   "ref_swing": 6.0,
+   "land_v": -150.0,
+   "alive": 1.0,
+   "termination": -20.0
+  },
+  "rated_frac": 0.33,
+  "track_sigma": 0.0005,
+  "track_ang_sigma": 0.1,
+  "heading_sigma": 0.1,
+  "stop_sigma": 0.002,
+  "height_sigma": 0.03,
+  "swing_height": 0.025,
+  "air_time_target": 0.2,
+  "stride_target": 0.03,
+  "ref_table": "b150A_shift",
+  "ref_residual": true,
+  "ref_sigma_q": 0.1,
+  "ref_sigma_tip": 0.0002,
+  "ref_yaw_weight": 0.0,
+  "ref_swing_h": 0.005,
+  "width_target": 0.08,
+  "airborne_h": 0.0015,
+  "land_h": 0.006,
+  "tip_condim": 4,
+  "obs_vel": "",
+  "obs_accel": false,
+  "obs_hist": 0,
+  "odo_noise": 0.002,
+  "odo_bias": 0.01,
+  "odo_scale": 0.1,
+  "odo_alpha": 0.15,
+  "odo_contact": "sched",
+  "odo_flip": 0.03,
+  "odo_src": "legs",
+  "flow_noise": 0.02,
+  "acc_noise": 0.01,
+  "acc_bias": 0.03,
+  "imu_filter": false,
+  "imu_alpha": 0.0776,
+  "imu_gate": 0.15,
+  "gyro_range": 0.0,
+  "vy_avg_tau": 5.0,
+  "vy_avg_sigma": 0.0004,
+  "vy_avg_mode": "ema",
+  "obs_line": false,
+  "line_frame": "heading",
+  "line_sigma": 0.01,
+  "mirror_aug": false
+ },
+ "jax_devices": [
+  "cuda:0"
+ ]
+}

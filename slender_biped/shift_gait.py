@@ -79,14 +79,19 @@ def step_pose(t, T, d, p):
     q[4 * st_leg + 2:4 * st_leg + 4] = foot_q(x_st)
     lift = 0.0
     if t_sw0 <= tau < t_sw1 and d > 0:
-        b = math.sin(math.pi * (tau - t_sw0) / p["swing_t"]) ** 2
+        x = (tau - t_sw0) / p["swing_t"]
+        r = p.get("rise_frac", 0.5)              # 2026-11-09: rise over r of the swing, lower over the rest (slow touchdown)
+        b = (0.5 - 0.5 * math.cos(math.pi * x / r)) if x < r else (0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - r)))
         q[4 * leg + 3] += p["lift_knee"] * b
         q[4 * leg + 2] += p["lift_hip"] * b
         stance[leg] = False
         lift = p["swing_h"] * b
     # weight shift: in over shift_t before the swing, out over the swing plus release_t
     if d > 0:
-        a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw0) / (p["swing_t"] + p["release_t"])))
+        if p.get("hold_shift"):                  # 2026-11-09 slow step: stay over the stance foot until touchdown
+            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
+        else:
+            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw0) / (p["swing_t"] + p["release_t"])))
         q[4 * st_leg + 1] -= p["shift"] * a          # stance leg inward
         q[4 * leg + 1] += (p["shift"] + p["out"]) * a if tau < t_sw0 else p["shift"] * a
         if tau >= t_sw0:                             # the swing leg keeps `out` from lift-off on, landing wider
@@ -162,11 +167,14 @@ def main():
     ap.add_argument("--vmax", type=float, default=0.016)
     ap.add_argument("--nv", type=int, default=5)
     ap.add_argument("--nphase", type=int, default=256)
+    ap.add_argument("--hold-shift", action="store_true", help="keep the weight shift through the swing, release after touchdown")
+    ap.add_argument("--rise-frac", type=float, default=0.5, help="fraction of the swing spent lifting (the rest lowers)")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
     a = ap.parse_args()
     p = dict(T_step=a.T_step, settle0=a.settle0, shift_t=a.shift_t, swing_t=a.swing_t, release_t=a.release_t,
              shift=a.shift, out=a.out, lift_knee=a.lift_knee, lift_hip=a.lift_hip, swing_h=a.swing_h, hold=a.hold,
-             settle1=a.settle1, ankle=a.ankle)
+             settle1=a.settle1, ankle=a.ankle, rise_frac=a.rise_frac,
+             hold_shift=a.hold_shift)
     vs = np.linspace(0, a.vmax, a.nv) if a.kind == "step" else np.array([0.0, a.vmax])
     t = build(a.kind, p, vs, a.nphase)
     REF_DIR.mkdir(exist_ok=True)
