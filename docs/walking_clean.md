@@ -57,7 +57,7 @@ planted boards sliding 36 mm per step, wobble ~10-12 deg/s, 6-7° of tilt after 
 | `ang_vel_xy` | body roll/pitch rate² (existed at -0.05) | -0.5 … -2 |
 | `narrow` | lateral board-centre gap below 65 mm (cm²) | -1 (did not stop touching) |
 | `board_yaw` | each board's yaw relative to the pelvis heading, sin² | -100 |
-| `ref_contact` | each foot up / down when the reference says (existed, unused) | 3 |
+| `ref_contact` | each foot up / down when the reference says | 3 |
 | `ref_q` | joint tracking of the reference (existed at 1) | 3 |
 
 **Penalties alone made it worse** (`c1_b150`, the best policy fine-tuned with them): stepping itself got expensive, so
@@ -315,6 +315,9 @@ fault doesn't drop the robot (`--limp-on-fault` restores the old behaviour). Fre
 setup came from USB/IP (WSL) stalls, not the IMU: `--imu-timeout 0.5`, or the boards on a native Linux USB port.
 
 ### 11.5 Learnings
+
+These and every earlier round's lessons are collected in [lessons.md](lessons.md).
+
 
 1. **The robot decides.** Three policies with identical simulated scores split into one walker, one that tripped
    over its own feet and one that tipped. Simulated falls are a filter, not a ranking.

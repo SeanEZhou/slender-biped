@@ -30,12 +30,15 @@ weight moves over one flat board, and lifting the other foot is no longer a fall
 trained by imitation and against wobble, the robot took its first real walks: 10+ steps in most trials with the legs
 alone, and stable marching with the torso and head on.
 
+Everything the project has learned, from servo modelling to reward weights to robot bring-up, is collected in
+**[docs/lessons.md](docs/lessons.md)**.
+
 **Contents**
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
 - **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
 - **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
 - **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot) · [15. Big feet for soft rugs](#15-big-feet-for-soft-rugs) · [16. Walking on the big pads](#16-walking-on-the-big-pads)
-- **Reference:** [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
+- **Reference:** [Lessons learned](docs/lessons.md) · [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
 
 An end-to-end robotics design study:
 1. **Concept:** a novel leg concept from character art.
@@ -1198,7 +1201,8 @@ more than 7.4 V. Smoother actions (stronger action-rate penalties or an action f
 The runner ([`policy_stand.py`](hardware/leg_p0/software/policy_stand.py)) now drives 10 joints. It logs each servo's
 voltage, temperature and load. On a bus or IMU error it rides through a few missed reads, then holds the stance pose
 with torque on instead of going limp. Details, commands and every policy: [docs/walking_clean.md](docs/walking_clean.md)
-§8 and §10–11.
+§8 and §10–11. What led to the walk, including the techniques borrowed from Open Duck Mini and
+which worked: [docs/lessons.md §2](docs/lessons.md#2-what-led-to-the-first-walk).
 
 ## Limitations and next steps
 
