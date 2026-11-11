@@ -1,0 +1,17 @@
+{
+ "params": {
+  "table": 0.0,
+  "vx": 0.02,
+  "k_r": 0.1338603210894585,
+  "k_w": 0.009804078382318155,
+  "ank": 1.2924727970453525,
+  "k_p": 0.03167891168477939,
+  "k_pd": -0.012163790606809338
+ },
+ "score": 2.9304948950232412,
+ "falls": 0,
+ "walks": 8,
+ "fwd_cm": 27.5,
+ "wobble": 30.3,
+ "note": "scripts/refwalk_opt.py: 15 s walks, 4 randomized robots x hard floor + rug"
+}

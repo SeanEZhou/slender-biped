@@ -108,3 +108,27 @@ personal-notes/
 !runs/a3s_foot/params_0020M.pkl
 !runs/a3s_r80/params_0020M.pkl
 !runs/a2f_b150/params_0020M.pkl
+# 2026-11-10 clean-step round (docs/walking_clean.md): every policy kept for robot tests
+!runs/c1_b150/params_0020M.pkl
+!runs/c1i_b150/params_0020M.pkl
+!runs/c2_slow/params_0010M.pkl
+!runs/c2i_slow/params_0010M.pkl
+!runs/c3i_T12/params_0025M.pkl
+!runs/c3m_T12/params_0020M.pkl
+!runs/c3p_T12/params_0020M.pkl
+!runs/c3r_T12/params_0020M.pkl
+!runs/c3s_T12/params_0020M.pkl
+!runs/c4i_T08/params_0025M.pkl
+!runs/c5i_big/params_0025M.pkl
+!runs/c5s_big/params_0020M.pkl
+!runs/c6_T15/params_0025M.pkl
+!runs/c6c_T15/params_0020M.pkl
+!runs/c6m_T15/params_0020M.pkl
+!runs/c6n_T15/params_0020M.pkl
+!runs/c7_T12h/params_0020M.pkl
+!runs/c8_big2/params_0025M.pkl
+!runs/c1i_b150/params_0010M.pkl
+!runs/c8m_big2/params_0020M.pkl
+!runs/c6y_T15/params_0020M.pkl
+!runs/c3f_T12/params_0025M.pkl
+!runs/c3f_T12/params_0012M.pkl

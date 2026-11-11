@@ -4,7 +4,8 @@
     .venv/bin/python scripts/make_ankle2_model.py b150 d70        # some
     .venv/bin/python scripts/make_ankle2_model.py --list
 
-Writes models/hw_ank2_<pad>_legs_10dof{,_train}.{xml,json} (legs + pelvis, as tested on the robot).
+Writes models/hw_ank2_<pad>_legs_10dof{,_train}.{xml,json} (legs + pelvis, as tested on the robot); with --full
+(torso and head on) models/hw_ank<2|3>_<pad>_10dof from models/hw_pad_board150w_ankle_10dof.
 
 Built from models/hw_pad_board150w_legs_ankle_10dof (the design-study model: same hips, thighs, servos, contact
 settings) with the v2 lower leg:
@@ -172,11 +173,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("names", nargs="*")
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--full", action="store_true", help="torso and head on (base hw_pad_board150w_ankle_10dof: their mass "
+                                                       "lumped into the pelvis); writes hw_ank<2|3>_<pad>_10dof")
     ap.add_argument("--bent", action="store_true", help="ank3: rest pose hip 16 / knee 32 deg, the ankle fork angled 16 deg on "
                                                        "the straight shin so the roll axis is level and the board flat in it")
     a = ap.parse_args()
     D = designs()
-    global FOOT_QUAT
+    global FOOT_QUAT, BASE
+    if a.full:
+        BASE = "hw_pad_board150w_ankle_10dof"
     q_nom = [0.0] * 10
     if a.bent:
         FOOT_QUAT = "0.990268 0 -0.139173 0"
@@ -190,7 +195,7 @@ def main():
     from slender_biped import feet
     for name in a.names or list(D):
         parts, area, desc, prox = D[name]
-        mname = f"hw_ank{3 if a.bent else 2}_{name}_legs_10dof"
+        mname = f"hw_ank{3 if a.bent else 2}_{name}_{'' if a.full else 'legs_'}10dof"
         for suf, train in (("", False), ("_train", True)):
             xml = (MODELS / f"{BASE}{suf}.xml").read_text()
             (MODELS / f"{mname}{suf}.xml").write_text(convert(xml, parts, prox, train))
@@ -210,7 +215,9 @@ def main():
                     total_mass=float(sum(m.body_mass)),
                     note=f"ankle roll as designed (hardware/ankle_p1 v2, scripts/make_ankle2_model.py): foot holds the "
                          f"servo, straight shin, rest pose straight; pad {desc}")
-        meta["cfg"] = dict(meta["cfg"], variant=mname.replace("_legs_10dof", ""), foot=name)
+        meta["cfg"] = dict(meta["cfg"], variant=mname.replace("_legs_10dof", "").replace("_10dof", ""), foot=name)
+        if a.full:
+            meta["note"] += "; torso and head on (their mass in the pelvis)"
         if a.bent:
             meta["note"] = meta["note"].replace("rest pose straight", "rest pose hip 16 / knee 32 deg, ankle fork angled 16 deg")
         (MODELS / f"{mname}.json").write_text(json.dumps(meta, indent=1))

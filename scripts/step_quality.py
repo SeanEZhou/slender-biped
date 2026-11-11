@@ -22,6 +22,7 @@ from slender_biped.evaluation import CpuBiped, EvalConfig, NumpyPolicy, load_run
 
 def episode(env, pol, vx, seconds):
     obs = env.reset((vx, 0.0, 0.0))
+    p0 = env.d.qpos[0:2].copy()
     dt = env.cfg.ctrl_dt
     yaw0 = yaw_of(env.d.qpos[3:7]); fwd = np.array([np.cos(yaw0), np.sin(yaw0)])
     up = np.zeros(2); peak = np.zeros(2); x_off = np.zeros(2); steps = 0; fell = False
@@ -34,6 +35,10 @@ def episode(env, pol, vx, seconds):
     side = np.array([1 if n.startswith("L_") else 2 if n.startswith("R_") else 0 for n in names])
     foot = np.array([("_tip" in n or "_padcol" in n) for n in names])
     self_hit = 0.0
+    tid = env.tip_gid
+    scuff_t, scuff_n, scuff_prev = 0.0, 0, np.zeros(2, bool)
+    td_tilt, lift_pk = [], []
+    rates = []
     for k in range(int(seconds / dt)):
         err = (yaw0 - yaw_of(env.d.qpos[3:7]) + np.pi) % (2 * np.pi) - np.pi
         env.cmd[2] = float(np.clip(err, -0.3, 0.3)); obs[-5:-2] = env.cmd
@@ -48,6 +53,14 @@ def episode(env, pol, vx, seconds):
                 self_hit += dt
                 break
         loaded = low < 0.0015
+        rates.append(np.degrees(env.d.qvel[3:5]).copy())
+        R = env.d.geom_xmat[tid].reshape(2, 3, 3)
+        pad_pitch = np.degrees(np.arcsin(np.clip(R[:, 2, 0], -1, 1)))   # toe-up positive
+        pad_roll = np.degrees(np.arcsin(np.clip(R[:, 2, 1], -1, 1)))
+        if c_prev is not None:                           # scuff: a foot moving > 3 cm/s sideways/forward within 2 mm of
+            vxy = np.linalg.norm((c - c_prev)[:, :2], axis=1) / dt   # the floor, not planted (planted = slide)
+            sc = (low < 0.002) & (vxy > 0.03) & ~(loaded & loaded_prev)
+            scuff_t += dt * float(np.sum(sc)); scuff_n += int(np.sum(sc & ~scuff_prev)); scuff_prev = sc
         if c_prev is not None:
             slide += float(np.sum(np.linalg.norm((c - c_prev)[:, :2], axis=1) * (loaded & loaded_prev)))
         c_prev, loaded_prev = c.copy(), loaded
@@ -61,6 +74,8 @@ def episode(env, pol, vx, seconds):
                 if up[i] >= 0.1 and peak[i] > 0.003:
                     if c[i, :2] @ fwd - x_off[i] >= 0.01:
                         steps += 1
+                    td_tilt.append((abs(pad_pitch[i]), abs(pad_roll[i]), pad_pitch[i]))
+                    lift_pk.append(peak[i])
                     h = low_hist[i]
                     td_v.append(max(0.0, (h[-2] - h[-1]) / dt if len(h) > 1 else 0.0))
                     after.append(k)
@@ -71,7 +86,9 @@ def episode(env, pol, vx, seconds):
     tilt, rate = np.array(tilt), np.array(rate)
     w = int(0.6 / dt)
     post = [(tilt[s:s + w].max(), rate[s:s + w].max()) for s in after if s + 1 < len(tilt)]
-    return dict(steps=steps, fell=fell, td_v=td_v, post=post, tilt=float(tilt.max()) if len(tilt) else 0.0,
+    rates = np.array(rates) if rates else np.zeros((1, 2))
+    return dict(fwd=float((env.d.qpos[0:2] - p0) @ fwd),rms_roll=float(np.sqrt(np.mean(rates[:, 0] ** 2))), rms_pitch=float(np.sqrt(np.mean(rates[:, 1] ** 2))),
+                scuff_n=scuff_n, scuff_t=scuff_t, td_tilt=td_tilt, lift_pk=lift_pk, steps=steps, fell=fell, td_v=td_v, post=post, tilt=float(tilt.max()) if len(tilt) else 0.0,
                 slide=slide / max(steps, 1), self_hit=self_hit)
 
 
@@ -109,6 +126,14 @@ def main():
               f"rate {np.median(post[:, 1]):3.0f}/{post[:, 1].max():3.0f} deg/s | worst tilt {max(r['tilt'] for r in res):4.1f} | "
               f"slide {1000 * np.median([r['slide'] for r in res]):4.1f} mm/step | feet touching {sum(r['self_hit'] > 0 for r in res)}/{a.n} walks "
               f"({max(r['self_hit'] for r in res):.2f} s max)", flush=True)
+        tt = np.array(sum((r["td_tilt"] for r in res), [])) if any(r["td_tilt"] for r in res) else np.zeros((1, 3))
+        lp = 1000 * np.array(sum((r["lift_pk"] for r in res), [])) if any(r["lift_pk"] for r in res) else np.zeros(1)
+        nst = max(1, int(st.sum()))
+        print(f"      wobble rms roll {np.median([r['rms_roll'] for r in res]):4.1f} pitch {np.median([r['rms_pitch'] for r in res]):4.1f} deg/s | "
+              f"scuffs {sum(r['scuff_n'] for r in res) / nst:4.2f}/step ({np.median([r['scuff_t'] for r in res]):.2f} s/walk) | "
+              f"touchdown tilt pitch {np.median(tt[:, 0]):4.1f}/{tt[:, 0].max():4.1f} (toe-down {np.mean(tt[:, 2] < -2):.0%}) roll "
+              f"{np.median(tt[:, 1]):4.1f}/{tt[:, 1].max():4.1f} deg | lift {np.median(lp):4.1f} mm (min {lp.min():4.1f}) | "
+              f"forward {100 * np.median([r['fwd'] for r in res]):.0f} cm in {a.seconds:.0f} s", flush=True)
 
 
 if __name__ == "__main__":

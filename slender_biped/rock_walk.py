@@ -296,4 +296,40 @@ class ShiftWalk:
         return self._lookup(self.v, self.phase) - self.q_nom
 
 
-CONTROLLERS = dict(lift=Lift, sine=Sine, cpg=CPG, rock=RockWalker, step=QuickStep, shiftwalk=ShiftWalk)
+class RefWalk(ShiftWalk):
+    """10-joint legs with ankle roll (2026-11-10): plays a reference table (slender_biped/shift_gait.py --ankle) with
+    the settle gate, plus IMU feedback. Roll u = k_r x roll + k_w x roll rate goes onto both hip rolls (gain 1) and
+    both ankle rolls (gain `ank`), with the signs that turn both legs the same way in the world; pitch v = k_p x pitch
+    + k_pd x pitch rate onto both hip pitches. `table` indexes TABLES (default c_T12, 1.2 s steps). Roll / pitch from
+    the gravity direction in the pelvis frame (obs[0:3]), rates from the gyro (obs[3:5]). Tuned by
+    scripts/refwalk_opt.py (results/refwalk_<table>.json)."""
+    P = dict(vx=0.02, slew=0.01, gate_w=0.3, gate_max=1.0, t0=1.0, table=0.0, k_r=0.0, k_w=0.0, ank=1.0, k_p=0.0,
+             k_pd=0.0, lim=0.15)
+    TABLES = ("c_T12", "b150A_shift", "b150A_slow1", "c_T08", "c_big")
+    MODEL = "hw_ank3_b150_legs_10dof"
+
+    def __init__(self, p=None, ctrl_dt=DT):
+        super().__init__(p, ctrl_dt)
+        self.nj = self.ref["q"].shape[-1]
+        self.env = dict(self.env, model=self.MODEL)
+        jn = [f"{s}_{j}" for s in "LR" for j in ("hip_yaw", "hip_roll", "hip_pitch", "knee", "ankle_roll")]
+        self.i = {n: k for k, n in enumerate(jn)}
+
+    def __call__(self, obs):
+        p = self.p
+        if self.t + DT < p["t0"]:
+            self.t += DT
+            return np.zeros(self.nj)
+        q = super().__call__(obs)
+        g, w = obs[0:3], obs[3:6]
+        roll, pitch = math.atan2(g[1], -g[2]), math.atan2(g[0], -g[2])
+        u = float(np.clip(p["k_r"] * roll + p["k_w"] * w[0], -p["lim"], p["lim"]))
+        v = float(np.clip(p["k_p"] * pitch + p["k_pd"] * w[1], -p["lim"], p["lim"]))
+        i = self.i
+        q[i["L_hip_roll"]] += u; q[i["R_hip_roll"]] -= u
+        q[i["L_ankle_roll"]] += p["ank"] * u; q[i["R_ankle_roll"]] -= p["ank"] * u
+        q[i["L_hip_pitch"]] += v; q[i["R_hip_pitch"]] += v
+        return q
+
+
+CONTROLLERS = dict(lift=Lift, sine=Sine, cpg=CPG, rock=RockWalker, step=QuickStep, shiftwalk=ShiftWalk, refwalk=RefWalk)

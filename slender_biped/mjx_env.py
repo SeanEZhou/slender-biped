@@ -117,7 +117,8 @@ class EnvConfig:
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
-        track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, alive=0.5,
+        track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, scuff=0.0, foot_tilt=0.0, ang_acc=0.0, action_acc=0.0,
+        clear=0.0, narrow=0.0, board_yaw=0.0, alive=0.5,
         termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
@@ -138,6 +139,13 @@ class EnvConfig:
     width_target: float = 0.08         # m, lateral tip separation (body frame) above which the width term penalizes
     airborne_h: float = 0.0015         # m: a foot counts as off the floor for the airborne (skiing) term above this
     land_h: float = 0.006              # m: land_v penalizes a foot's downward speed below this height (soft touchdown)
+    # 2026-11-10 clean steps: scuff = horizontal foot speed^2 within scuff_h of the floor while not planted (scraping,
+    # toe catching); foot_tilt = pad tilt (sin^2 pitch + roll) within tilt_h of the floor (flat landings and lift-offs);
+    # clear = shortfall of a scheduled swing foot below the reference lift, cm^2
+    scuff_h: float = 0.004
+    narrow_min: float = 0.065          # m: lateral board-centre separation (body frame) below which `narrow` penalizes (cm^2);
+                                       # the 50 mm boards touch at 0.05
+    tilt_h: float = 0.02
     tip_condim: int = 3                # tip-floor contact dims; 4 adds the pad's torsional (yaw) friction, which the
                                        # model specifies (0.004) but condim 3 ignores
     # sideways drift (round 5). Extra policy inputs go in FRONT of the 35-dim base state, so the base layout (and
@@ -395,7 +403,8 @@ class SlenderBipedEnv(Env):
         info = dict(
             g_est=g0,
             rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
-            push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj),
+            push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj), last_act2=jp.zeros(self.nj),
+            w_prev=jp.zeros(2),
             prev_cmd=qj, q_tgt=qj, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qj, (self.max_delay + 1, 1)),
             phase=jp.array(0.0), air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
@@ -595,7 +604,10 @@ class SlenderBipedEnv(Env):
         stride = jp.sum(jp.where(touchdown, jp.clip(step_len, 0.0, c.stride_target) / c.stride_target, 0.0))
         rw = c.rw
         tilt2 = jp.sum(g_body[:2] ** 2)
+        clear_err = 0.0
+        pad_sp, pad_sr = data.geom_xmat[self.tip_gid][:, 2, 0], data.geom_xmat[self.tip_gid][:, 2, 1]  # sin pitch (toe-up +), roll
         if self.ref is not None:
+            clear_err = jp.where(moving, jp.sum(jp.where(st_ref, 0.0, jp.maximum(z_ref - jp.maximum(low, 0.0), 0.0) ** 2)) * 1e4, 0.0)
             ref_terms = dict(
                 ref_q=jp.exp(-jp.sum(self.ref_w * (data.qpos[7:] - q_ref) ** 2) / c.ref_sigma_q),
                 ref_tip=jp.exp(-jp.sum((jp.maximum(low, 0.0) - z_ref) ** 2) / c.ref_sigma_tip),
@@ -642,6 +654,18 @@ class SlenderBipedEnv(Env):
             airborne=jp.where(moving, jp.sum(low > c.airborne_h).astype(float), 0.0),
             # 2026-11-09: soft touchdown: downward foot speed (m/s)^2 while the foot is off the floor but close to it
             land_v=jp.sum(jp.where(~contact & (low < c.land_h), jp.minimum(tip_v[:, 2], 0.0) ** 2, 0.0)),
+            scuff=jp.sum(jp.where((low < c.scuff_h) & ~(contact & info["contact_prev"]), jp.sum(tip_v[:, :2] ** 2, -1), 0.0)),
+            # feet off the floor or landing (within tilt_h): pitch (toe-down x2: the toe catches) and roll; planted
+            # feet: roll only (a staggered stance without ankle pitch tilts the boards fore-aft by design)
+            foot_tilt=jp.sum(jp.where(low < c.tilt_h, jp.where(contact & info["contact_prev"], 0.0,
+                                                                (1.0 + (pad_sp < 0)) * pad_sp ** 2) + pad_sr ** 2, 0.0)),
+            ang_acc=jp.sum(((w_body[:2] - info["w_prev"]) / c.ctrl_dt) ** 2),
+            action_acc=jp.sum((action - 2 * info["last_act"] + info["last_act2"]) ** 2),
+            clear=clear_err,
+            # boards turned toe-in / toe-out relative to the pelvis heading (sin^2 of each board's yaw): toe-in brings the
+            # board ends together while the centres stay apart (c6n_T15: boards overlapping 2-3 mm at 59 mm centre gap)
+            board_yaw=jp.sum(jax.vmap(lambda R: _quat_rot_t(quat, R[:, 0])[1] ** 2)(data.geom_xmat[self.tip_gid])),
+            narrow=(jp.maximum(c.narrow_min - jp.abs(_quat_rot_t(quat, centre[0] - centre[1])[1]), 0.0) * 100.0) ** 2,
             alive=1.0,
             termination=0.0,
         )
@@ -677,7 +701,7 @@ class SlenderBipedEnv(Env):
         info["y_est"] = jp.where(resample, 0.0, info["y_est"])
         info["y_true"] = jp.where(resample, 0.0, info["y_true"])
 
-        info.update(rng=rng, last_act=action, prev_cmd=q_cmd, q_tgt=q_tgt, v_tgt=v_tgt, cmd_buf=new_buf, air_time=air,
+        info.update(rng=rng, last_act=action, last_act2=info["last_act"], w_prev=w_body[:2], prev_cmd=q_cmd, q_tgt=q_tgt, v_tgt=v_tgt, cmd_buf=new_buf, air_time=air,
                     contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1)
         metrics = dict(state.metrics)
         for k, v in terms.items():

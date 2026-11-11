@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import shutil
 import signal
 import sys
 import time
@@ -207,6 +208,54 @@ def cmd_current(bus, a):
     print(f"TOTAL motor current: mean {total_mean:.0f} mA, sum of per-joint peaks {total_peak_sum:.0f} mA "
           f"({len(next(iter(samples.values()), []))} samples over {a.seconds:g} s). Excludes each servo's own "
           f"electronics (~10-20 mA idle): measure the supply with a meter for the true draw.")
+
+
+INFO_REGS = dict(min_angle=(9, 2), max_angle=(11, 2), max_torque=(16, 2), P=(21, 1), D=(22, 1), I=(23, 1),
+                 mode=(33, 1), torque_limit=(48, 2), torque_on=(40, 1), lock=(55, 1))
+
+
+def cmd_info(bus, a):
+    """Read-only: the EEPROM / RAM settings that decide whether a servo follows position goals. A servo reused from
+    another job may carry angle limits (min_angle / max_angle, factory 0 / 4095), a non-position mode (0 = position),
+    a reduced max_torque / torque_limit (factory 1000) or changed gains (P factory 32)."""
+    for name, j in bus.cfg["joints"].items():
+        sid = j["id"]
+        try:
+            r = {k: (bus.r1(sid, ad) if n == 1 else bus.r2(sid, ad)) for k, (ad, n) in INFO_REGS.items()}
+            off = decode_offset(bus.r2(sid, ADDR["OFFSET"]))
+            pos = bus.r2(sid, ADDR["PRESENT_POS"])
+        except IOError as e:
+            print(f"{name:12s} id {sid:3d}: no answer ({e})")
+            continue
+        warn = []
+        if r["min_angle"] != 0 or r["max_angle"] != 4095:
+            lo, hi = counts_to_deg(j, r["min_angle"]), counts_to_deg(j, r["max_angle"])
+            warn.append(f"ANGLE LIMITS {r['min_angle']}-{r['max_angle']} counts = {min(lo, hi):+.0f}..{max(lo, hi):+.0f} deg "
+                        f"(clear: clear-limits --id {sid})")
+        if r["mode"] != 0:
+            warn.append(f"MODE {r['mode']} (not position)")
+        if r["max_torque"] < 1000 or r["torque_limit"] < 1000:
+            warn.append("REDUCED TORQUE")
+        print(f"{name:12s} id {sid:3d}: pos {pos:4d} ({counts_to_deg(j, pos):+6.1f} deg) offset {off:+5d}  "
+              + "  ".join(f"{k} {v}" for k, v in r.items()) + ("   <- " + "; ".join(warn) if warn else ""))
+
+
+def cmd_clear_limits(bus, a):
+    """Set a servo's angle limits back to the full turn (EEPROM 9-12: 0 and 4095) so position goals aren't clamped."""
+    sid = a.id
+    if bus.ping(sid) is None:
+        sys.exit(f"no servo answers at id {sid}")
+    old = (bus.r2(sid, ADDR["MIN_ANGLE"]), bus.r2(sid, ADDR["MAX_ANGLE"]))
+    bus.w1(sid, ADDR["TORQUE_ENABLE"], 0)
+    bus.w1(sid, ADDR["LOCK"], 0)              # unlock EEPROM
+    try:
+        bus.w2(sid, ADDR["MIN_ANGLE"], 0)
+        bus.w2(sid, ADDR["MAX_ANGLE"], 4095)
+    finally:
+        bus.w1(sid, ADDR["LOCK"], 1)          # lock EEPROM
+    time.sleep(0.05)
+    new = (bus.r2(sid, ADDR["MIN_ANGLE"]), bus.r2(sid, ADDR["MAX_ANGLE"]))
+    print(f"id {sid}: angle limits {old[0]}-{old[1]} -> {new[0]}-{new[1]} counts" + ("" if new == (0, 4095) else "  FAILED"))
 
 
 def cmd_set_id(bus, a):
@@ -487,9 +536,12 @@ def _play(bus, a, joints, frames):
             ps = {n: bus.present(j["id"]) for n, j in joints.items()}
             if log is not None:
                 log.append((time.time() - t_start, k + 1, pose, ps))
-            print(f"\r{a.name} {k + 1}/{len(frames)} | " + "  ".join(
-                f"{n.replace('hip_', '')} {counts_to_deg(joints[n], p['pos']):6.1f}/{pose[n]:5.1f} ({p['load']:4d})"
-                for n, p in ps.items()) + f" | {next(iter(ps.values()))['volt']:.1f} V ", end="")
+            # only the joints that matter now (moving there, or > 1 deg off): fits one line with 10 joints too
+            show = [n for n, p in ps.items() if abs(pose[n]) > 0.05 or abs(counts_to_deg(joints[n], p["pos"]) - pose[n]) > 1.0]
+            line = (f"{a.name} {k + 1}/{len(frames)} | " + ("  ".join(
+                f"{n.replace('hip_', '')} {counts_to_deg(joints[n], ps[n]['pos']):6.1f}/{pose[n]:5.1f} ({ps[n]['load']:4d})"
+                for n in show) or "all joints at target") + f" | {next(iter(ps.values()))['volt']:.1f} V ")
+            print("\r" + line[:max(20, shutil.get_terminal_size().columns - 1)], end="", flush=True)
             time.sleep(0.05)
         late = {n: round(counts_to_deg(joints[n], p["pos"]) - pose[n], 1) for n, p in ps.items()
                 if abs(counts_to_deg(joints[n], p["pos"]) - pose[n]) > 3}
@@ -567,6 +619,9 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("scan")
     sub.add_parser("read")
+    sub.add_parser("info", help="read-only: angle limits, mode, torque limits, gains, offset of every joint")
+    sp = sub.add_parser("clear-limits", help="reset one servo's angle limits to the full turn (0-4095)")
+    sp.add_argument("--id", type=int, required=True)
     sp = sub.add_parser("set-id")
     sp.add_argument("--old", type=int, required=True)
     sp.add_argument("--new", type=int, required=True)
@@ -614,7 +669,7 @@ def main():
     sp.add_argument("--enable", action="store_true")
     a = ap.parse_args()
     bus = Bus(load_cfg(a.config))
-    {"scan": cmd_scan, "read": cmd_read, "set-id": cmd_set_id, "zero": cmd_zero, "torque-off": cmd_torque_off, "current": cmd_current,
+    {"scan": cmd_scan, "read": cmd_read, "info": cmd_info, "clear-limits": cmd_clear_limits, "set-id": cmd_set_id, "zero": cmd_zero, "torque-off": cmd_torque_off, "current": cmd_current,
      "move": cmd_move, "sweep": cmd_sweep, "jog": cmd_jog, "routine": cmd_routine, "wave": cmd_wave}[a.cmd](bus, a)
 
 

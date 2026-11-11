@@ -55,6 +55,9 @@ ROUTINES = {
               [(p, 1.5) for side in (left, right) for k, a in
                (("hip_yaw", 10), ("hip_roll", 10), ("hip_pitch", 10), ("knee", 20))
                for p in (side(**{k: a}), side(**{k: 0}))]),
+    "check_ankle": ("AIR  ankle_p1 legs: each ankle roll +10 deg alone (L then R): the foot's OUTER edge must go UP "
+                    "(sim sign, same sense as hip roll + = abduction); if it goes down, flip that ankle's direction",
+                    [(p, 1.5) for side in (left, right) for p in (side(ankle_roll=10), side(ankle_roll=0))]),
     "stance": ("both legs to hip 16 / knee 32 (pads level), then back to straight",
                [(both(**STANCE), 2.0), ({}, 2.0)]),
     "squat": ("from stance, 3 squats to hip 45 / knee 90 on both legs",

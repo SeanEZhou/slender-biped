@@ -15,8 +15,9 @@ head). Its 35 inputs are rebuilt exactly as in training (slender_biped/mjx_env.p
 pelvis frame, joint angles relative to the standing pose, 0.1 x joint speeds, the previous action, a zero velocity
 command and the 1.6 Hz gait clock. Its 8 outputs are joint targets: q = stance + 0.35 x action (rad).
 
-Safety: everything is clamped to the bench joint limits; the policy stops (torque OFF, the robot goes limp) if the
-pelvis tilts past --max-tilt, the IMU goes quiet for 100 ms or the bus fails; a user stop holds the stance pose.
+Safety: everything is clamped to the bench joint limits; the policy stops if the pelvis tilts past --max-tilt, the IMU
+goes quiet or the bus fails (a few garbled reads in a row are ridden through on the previous reading). Every stop holds
+the stance pose with the torque on, so the robot doesn't collapse; --limp-on-fault switches the torque off on faults.
 The sim joint signs are the bench signs (yaw + toe out, roll + abduction, pitch + leg forward, knee + foot back),
 so hardware degrees map straight to the policy's radians.
 """
@@ -101,9 +102,7 @@ class Policy:
         self.W = [np.asarray(layers[k]["kernel"], float) for k in keys]
         self.b = [np.asarray(layers[k]["bias"], float) for k in keys]
         self.env = json.loads((d / "config.json").read_text())["env"]
-        n_in = self.W[0].shape[0]
-        if n_in != 35:
-            sys.exit(f"{run}: policy takes {n_in} inputs; this runner builds the 35-input stand observation only")
+        self.n_in = self.W[0].shape[0]       # 6 + 3 x joints + 5: checked against the model's joints in cmd_run
 
     def __call__(self, obs):
         x = (obs - self.mean) / self.std
@@ -130,7 +129,7 @@ def ref_lookup(table, vx, phase):
     return a * (1 - wv) + b * wv
 
 
-DET_NAMES = ("lift", "sine", "cpg", "rock", "step", "shiftwalk")
+DET_NAMES = ("lift", "sine", "cpg", "rock", "step", "shiftwalk", "refwalk")
 
 
 class Rocker:
@@ -138,7 +137,9 @@ class Rocker:
     scripts/det_walk.py: lift (lift the left board and hold), sine (open-loop side-to-side rock on the hip rolls),
     cpg (the same rock, amplitude regulated on the IMU roll), rock (rock + swing + pitch feedback), step (one quick
     step with the right leg from the stance, then hold: fwd, out, T, lift_knee, lift_hip, t0, shift, release),
-    shiftwalk (the shift-and-step reference b150L_shift played open loop: vx, slew, gate_w, gate_max). Run name
+    shiftwalk (the shift-and-step reference b150L_shift played open loop: vx, slew, gate_w, gate_max), refwalk (10-joint
+    legs with ankle roll: a reference table with IMU roll / pitch feedback on hips and ankles; table, vx, k_r, k_w, ank,
+    k_p, k_pd; results/refwalk_<table>.json gains are loaded if present). Run name
     <controller> for legs only, <controller>_full for torso and head on; parameters with --det k=v (defaults otherwise;
     'rock' also reads results/rock_walk_<L|F>.json if present). Same call signature as Policy; actions are radians from
     the stance pose (action_scale 1). Each ramps itself in, so run them with --ramp 0."""
@@ -153,9 +154,17 @@ class Rocker:
         if kind == "rock" and tuned.exists():
             p = json.loads(tuned.read_text())["params"]
             self.path = tuned
+        if kind == "refwalk":
+            tab = CONTROLLERS[kind].TABLES[int((params or {}).get("table", 0))]
+            tuned = ROOT / "results" / f"refwalk_{tab}.json"
+            if tuned.exists():
+                p = json.loads(tuned.read_text())["params"]
+                self.path = tuned
         p.update(params or {})
         self.ctl = CONTROLLERS[kind](p)
         self.env = dict(self.ctl.env, model="hw_pad_board150w_8dof" if full else "hw_pad_board150w_legs_8dof")
+        if getattr(self.ctl, "MODEL", None):           # refwalk: the 10-joint legs with ankle roll
+            self.env["model"] = self.ctl.MODEL
 
     def __call__(self, obs):
         return self.ctl(obs)
@@ -289,7 +298,10 @@ class Servos:
         self.joints = bus.cfg["joints"]
         self.names = list(self.joints)
         self.ids = [j["id"] for j in self.joints.values()]
-        self.rd = GroupSyncRead(bus.port, bus.pk, fb.ADDR["PRESENT_POS"], 4)
+        # position, speed, load, voltage, temperature (registers 56-63) in the same sync read (2026-11-11: voltage and
+        # temperature logged per servo, to check for supply sag)
+        self.rd = GroupSyncRead(bus.port, bus.pk, fb.ADDR["PRESENT_POS"], 8)
+        self.load = np.zeros(len(self.joints)); self.volt = np.zeros(len(self.joints)); self.temp = np.zeros(len(self.joints))
         for i in self.ids:
             self.rd.addParam(i)
         self.set_accel(None)
@@ -307,18 +319,23 @@ class Servos:
 
     def read(self):
         """Joint angles (rad) and speeds (rad/s) in the policy's joint order and sign convention."""
-        res = self.rd.txRxPacket()
-        if res != COMM_SUCCESS:
-            res = self.rd.txRxPacket()                  # one retry: a reply now and then goes missing
-            if res != COMM_SUCCESS:
-                raise IOError(f"sync read: {self.bus.pk.getTxRxResult(res)}")
-        q, qd = np.zeros(8), np.zeros(8)
+        for _ in range(3):                              # retries: a reply now and then goes missing or garbles
+            res = self.rd.txRxPacket()
+            if res == COMM_SUCCESS:
+                break
+        else:
+            raise IOError(f"sync read: {self.bus.pk.getTxRxResult(res)}")
+        q, qd = np.zeros(len(self.joints)), np.zeros(len(self.joints))
         for k, (n, j) in enumerate(self.joints.items()):
             pos = self.rd.getData(j["id"], fb.ADDR["PRESENT_POS"], 2)
             spd = self.rd.getData(j["id"], fb.ADDR["PRESENT_SPEED"], 2)
             spd = -(spd & 0x7FFF) if spd & 0x8000 else spd
             q[k] = math.radians(fb.counts_to_deg(j, pos))
             qd[k] = math.radians(j["direction"] * spd / fb.COUNTS_PER_DEG)
+            ld = self.rd.getData(j["id"], fb.ADDR["PRESENT_LOAD"], 2)
+            self.load[k] = -(ld & 0x3FF) if ld & 0x400 else ld          # sign-magnitude, 0.1 % of max torque
+            self.volt[k] = self.rd.getData(j["id"], fb.ADDR["PRESENT_VOLT"], 1) / 10.0
+            self.temp[k] = self.rd.getData(j["id"], fb.ADDR["PRESENT_TEMP"], 1)
         return q, qd
 
     def write(self, q_rad):
@@ -540,7 +557,7 @@ def cmd_step_test(a):
     missing = [n for n, j in sv.joints.items() if bus.ping(j["id"]) is None]
     if missing:
         sys.exit(f"no answer from {missing}")
-    q_nom = stance_rad()
+    q_nom = stance_rad(sv.names)
     lo, hi = sv.limits_rad()
     p_orig = {}
     off_default = [n for n, j in sv.joints.items() if bus.r1(j["id"], SERVO_GAIN_REGS["P"]) != P_DEFAULT]
@@ -640,8 +657,10 @@ def cmd_reset_gains(a):
     print("P gains:", {n: bus.r1(j["id"], SERVO_GAIN_REGS["P"]) for n, j in bus.cfg["joints"].items()})
 
 
-def stance_rad(n=8):
-    return np.radians([0.0, 0.0, 16.0, 32.0] * 2)[:n]
+def stance_rad(names=None):
+    """The stance pose (hip pitch 16, knee 32, everything else 0) for the given joint names (default: the 8-joint legs)."""
+    names = names or [f"{s}_{j}" for s in "LR" for j in ("hip_yaw", "hip_roll", "hip_pitch", "knee")]
+    return np.radians([16.0 if n.endswith("hip_pitch") else 32.0 if n.endswith("knee") else 0.0 for n in names])
 
 
 def kv_float(s):
@@ -658,8 +677,14 @@ def cmd_run(a):
     dt, hz, scale = env["ctrl_dt"], env["gait_hz"], env["action_scale"]
     meta = json.loads((ROOT / "models" / f"{env['model']}.json").read_text())
     q_nom = np.array(meta["nominal_q"], float)
-    if meta["joints"] != [f"{s}_{j}" for s in "LR" for j in ("hip_yaw", "hip_roll", "hip_pitch", "knee")]:
+    legs8 = [f"{s}_{j}" for s in "LR" for j in ("hip_yaw", "hip_roll", "hip_pitch", "knee")]
+    legs10 = [f"{s}_{j}" for s in "LR" for j in ("hip_yaw", "hip_roll", "hip_pitch", "knee", "ankle_roll")]
+    if meta["joints"] not in (legs8, legs10):
         sys.exit(f"unexpected joint order in {env['model']}: {meta['joints']}")
+    nj = len(meta["joints"])
+    if isinstance(pol, Policy) and pol.n_in != 6 + 3 * nj + 5:
+        sys.exit(f"{a.run}: policy takes {pol.n_in} inputs; this runner builds the {6 + 3 * nj + 5}-input observation "
+                 f"for {nj} joints only (no history / velocity inputs)")
     R = load_mount()
     if a.pitch_trim:              # rotate the pelvis frame about y so the reported pitch drops by pitch_trim
         c, s = math.cos(math.radians(a.pitch_trim)), math.sin(math.radians(a.pitch_trim))
@@ -672,7 +697,9 @@ def cmd_run(a):
     bus = open_bus(a.servo_port)
     sv = Servos(bus)
     if list(sv.joints) != meta["joints"]:
-        sys.exit(f"bench joint order {list(sv.joints)} != policy joint order {meta['joints']}")
+        sys.exit(f"bench joint order {list(sv.joints)} != policy joint order {meta['joints']}"
+                 + ("\n  (10-joint policies need the ankle_roll entries in bench_config*.yaml; 8-joint policies need them "
+                    "removed or commented out)" if len(sv.joints) != nj else ""))
     missing = [n for n, j in sv.joints.items() if bus.ping(j["id"]) is None]
     if missing:
         sys.exit(f"no answer from {missing}: connect both legs (and power)")
@@ -721,7 +748,7 @@ def cmd_run(a):
 
     with Keys() as keys:
         if a.enable:
-            print("\nMoving to the stance pose (hip 16, knee 32)...")
+            print("\nMoving to the stance pose (hip 16, knee 32" + (", ankles 0" if nj == 10 else "") + ")...")
             try:
                 for n, j in sv.joints.items():
                     fb.goto(bus, n, j, math.degrees(q_nom[sv.names.index(n)]))
@@ -751,22 +778,34 @@ def cmd_run(a):
                   "the policy's targets. Any key stops.")
 
         print("ENGAGED. Enter / q / space = stop.\n" if a.enable else "")
-        last_a = np.zeros(8)
+        last_a = np.zeros(nj)
         phase = 0.0
         yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
         stop_reason, overruns, k, stale = "user", 0, 0, 0
+        bad_reads, read_fails, q_last, qd_last = 0, 0, None, None
         loop_ms = []
         t_next = time.perf_counter()
         f = log_path.open("w", newline="")
         w = csv.writer(f)
         w.writerow(["t", "loop_ms"] + [f"g{c}" for c in "xyz"] + [f"w{c}" for c in "xyz"]
                    + [f"q_{n}" for n in sv.names] + [f"qd_{n}" for n in sv.names]
-                   + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names])
+                   + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
+                   + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names])
+        v_min, v_start = 99.0, None
         t_start = time.perf_counter()
         try:
             while True:
                 t0 = time.perf_counter()
-                q, qd = sv.read()
+                try:
+                    q, qd = sv.read()
+                    bad_reads = 0
+                except IOError:
+                    bad_reads += 1                      # 2026-11-11: a garbled sync read stopped a run after 2.4 s;
+                    read_fails += 1                     # run on the last reading for up to 5 steps (0.1 s)
+                    if bad_reads > 5 or k == 0:
+                        raise
+                    q, qd = q_last, qd_last
+                q_last, qd_last = q, qd
                 g, wv, age = imu.latest()
                 if age > 0.03:
                     stale += 1                          # run on the last sample through a short dropout
@@ -780,7 +819,7 @@ def cmd_run(a):
                 t_run = t0 - t_start
                 if t_run < ready:                       # blend into the ready pose, nothing else
                     r = 0.5 - 0.5 * math.cos(math.pi * t_run / ready)
-                    act = np.zeros(8)
+                    act = np.zeros(nj)
                     q_cmd = np.clip(q_nom + r * (q_ready - q_nom), lo, hi)
                 else:
                     if slew > 0:
@@ -815,12 +854,17 @@ def cmd_run(a):
                 loop_ms.append(el)
                 w.writerow([round(t0 - t_start, 4), round(el, 2)] + list(np.round(g, 4)) + list(np.round(wv, 4))
                            + list(np.round(q, 4)) + list(np.round(qd, 3)) + list(np.round(act, 4))
-                           + list(np.round(q_cmd, 4)))
+                           + list(np.round(q_cmd, 4)) + list(sv.volt) + list(sv.temp.astype(int))
+                           + list(sv.load.astype(int)))
+                v_min = min(v_min, float(sv.volt.min()))
+                if v_start is None:
+                    v_start = float(np.median(sv.volt))
                 if k % 10 == 0:
                     d = np.degrees(q_cmd - q_nom)
+                    h = nj // 2
                     print(f"\r{t0 - t_start:6.1f} s  tilt {tilt:4.1f}  |a| max {np.max(np.abs(act)):.2f}  target-stance"
-                          f" L[{d[0]:+4.0f}{d[1]:+4.0f}{d[2]:+4.0f}{d[3]:+4.0f}] R[{d[4]:+4.0f}{d[5]:+4.0f}{d[6]:+4.0f}"
-                          f"{d[7]:+4.0f}] deg  loop {el:4.1f} ms ", end="", flush=True)
+                          f" L[{''.join(f'{x:+4.0f}' for x in d[:h])}] R[{''.join(f'{x:+4.0f}' for x in d[h:])}] deg"
+                          f"  loop {el:4.1f} ms  {sv.volt.min():.1f} V ", end="", flush=True)
                 k += 1
                 if keys.get() is not None:
                     break
@@ -839,24 +883,41 @@ def cmd_run(a):
             f.close()
             print()
             if a.enable:
-                if stop_reason == "user" or stop_reason == "Ctrl-C":
-                    try:
-                        sv.set_accel(None)
-                        for i in sv.ids:
-                            bus.w1(i, fb.ADDR["ACCEL"], bus.cfg["acceleration"])
-                            bus.w2(i, fb.ADDR["GOAL_SPEED"], bus.cfg["speed_counts_per_s"])
-                        sv.write(q_nom)
-                        print("STOPPED: holding the stance pose. Release with `python biped_bench.py off` "
-                              "(or `home --enable`).")
-                    except IOError as e:
-                        print(f"could not command the stance ({e}): torque off")
+                if stop_reason in ("user", "Ctrl-C") or not a.limp_on_fault:
+                    # 2026-11-11: faults (tilt, IMU silence, bus errors) also hold the stance pose with torque on, so
+                    # the robot doesn't collapse; --limp-on-fault restores the old torque-off safety stop
+                    if stop_reason not in ("user", "Ctrl-C"):
+                        print(f"FAULT ({stop_reason}): holding the stance pose, torque ON. Hand on the power switch.")
+                    held = False
+                    for attempt in range(5):           # the bus may have just failed: retry the hold a few times
+                        try:
+                            sv.set_accel(None)
+                            for i in sv.ids:
+                                bus.w1(i, fb.ADDR["ACCEL"], bus.cfg["acceleration"])
+                                bus.w2(i, fb.ADDR["GOAL_SPEED"], bus.cfg["speed_counts_per_s"])
+                            sv.write(q_nom)
+                            held = True
+                            break
+                        except IOError as e:
+                            err = e
+                            time.sleep(0.05)
+                    else:
+                        print(f"could not command the stance after 5 tries ({err}): torque off")
                         sv.torque(False)
+                    if held:
+                        print("STOPPED: holding the stance pose (torque ON). Release with `python biped_bench.py off` "
+                              "(or `home --enable`).")
                 else:
                     sv.torque(False)
                     print("SAFETY STOP: torque OFF (the robot goes limp).")
             imu.close()
     n = len(loop_ms)
     secs = n * dt
+    if n and v_start is not None:
+        print(f"servo supply: {v_start:.1f} V at the start, lowest {v_min:.1f} V on any servo during the run "
+              f"(logged per servo with temperature and load)")
+    if read_fails:
+        print(f"bus: {read_fails} sync reads failed after retries (ran on the previous reading)")
     print(f"stopped by: {stop_reason}. {n} steps ({secs:.1f} s at 50 Hz), loop work median "
           f"{np.median(loop_ms) if n else 0:.1f} ms, {overruns} overruns, IMU gaps {imu.gaps}, stale IMU steps {stale}, "
           f"I2C retries {imu.i2c_errors}. Log: {log_path}")
@@ -895,7 +956,9 @@ def main():
     sp.add_argument("--params", help="checkpoint file in the run (e.g. params_0010M.pkl; default the newest)")
     sp.add_argument("--enable", action="store_true", help="send the policy's targets to the servos")
     sp.add_argument("--dry-run", action="store_true", help="servos limp; compute and show the policy's targets")
-    sp.add_argument("--max-tilt", type=float, default=25.0, help="deg from vertical: torque off beyond this")
+    sp.add_argument("--max-tilt", type=float, default=25.0, help="deg from vertical: stop beyond this (hold the stance)")
+    sp.add_argument("--limp-on-fault", action="store_true", help="on a fault (tilt, IMU silence, bus error) switch "
+                    "the torque off instead of holding the stance pose (the behaviour before 2026-11-11)")
     sp.add_argument("--imu-timeout", type=float, default=0.2,
                     help="s without an IMU sample before the safety stop (shorter gaps run on the last sample)")
     sp.add_argument("--ramp", type=float, default=1.0, help="s to blend the policy in from the plain stance")

@@ -5,7 +5,11 @@ out to be a different problem. This document records every approach we tried, in
 did or didn't work, and what we learned about this frame. The RL walker round in detail is in
 [walking_b150.md](walking_b150.md).
 
-**Where we are:** no approach walks reliably on the robot yet. The best robot result is a single deterministic step
+**Update 2026-11-10:** with the ankle roll servos built, `c3m_T12` walks on the robot (10+ steps in most trials):
+[walking_clean.md §11](walking_clean.md#11-on-the-robot-the-first-walks-2026-11-10-night). The rest of this document is
+the ankle-less record.
+
+**Where we were:** no approach walks reliably on the robot yet. The best robot result is a single deterministic step
 with a hip-roll weight shift that "sometimes works". In simulation, several walkers walk; on the robot they fall on
 the first or second step. The reason is structural (§1), and it shapes everything that follows. In simulation, an
 ankle roll servo per leg removes it: one-foot balance for seconds, and six steps without falling in nearly every

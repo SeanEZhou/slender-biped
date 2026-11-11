@@ -2,10 +2,33 @@
 
 <table>
 <tr>
-<td valign="top"><img src="assets/photos/full_body_small.jpg" width="560" alt="The assembled robot: both legs, torso and head"><br><sub>The assembled robot: two printed legs, eight hobby servos, torso and head (§12).</sub></td>
-<td valign="top"><img src="assets/gifs/full_body_march.gif" width="200" height="355" alt="The full robot marching in place"><br><sub>Full-body load test: marching in place under its own weight. Open-loop keyframes with no self-balancing yet, so a hand steadies the head.</sub></td>
+<td valign="top"><img src="assets/photos/robot_standing.jpg" width="240" alt="The assembled robot standing on its snowboard pads"><br><sub>The robot today: two printed legs with ankle roll, ten hobby servos, torso and head.</sub></td>
+<td valign="top"><img src="assets/gifs/real_legs_walk.gif" width="220" alt="The legs walking on their own"><br><sub>First walk on the robot: legs and pelvis, policy <code>c3m_T12</code>, 10+ steps in most trials (§16).</sub></td>
+<td valign="top"><img src="assets/gifs/real_full_body_1.gif" width="220" alt="The full robot marching under its own balance"><br><sub>Full body, policy <code>c3f_T12</code>: balancing on its own while it marches, mostly in place.</sub></td>
+<td valign="top"><img src="assets/gifs/real_full_body_2.gif" width="220" alt="The full robot marching, side view"><br><sub>The same policy from another angle. No hand steadying it: every step is closed-loop on the IMU.</sub></td>
 </tr>
 </table>
+
+### Where this project stands, and the pivot to ankles
+
+The study began with a question: can a leg with **no ankle and no foot** (a slender shin ending in a tip) balance
+and walk? **In simulation, yes.** The tip and small-pad designs stand, walk and stop on command (§3–8). **On the real
+robot, no.** Every ankle-less design we built could stand, but none could walk:
+
+- **The tip foot** (§14) stood still for minutes once set down in balance. But any step or push tipped it, because it
+  balances only by correcting constantly, and the real servos react 4–9× later than the simulator first assumed.
+- **Big snowboard pads without an ankle** (§15–16) stand almost passively. But each step began a sideways fall toward
+  the lifted foot, even with a hip-roll weight shift first.
+
+**The lesson: a frame that works in simulation only through precise, constant small corrections won't transfer.** The
+real robot has servo lag, backlash, a slow motion profile, IMU error and a floor the model doesn't capture. A design
+that needs every correction on time is flipped over by the first late one. A frame that transfers needs room for
+error: a stance that holds while the controller is late or wrong.
+
+So the design pivoted to **one ankle roll servo per leg** (§16). The hips and ankles lean both legs together, so the
+weight moves over one flat board, and lifting the other foot is no longer a fall. With that, plus a calmer gait
+trained by imitation and against wobble, the robot took its first real walks: 10+ steps in most trials with the legs
+alone, and stable marching with the torso and head on.
 
 **Contents**
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
@@ -73,13 +96,12 @@ An end-to-end robotics design study:
   the line (depending on the training seed); with a ~$15 downward optical-flow sensor **100 %, with a median offset of
   4 cm**, a 61 mm catwalk track, and better stops (walk → stop → walk 98 %, no falls).
 
-> **Status: simulation, plus a fully assembled robot.** Both legs, the torso and the head are printed and assembled.
-> All 8 servos are calibrated, and the robot stands and marches in place on its pads under its own weight, running
-> open-loop keyframes (§12). With the IMU on the pelvis (§13), trained stand policies now run on the robot (legs and
-> pelvis only): it stands on its own for minutes once balanced, and steps in reaction to a fall, though the steps
-> don't yet reliably catch it (§14). No walking policy has run on the hardware yet. All other standing and walking
-> numbers come from held-out evaluation seeds in an independent simulator. Simulated feasibility is not
-> validated hardware capability.
+> **Status: walking on the robot, early.** With an ankle roll servo per leg (10 servos), trained walking policies run
+> on the robot. The legs and pelvis take 10+ steps in most trials (`c3m_T12`). With the torso and head on, the robot
+> balances and marches, mostly in place, and its servos buzz (`c3f_T12`, §16). The ankle-less designs that the
+> earlier sections study work in simulation but not on the robot (§14, §16). Quiet standing on the IMU transfers (§14).
+> The other standing and walking numbers come from held-out evaluation seeds in an independent simulator. Simulated
+> feasibility is not validated hardware capability.
 
 ---
 
@@ -968,6 +990,23 @@ pelvis only (no torso or head), on the 5 V supply. Full detail, with numbers and
 
 **Status:** quiet standing works on the robot. Recovery stepping has started but doesn't yet reliably catch a fall.
 
+<table>
+<tr><th>Tip-foot legs, released from the hand</th><th>Tip-foot legs, trying to step</th></tr>
+<tr>
+<td><img src="assets/gifs/real_fail_tip_foot_1.gif" width="220" alt="Tip-foot legs falling once released"></td>
+<td><img src="assets/gifs/real_fail_tip_foot_2.gif" width="220" alt="Tip-foot legs stumbling"></td>
+</tr>
+</table>
+
+**What the tip foot taught us about sim to real.** In simulation the 30 × 18 mm tip pads stand, shrug off shoves and
+walk (§4, §6–8). On the robot (above) the legs stumble the moment the hand lets go. The simulated balance came from
+correcting all the time: a small step or a pitch nudge every fraction of a second, each one needed on time. The tip
+gives almost no support area (~2° of lean puts the weight past its edge), so there is no slack: one late correction
+and the frame is already past recovery. The real servos start small corrections 4–9× later than the first model
+assumed, backlash and IMU error add more, so corrections arrived late, and late is a fall. Fitting the servo model
+(§12.4) closed part of the gap for quiet standing, not for stepping. **A design has to leave room for error.** That
+led first to the big pads (§15), then to the ankle (§16).
+
 ## 15. Big feet for soft rugs
 
 On the furry rugs at home the robot couldn't stand at all on its 30 × 18 mm pads, even set down carefully. The
@@ -1010,6 +1049,27 @@ With the big pads, standing on a rug is nearly passive; walking is not. Simulate
 20 s on simulated rugs 80–100 % of the time at ~3 cm/s), but on the robot every approach so far falls on the first
 or second step. In simulation, adding an **ankle roll servo per leg** fixes it. Full record:
 [docs/walking.md](docs/walking.md); the RL walker round: [docs/walking_b150.md](docs/walking_b150.md).
+
+<table>
+<tr><th colspan="3">Big pads, no ankle, on the robot: every step starts a sideways fall</th></tr>
+<tr>
+<td><img src="assets/gifs/real_fail_ankless_1.gif" width="220" alt="Ankle-less legs falling sideways on carpet"></td>
+<td><img src="assets/gifs/real_fail_ankless_2.gif" width="220" alt="Ankle-less legs falling sideways on lifting a foot"></td>
+<td><img src="assets/gifs/real_fail_ankless_3.gif" width="220" alt="Ankle-less legs falling sideways on a mat"></td>
+</tr>
+</table>
+
+**How we found the ankle mattered.** On the robot, the ankle-less legs couldn't get one foot off the ground without
+falling toward it: ~70 % of falls came on the first step, mostly toward the lifted foot. A hip-roll weight shift
+before the step was the natural fix, and it helped only partly. In 27 robot trials the shift and the step cancelled
+during the swing, but the robot still fell after touchdown about half the time. The analysis showed why the shift
+can't be enough. A flat board fixes its shin's sideways tilt, so rolling the hips only slides the pelvis while both
+boards roll onto their edges. With both boards down, the centre of mass sits 15.5 mm outside either board's inner
+edge, and no pose within the joint limits puts it over one board. Single support was a knife edge, the same lack of
+slack as the tip foot. One ankle roll servo per leg removes the edge. The ankles keep the boards flat while the hips
+lean both legs, so the weight moves over the stance board and the robot can stand on one foot for seconds. In
+simulation that one change took the same shift-and-step RL walker from six steps in a quarter of hard-floor walks
+(falling in 40 %) to six steps or more in 16 of 16, with no falls.
 
 <table>
 <tr><th>With ankle roll: one foot, scripted (simulation)</th><th>With ankle roll: six-plus steps, RL (simulation)</th></tr>
@@ -1068,14 +1128,83 @@ straight shin with the roll fork angled 16° at its end, the usual bent stance. 
 - The slow step lands at 30–90 mm/s instead of ~140 and wobbles less; its quick-step landings couldn't be softened
   with a penalty.
 
-**Status:** not walking on the robot yet. Next: print the A01 shin and A02 foot ([hardware/ankle_p1](hardware/ankle_p1/README.md),
-two STS3215 C001, ~130 g in all) and run the slow-step policy.
+**Clean, steady steps** ([docs/walking_clean.md](docs/walking_clean.md), 2026-11-10): trained against body wobble,
+scuffing, toe-first landings and sliding boards, with the stepping anchored by imitation (as Open Duck Mini does) and
+faster, continuous steps with more lift:
+
+<table>
+<tr><th>Continuous 1.2 s steps (c3i_T12)</th><th>Calmer 1.5 s steps (c6m_T15)</th><th>Big step: 5 cm lift (c5i_big)</th></tr>
+<tr>
+<td><img src="assets/gifs/ank3_cont_T12.gif" width="260"></td>
+<td><img src="assets/gifs/ank3_cont_T15_steady.gif" width="260"></td>
+<td><img src="assets/gifs/ank3_big_step.gif" width="260"></td>
+</tr>
+</table>
+
+- Continuous 1.2–1.5 s steps walk 2–3× as fast as the old quick step (25–55 cm in 30 s), lift the boards 2–3 cm
+  instead of ~1, slide them half as much, and don't fall on hard floors or rugs (0 of 16 walks each); the calmest
+  land at ~100 mm/s with 3–4° of tilt after each landing (before: ~140 mm/s, 6–7°).
+- Higher steps land more gently: the big step lifts 5 cm and lands toe-first in a few percent of steps.
+- Penalties alone made the policy step less and slide; they work once the stepping is anchored by imitation.
+- Every policy still falls on the softest rug; a deterministic walker with IMU feedback falls in 8 of 24 walks.
+
+### 16.1 On the robot: the first walks (2026-11-10)
+
+<table>
+<tr><th>Legs and pelvis, <code>c3m_T12</code></th><th>Full body, <code>c3f_T12</code></th><th>Full body, <code>c3f_T12</code></th></tr>
+<tr>
+<td><img src="assets/gifs/real_legs_walk.gif" width="220" alt="The legs walking"></td>
+<td><img src="assets/gifs/real_full_body_1.gif" width="220" alt="The full robot marching"></td>
+<td><img src="assets/gifs/real_full_body_2.gif" width="220" alt="The full robot marching, another angle"></td>
+</tr>
+</table>
+
+With the A01 shins, A02 feet and two more STS3215 servos (IDs 9 and 10) printed and installed, three of the clean-step
+policies went onto the robot, legs and pelvis only:
+
+| policy | in simulation (hard floor / rug) | on the robot |
+|---|---|---|
+| `c6_T15` (1.5 s steps) | 0/16 falls, boards never touched | stepped on its own foot right away |
+| `c5i_big` (5 cm lift, 7 cm stride) | 0/16 falls, gentlest landings | tipped about every other step |
+| **`c3m_T12`** (1.2 s steps, 2 cm lift) | 0/16 falls, boards never touched | **walks: 10+ steps in most trials** |
+
+**What changed to make it walk.** Compared with the ankle-less walkers that fell on their first robot step:
+
+1. **The ankle roll servo** (hardware). The weight now moves over one flat board before the other lifts, so a step
+   is no longer a fall. This is the change that made the rest possible.
+2. **A continuous gait** (`c_T12`): a 1.2 s step where the weight shift and the swing overlap. Before, it was a 2.5 s
+   step-settle-step with a 0.35 s dash of a swing. The ankle rolls keep the boards flat, and equal hip and knee bends
+   lift each board level rather than toe-down.
+3. **Imitation anchoring.** Contact-schedule and joint-tracking rewards (weight 3 each, as Open Duck Mini uses) keep
+   the policy stepping. Without them, penalties alone made it step less and slide its boards.
+4. **Training for clean steps:** penalties on scuffing, tilted landings, body wobble and angular acceleration, jerky
+   actions and too little lift. `c3m` is the "steadiness ×2" variant, the sweet spot: ×4 fell or stalled.
+5. **What carried over:** the fitted servo model (§12.4), the robot's IMU filter, the settle gate (the clock waits at
+   each lift-off until the body turns slower than 0.3 rad/s), and randomized floors.
+
+All three passed in simulation, so why `c3m` alone transferred isn't proven. It has the shortest time on one foot of
+the three (0.45 s swing, against 0.55 s for `c6` and 0.7 s for `c5i`) and the lowest lift (2 cm, against 3 and
+5 cm). The same lesson as the tip foot applies: the less time spent balancing on one board, the less a late servo
+matters.
+
+**With the torso and head (`c3f_T12`).** The legs-only `c3m` falls in 13 of 16 simulated walks once the 0.57 kg torso
+and head sit on the pelvis, so it was fine-tuned on the full-body model (25 M steps, same recipe). In simulation it
+doesn't fall (0/16) and walks 36–38 cm in 30 s. On the robot it is more stable than the legs alone, the extra inertia
+up top damping the wobble, but it **mostly marches in place**, and its servos buzz. The robot logs show the buzz
+follows the policy's step-to-step command jitter (correlation +0.7–0.8). The supply sags only a little (5.2 V at rest, 5.1 V median, brief
+dips to 4.7 V), and the sag follows the shake rather than causing it: in simulation a 5.1 V supply didn't shake
+more than 7.4 V. Smoother actions (stronger action-rate penalties or an action filter) are the next retraining.
+
+The runner ([`policy_stand.py`](hardware/leg_p0/software/policy_stand.py)) now drives 10 joints. It logs each servo's
+voltage, temperature and load. On a bus or IMU error it rides through a few missed reads, then holds the stance pose
+with torque on instead of going limp. Details, commands and every policy: [docs/walking_clean.md](docs/walking_clean.md)
+§8 and §10–11.
 
 ## Limitations and next steps
 
-- **Sim-to-real transfer is under way (§14).** Quiet standing transfers; recovery stepping has started but doesn't
-  yet catch falls reliably. The walking policies were trained on the original servo model, without the firmware's
-  motion profile, so they need retraining on the fitted one. The main gaps to close:
+- **Sim-to-real transfer is under way (§14, §16.1).** Quiet standing transfers, and with ankle roll one walking
+  policy of three transfers (10+ steps in most trials, legs only). With torso and head the robot marches mostly in
+  place, its servos buzzing, and every policy still falls on the softest simulated rug. The main gaps to close:
   - The servo model is fitted to 5 V step tests on the hips and knees; 7.4 V and the swapped hip-pitch servos still
     need measuring. Rotor inertia, gear friction and thermal behaviour are estimates.
   - Real rubber pads, floor compliance and belt backlash will differ from MuJoCo's soft contacts.
@@ -1087,9 +1216,10 @@ two STS3215 C001, ~130 g in all) and run the slow-step policy.
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
-- **Torso and head.** Printed and assembled on the robot (§12). The walking policies don't yet include their mass,
-  so they need retraining before walking with them on.
+- **Torso and head.** Printed and assembled (§12). The full-body walker `c3f_T12` balances with them on but barely
+  moves forward on the robot, and needs smoother actions to stop the servo buzz.
 - **Next steps:**
+  0. retrain the full-body walker for smoother actions and real forward progress; move to the 7.4 V supply;
   1. merge standing and walking into one policy (today: a hand-over between two);
   2. walking under pushes without losing the stepping gait (push training reverted it to a skitter);
   3. hip load: the imitation gait runs the C001 hip servos at rated torque; faster hip servos (C046) or

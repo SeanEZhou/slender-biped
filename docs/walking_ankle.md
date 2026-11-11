@@ -6,6 +6,9 @@ foot pads of other shapes and sizes. The goals: steps that are not "on the verge
 worse), a soft step that lifts, swings and lowers the foot while balancing on the other one, and a pad that doesn't get
 in the way.
 
+**Next round:** [walking_clean.md](walking_clean.md) (2026-11-10): continuous steps with more lift, trained against
+wobble, scuffing and sliding; the policies to try on the robot first.
+
 Everything here is simulation: legs and pelvis (as tested on the robot), the robot's IMU filter in the loop, servo and
 mass randomization per walk, floors from hard to a soft rug.
 
