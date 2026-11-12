@@ -1,13 +1,30 @@
-# IMU mounting: v_pelvis = R_sensor_to_pelvis @ v_sensor. Written by `policy_stand.py imu-calib` 2026-11-06 21:20.
-# Redo it whenever the IMU board is moved.
+# IMU mounting: v_pelvis = R_sensor_to_pelvis @ v_sensor. Written by `policy_stand.py imu-calib` 2026-11-12 00:29.
+# Zero = the hip plate level (roll and pitch levelled separately). Redo it whenever the IMU board is moved.
 R_sensor_to_pelvis:
-- - 0.99508
-  - 0.08626
-  - 0.04873
-- - 0.08606
-  - -0.99627
-  - 0.0062
-- - 0.04908
-  - -0.00198
-  - -0.99879
-forward_tilt_used_deg: 17.0
+- - 0.99994
+  - 0.0016
+  - 0.01096
+- - 0.00174
+  - -0.99991
+  - -0.01332
+- - 0.01094
+  - 0.01334
+  - -0.99985
+axes_measured: both
+axes_skew_deg: -9.16
+roll_tilt_used_deg: 41.1
+roll_readings:
+- - -0.037
+  - -0.0113
+  - 0.9993
+- - 0.6269
+  - -0.0601
+  - 0.7768
+pitch_tilt_used_deg: 29.7
+pitch_readings:
+- - -0.0107
+  - -0.0167
+  - 0.9998
+- - 0.0311
+  - -0.5079
+  - 0.8609

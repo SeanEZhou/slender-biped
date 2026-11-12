@@ -1,0 +1,20 @@
+s10_robust                   k=4    vx=0.015  falls 0/12                  fwd  64.1 cm  step 26.1 mm  |roll|>4: 14.2%  peak  8.4  gap min  69 end  94 mm
+s10_robust                   k=4    vx=0.02   falls 0/12                  fwd  65.9 cm  step 26.7 mm  |roll|>4: 16.2%  peak  8.2  gap min  69 end  95 mm
+s10_robust                   k=4    vx=0.03   falls 0/12                  fwd  70.6 cm  step 28.7 mm  |roll|>4: 19.6%  peak  8.2  gap min  69 end  95 mm
+s10_robust                   k=4    vx=0.04   falls 0/12                  fwd  80.4 cm  step 32.4 mm  |roll|>4: 21.6%  peak  8.0  gap min  69 end  90 mm
+s10_robust                   k=3    vx=0.015  falls 0/12                  fwd  60.8 cm  step 25.8 mm  |roll|>4: 21.0%  peak  9.5  gap min  61 end  88 mm
+s10_robust                   k=3    vx=0.02   falls 0/12                  fwd  63.9 cm  step 26.6 mm  |roll|>4: 23.4%  peak  9.3  gap min  61 end  89 mm
+s10_robust                   k=3    vx=0.03   falls 0/12                  fwd  68.2 cm  step 28.0 mm  |roll|>4: 25.5%  peak  8.9  gap min  60 end  88 mm
+s10_robust                   k=3    vx=0.04   falls 2/12 (20,27 s)        fwd  68.8 cm  step 29.4 mm  |roll|>4: 28.4%  peak 14.3  gap min  57 end  79 mm
+s10_robust                   k=2.5  vx=0.015  falls 4/12 (12,8,15,30 s)   fwd  41.2 cm  step 22.0 mm  |roll|>4: 23.5%  peak 20.9  gap min  56 end  74 mm
+s10_robust                   k=2.5  vx=0.02   falls 4/12 (27,7,9,15 s)    fwd  42.1 cm  step 20.1 mm  |roll|>4: 23.4%  peak 20.8  gap min  57 end  73 mm
+s10_robust                   k=2.5  vx=0.03   falls 4/12 (17,30,20,8 s)   fwd  49.8 cm  step 23.7 mm  |roll|>4: 24.1%  peak 20.4  gap min  54 end  73 mm
+s10_robust                   k=2.5  vx=0.04   falls 7/12 (10,16,8,18,7,10,17 s) fwd  37.9 cm  step 21.9 mm  |roll|>4: 27.7%  peak 26.5  gap min  52 end  70 mm
+s10_robust                   k=4    vx=0.015  falls 0/12                  fwd  73.7 cm  step 29.7 mm  |roll|>4: 15.1%  peak  8.4  gap min  68 end  94 mm
+s10_robust                   k=4    vx=0.03   falls 0/12                  fwd  80.2 cm  step 32.3 mm  |roll|>4: 17.8%  peak  7.7  gap min  69 end  92 mm
+s10_robust                   k=4    vx=0.015  falls 0/12                  fwd  62.1 cm  step 25.0 mm  |roll|>4: 13.6%  peak  8.4  gap min  85 end 110 mm
+s10_robust                   k=4    vx=0.03   falls 0/12                  fwd  70.1 cm  step 28.3 mm  |roll|>4: 19.0%  peak  7.7  gap min  84 end 111 mm
+s10_robust                   k=3    vx=0.015  falls 0/12                  fwd  60.2 cm  step 25.5 mm  |roll|>4: 22.4%  peak  9.6  gap min  78 end 107 mm
+s10_robust                   k=3    vx=0.03   falls 0/12                  fwd  65.4 cm  step 26.4 mm  |roll|>4: 23.2%  peak  8.9  gap min  76 end 106 mm
+s10_robust                   k=2.5  vx=0.015  falls 0/12                  fwd  47.6 cm  step 22.3 mm  |roll|>4: 24.2%  peak  9.9  gap min  73 end  96 mm
+s10_robust                   k=2.5  vx=0.03   falls 0/12                  fwd  52.8 cm  step 22.6 mm  |roll|>4: 24.5%  peak  9.2  gap min  72 end  97 mm

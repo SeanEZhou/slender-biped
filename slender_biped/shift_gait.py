@@ -96,6 +96,7 @@ def step_pose(t, T, d, p):
         q[4 * leg + 1] += (p["shift"] + p["out"]) * a if tau < t_sw0 else p["shift"] * a
         if tau >= t_sw0:                             # the swing leg keeps `out` from lift-off on, landing wider
             q[4 * leg + 1] += p["out"] * _ease((tau - t_sw0) / p["swing_t"]) * (1.0 - _ease((tau - t_sw1) / max(p["release_t"], 1e-3)))
+    q[[1, 5]] += p.get("splay", 0.0)                 # 2026-11-11: wider stance, both hips abducted (ankles keep boards flat)
     z = np.zeros(2)
     z[leg] = lift
     return q, stance, z
@@ -170,11 +171,13 @@ def main():
     ap.add_argument("--hold-shift", action="store_true", help="keep the weight shift through the swing, release after touchdown")
     ap.add_argument("--rise-frac", type=float, default=0.5, help="fraction of the swing spent lifting (the rest lowers)")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
+    ap.add_argument("--splay", type=float, default=0.0, help="rad, both hip rolls abducted throughout: a wider stance "
+                    "(~0.27 m per rad per foot; robot round 3: falls came with the boards drifting together)")
     a = ap.parse_args()
     p = dict(T_step=a.T_step, settle0=a.settle0, shift_t=a.shift_t, swing_t=a.swing_t, release_t=a.release_t,
              shift=a.shift, out=a.out, lift_knee=a.lift_knee, lift_hip=a.lift_hip, swing_h=a.swing_h, hold=a.hold,
              settle1=a.settle1, ankle=a.ankle, rise_frac=a.rise_frac,
-             hold_shift=a.hold_shift)
+             hold_shift=a.hold_shift, splay=a.splay)
     vs = np.linspace(0, a.vmax, a.nv) if a.kind == "step" else np.array([0.0, a.vmax])
     t = build(a.kind, p, vs, a.nphase)
     REF_DIR.mkdir(exist_ok=True)

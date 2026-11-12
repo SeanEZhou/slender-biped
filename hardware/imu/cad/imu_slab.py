@@ -7,13 +7,18 @@ The GY-521 board's two mounting holes are 15 mm apart along its long edge (measu
 bolt straight on. Layout of the slab, seen from above (slab x along both hole rows):
 
       +---------------------------+
-      |   o (2.9)        o (2.9)  |   MPU row, 15 mm apart, y = ROW_DY: M3 self-taps into the plastic
-      |                           |   board rests here, solder-pin edge hangs past the far end
+      |   o (2.9)        o (2.9)  |   MPU row, 15 mm apart, y = ROW_DY: two bosses 3 mm tall; M3 self-taps into them
+      |                           |   board rests on the bosses, solder-pin edge hangs past the far end
       |  O (3.4)          O (3.4) |   plate row, 14 mm apart, y = 0: M3 x 10 + nut under the plate
       +---------------------------+
 
 The rows are ROW_DY apart so the plate screws' heads (5.5 mm) clear the board edge (holes 2.7 mm in from it).
 The slab is 2.5 mm thick so the board's solder joints (~2 mm) clear the plate. It stops short of the pin row.
+
+v2 (2026-11-11): the MPU screw holes stand on two bosses BOSS_H = 3 mm above the slab, so the board seats on the
+bosses and its screws can be driven fully home without pressing the components on its underside into the slab
+(in v1 they could only go in halfway, and the board flexed). The board then sits 3 mm higher, 5.5 mm above the plate.
+Screw: M3 x 6, through the board into the boss (5.5 mm of plastic, pilot 2.9 mm, through).
 """
 from __future__ import annotations
 
@@ -29,6 +34,8 @@ PLATE_D = 3.4         # M3 clearance (leg_p0/params.yaml fit.m3_clear_d)
 MPU_PITCH = 15.0      # GY-521 hole pair
 MPU_D = 2.9           # M3 self-taps into PLA
 ROW_DY = 7.5          # plate row -> MPU row
+BOSS_H = 3.0          # MPU bosses above the slab top
+BOSS_D = 5.5          # boss diameter: ~1.3 mm of wall around the pilot, within the GY-521's pad around its hole
 HOLE_EDGE = 2.7       # GY-521: hole centre to the board's hole edge
 BOARD_DEPTH = 16.0    # GY-521, hole edge to pin edge
 PIN_KEEPOUT = 4.0     # leave the last 4 mm of the board (the solder-pin row) unsupported
@@ -51,9 +58,14 @@ def slab():
     sec = rounded_rect(-X_HALF, X_HALF, Y0, Y1, CORNER_R)
     for x in (-PLATE_PITCH / 2, PLATE_PITCH / 2):
         sec -= m3d.CrossSection.circle(PLATE_D / 2, SEG).translate((x, 0.0))
+    body = sec.extrude(T)
     for x in (-MPU_PITCH / 2, MPU_PITCH / 2):
-        sec -= m3d.CrossSection.circle(MPU_D / 2, SEG).translate((x, ROW_DY))
-    return sec.extrude(T)
+        boss = m3d.CrossSection.circle(BOSS_D / 2, SEG).translate((x, ROW_DY)).extrude(BOSS_H).translate((0, 0, T))
+        body = body + boss
+    for x in (-MPU_PITCH / 2, MPU_PITCH / 2):
+        pilot = m3d.CrossSection.circle(MPU_D / 2, SEG).translate((x, ROW_DY)).extrude(T + BOSS_H + 2).translate((0, 0, -1))
+        body = body - pilot
+    return body
 
 
 def main():

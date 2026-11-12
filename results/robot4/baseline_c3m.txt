@@ -1,0 +1,8 @@
+c3m_T12                      k=4    vx=0.015  falls 1/12 (6 s)            fwd  48.7 cm  step 20.2 mm  |roll|>4: 19.2%  peak 11.1  gap min  64 end  88 mm
+c3m_T12                      k=4    vx=0.02   falls 2/12 (23,9 s)         fwd  47.1 cm  step 20.0 mm  |roll|>4: 14.3%  peak 13.7  gap min  63 end  84 mm
+c3m_T12                      k=4    vx=0.03   falls 5/12 (26,16,11,11,4 s) fwd  40.8 cm  step 21.0 mm  |roll|>4: 15.9%  peak 22.2  gap min  55 end  73 mm
+c3m_T12                      k=4    vx=0.04   falls 9/12 (11,6,10,8,18,14,4,15,15 s) fwd  28.5 cm  step 19.0 mm  |roll|>4: 20.8%  peak 26.5  gap min  53 end  71 mm
+c3m_T12                      k=3    vx=0.015  falls 10/12 (6,4,9,4,28,12,4,4,4,4 s) fwd  17.0 cm  step 20.3 mm  |roll|>4: 27.6%  peak 36.4  gap min  51 end  65 mm
+c3m_T12                      k=3    vx=0.03   falls 12/12 (4,14,5,14,4,14,7,4,3,4,4,17 s) fwd  12.8 cm  step 23.1 mm  |roll|>4: 25.4%  peak 42.1  gap min  50 end  59 mm
+r1_flex                      k=3    vx=0.015  falls 1/12 (11 s)           fwd  39.7 cm  step 17.8 mm  |roll|>4: 16.7%  peak 11.7  gap min  62 end  83 mm
+r1_flex                      k=3    vx=0.03   falls 2/12 (14,14 s)        fwd  44.6 cm  step 20.7 mm  |roll|>4: 19.9%  peak 14.9  gap min  58 end  78 mm

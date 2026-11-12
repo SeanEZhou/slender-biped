@@ -2,11 +2,17 @@
 
 What this project has learned, in one place, for whoever picks it up next: me later, or an agent. Each lesson is a
 short statement plus a link to where it was learned, with the data. The detail docs keep the full record; this file
-keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-11, after the first walks on the robot.
+keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-11, after robot round 3
+(knee twitch, feet together, weight shift).
 
 Status in one line: the robot (10 STS3215 servos, ankle roll, 150 × 50 mm snowboard pads, IMU on the pelvis) walks
 with the legs alone (`c3m_T12`, 10+ steps in most trials) and marches mostly in place with the torso and head on
 (`c3f_T12`, servo buzz). See [walking_clean.md §11](walking_clean.md#11-on-the-robot-the-first-walks-2026-11-10-night).
+Two retraining rounds since: §12's filtered policies and round 3's (§13) all failed on the robot, falling sideways
+over the standing leg. Why ([walking_clean.md §14](walking_clean.md#14-why-13s-policies-fell-sideways-the-legs-give-where-the-encoders-cant-see-2026-11-11-evening)):
+the real hips give sideways under load where the encoders can't see it; with that in the simulator only `c3m`
+survives, as on the robot. `c3m` walks at `--vx 0.015`, not 0.02.
+Next: measure the robot against the simulator ([measuring.md](measuring.md)) before more training.
 
 ## 1. The central lesson: design for margin, not precision
 
@@ -98,6 +104,27 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
   ([walking_clean.md §7](walking_clean.md#7-learnings))
 - **Smoothness is a sim-to-real property.** Command jitter the simulator absorbs comes out as servo buzz on the robot.
   Tune the action-rate penalty for the robot, not for the simulator. ([walking_clean.md §11.3](walking_clean.md#113-full-body-c3f_t12))
+- **An action low-pass filter (`act_lpf` 0.7) is the strongest tool against the shake.** It halved the legs-only
+  shake in simulation and put the full body's shake at 7.4 V below the old policy's at 5 V; 0.5 was too weak for the
+  legs. It is part of the policy, so the runner must apply it (it reads it from the run's config).
+  ([walking_clean.md §12.4](walking_clean.md#124-learnings))
+  Round 3 found a better tool, below: on the robot the filtered policies failed for other reasons.
+- **Against command jitter, a Lipschitz penalty beats filters and smoothness rewards.** A gradient penalty on how fast
+  the action changes with the sensor inputs (`--lcp 0.0005`, [Chen et al. 2024](https://arxiv.org/abs/2410.11825))
+  cut the command jitter 4× (1.03° → 0.24-0.30° in simulation) with no filter lag, and those policies walked furthest.
+  It is sharp-edged: 0.001 and 0.002 broke the policies. More joint-speed noise in training (1.0 rad/s, Open Duck uses
+  2.5) helps less (0.55°). ([walking_clean.md §13.5](walking_clean.md#135-learnings))
+- **Change one thing per fine-tune.** The same three changes reached in two stages gave the best full-body policy;
+  all at once from the old policy, it fell 5/6. Switching straight to a wider gait made the legs march in place;
+  continuing from a checkpoint that had partly adapted worked. ([walking_clean.md §13.5](walking_clean.md#135-learnings))
+- **Asking for speed doesn't lengthen steps.** A higher speed command, heavier reference tracking (shorter steps) and a
+  heavier speed reward (shuffling) all failed; only the per-step stride reward ×2 gave longer steps. Policies take
+  about half the reference's step, so on the robot command enough speed (`--vx 0.02`-`0.03`, not 0.015).
+  ([walking_clean.md §12.4](walking_clean.md#124-learnings))
+- **Mirrored episodes (`mirror_aug`) even out the two feet.** ([walking_clean.md §12.4](walking_clean.md#124-learnings))
+- **Train against disturbances stronger than the real ones.** Sudden pulls up to 1.5 N raised the tolerance to a
+  0.5 N cable-like pull from 5/6 falls to 0-1/6; pulls up to 0.6-1 N taught little, and gentle realistic ones made the
+  full body step in place. ([walking_clean.md §12.4](walking_clean.md#124-learnings))
 - **New body, new fine-tune.** The legs-only walker falls in 13/16 simulated walks with the torso and head on; a
   fine-tune on the full-body model fixed it (0/16). ([walking_clean.md §10](walking_clean.md#10-full-body-torso-and-head-on-2026-11-10-evening))
 - **Fine-tune with the critic restored and a lower learning rate.** A random critic plus a changed reward destroyed a
@@ -127,6 +154,25 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 - **The floor model matters more than the policy.** Scaling rug softness by pad area made the training rugs nearly
   firm for big boards; the robot's falls only appeared on a softer rug. Every policy still falls on the softest
   simulated rug. ([walking.md §2, §10](walking.md), [foot_pads.md](foot_pads.md))
+- **Check the servo model at the frequency where the robot misbehaves.** The fitted model matched step tests, but at
+  5 Hz the real joints pass about twice as much motion with less lag, so a 4.8 Hz roll oscillation of the gyro →
+  policy → roll-joint loop never appeared in training. Measure command → position gain and phase from the robot logs
+  and compare with the simulator (`scripts/robot_probe.py`, [walking_clean.md §12.1](walking_clean.md#121-what-the-robot-logs-showed)).
+- **Compare each joint's tracking under load, robot vs simulator.** With one foot up, the robot's standing hip roll
+  sags 1.4° under the body's weight, the model's 3.5° (knees matched). The soft model hip sagged into the weight shift
+  and did part of the policy's work: the robot lifts each foot with its weight 44-59 mm inside the standing board, the
+  simulator 21-31 mm. With the hip rolls 2.5× stiffer (`kp_hip_roll`), the simulator reproduced that, `c3m`'s
+  in-place marching at 7.4 V and `c3f`'s early falls there; training with it fixed them in simulation.
+  ([walking_clean.md §13.1](walking_clean.md#131-what-the-robot-logs-showed))
+- **Encoders don't see everything that bends.** The stiffer hip servo of the lesson above was right, but the hip as a
+  whole gives ~5° sideways under one-leg load beyond the servo, invisible to its encoder. Policies trained without it
+  shifted their weight further than the robot can stop and tipped over the standing leg; the give in the simulator
+  (k ≈ 3 N·m/rad at the hip roll) reproduced every robot fall and `c3m`'s survival. Find such gaps by playing the
+  robot's logged commands open-loop into the simulator and by starting the simulator from the robot's logged state
+  mid-fall: if the simulator recovers where the robot didn't, the body model is wrong, not the policy.
+  ([walking_clean.md §14](walking_clean.md#14-why-13s-policies-fell-sideways-the-legs-give-where-the-encoders-cant-see-2026-11-11-evening))
+- **Measure the robot's sensor noise and train with at least that much.** The policies' commands followed the
+  servos' quantized speed readings: that was the knee twitch. ([walking_clean.md §13.1](walking_clean.md#131-what-the-robot-logs-showed))
 - **Emulate the robot's IMU filter in the loop.** The real tilt reading was off by ~5° during wobble (gyro saturation,
   accelerometer trusted during acceleration). ([README §15](../README.md#15-big-feet-for-soft-rugs))
 
@@ -150,6 +196,12 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 - **Analyse the robot's failure before training more.** Each time, the robot logs pointed to one moment (first lift,
   touchdown, after the release), and the simulator only helped once it reproduced that moment. ([walking.md §10](walking.md))
 - **Measure the start separately** (`scripts/walk_start.py`). ([walking.md §10](walking.md))
+- **Replay the policy against the robot's logs.** Feeding each logged observation back through the policy reproduces
+  every logged action exactly. That settles what the robot actually ran (the filter blamed for a twitch was never on)
+  and gives the policy's sensitivity to each input. ([walking_clean.md §13.1](walking_clean.md#131-what-the-robot-logs-showed))
+- **Score the failure modes, not just falls.** `scripts/robot_probe.py` reports command jitter (comparable with the
+  robot logs), board spacing, and where the pelvis is over the standing board at lift-off and at its widest lean. The
+  lift-off number matched the robot only once the hip model did. ([walking_clean.md §13.3](walking_clean.md#133-evaluation))
 - **Correlation in robot logs isn't cause.** Servo buzz tracked low voltage, but load drove both; a fixed-supply
   simulation showed voltage wasn't the cause. ([walking_clean.md §11.3](walking_clean.md#113-full-body-c3f_t12))
 
@@ -171,6 +223,19 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 - **IMU plumbing**: the "MPU6050" is an MPU6500; hardware I2C failed, so the RP2040 runs software I2C at 100 kHz;
   read the serial stream as it arrives (big blocks added 27 ms). ([sim_to_real.md §3.8](sim_to_real.md#38-smaller-lessons), [README §13](../README.md#13-imu))
 - **Supply**: 5 V sags to ~4.7 V under walking load on the full body; 7.4 V is the plan for torque, not for the buzz.
+  Higher voltage makes the servos stiffer and faster, which raised the gain of the shake loop: the old full-body
+  policy fell at once at 7.4 V. Round 3's smooth policies keep their steps at 7.4 V in simulation; try it after 5 V.
+- **Read the robot logs before retraining.** A spectrum of the gyro and the commands showed the shake was one
+  frequency (4.8 Hz) driven by the policy's roll commands, which pointed straight at the fix.
+  ([walking_clean.md §12.1](walking_clean.md#121-what-the-robot-logs-showed))
+- **The runner writes acceleration 254 to every servo**, but the model gives the yaw, roll and ankle joints ~400 °/s²;
+  the new ankle servos honour the register. `--accel-match` sets each servo as trained. Untested on the robot.
+- **Cables can pull the robot over; no policy can stop it.** On one 50 mm board the sideways tipping force at pelvis
+  height is about m·g·0.025 / 0.37 ≈ 1 N, less while stepping; 0.8 N fells all but one policy in simulation. Hang the cables
+  from above with slack. ([walking_clean.md §12.4](walking_clean.md#124-learnings))
+- **Start the policy as it was trained.** With the runner's 1 s blend-in and the gait clock running, the first right
+  step happened half-engaged and landed inward; most of the day's near-falls came at the next lift-off. The runner
+  now engages ready-pose policies fully at once, and any blend holds the clock. ([walking_clean.md §13.1](walking_clean.md#131-what-the-robot-logs-showed))
 
 ## 8. Working process
 
@@ -187,8 +252,13 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 
 - Why `c3m_T12` transferred and `c6_T15` / `c5i_big` didn't (guess: least time on one foot).
 - How much of the first walk is the ankle and how much the training (no ablation on the robot).
-- The full-body robot marches in place on the robot but walks 36–38 cm / 30 s in simulation.
-- The servo buzz's cause is inferred (command jitter at 50 Hz, each target arriving at maximum acceleration), not
-  measured: the logs sample too slowly. Next: smoother actions in training, or splitting commands on the robot.
+- The full-body robot marches in place on the robot but walks 36–38 cm / 30 s in simulation. Round 3's guess: the
+  model's soft hip rolls did part of the weight shift (with the robot's stiffness, `c3f` takes 24-26 mm steps in
+  simulation too). Untested on the robot.
+- The shake: the robot logs show a 4.8 Hz roll loop through the policy; whether the action filter, `--accel-match`
+  or both fix it on the robot is untested. The simulator, even with faster servos, doesn't lock into the oscillation
+  the way the robot does (missing frame flex or backlash?).
+- Why §12's policies leaned over the standing leg on the robot. The stiffer-hip model doesn't reproduce it (it makes
+  every policy lean less), so the cause is still unknown.
 - Every policy falls on the softest simulated rug (~6 mm sink).
 - Whether the slow right hip-pitch servo was resolved ([sim_to_real.md §3.7](sim_to_real.md#37-only-one-of-the-swapped-servos-is-fast)).

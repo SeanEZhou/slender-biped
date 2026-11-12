@@ -44,6 +44,7 @@ def _install_jax_shims():
 _install_jax_shims()
 from brax.training.agents.ppo import networks as ppo_networks  # noqa: E402
 from brax.training.agents.ppo import train as ppo  # noqa: E402
+from brax.training.agents.ppo import losses as ppo_losses  # noqa: E402
 
 from slender_biped.mjx_env import EnvConfig, SlenderBipedEnv, randomization_fn  # noqa: E402
 
@@ -348,6 +349,32 @@ def widen(restore, env):
     return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
+def install_lcp(coef, n_sensor):
+    """2026-11-11: gradient penalty on the policy mean's sensitivity to its sensor inputs (LCP, arXiv 2410.11825), so
+    sensor noise (the servos' quantized speed readings) does not turn into command jitter. Hutchinson estimate of the
+    squared Frobenius norm of the Jacobian: one vector-Jacobian product with a random +-1 vector per sample."""
+    orig = ppo_losses.compute_ppo_loss
+
+    def loss(params, normalizer_params, data, rng, ppo_network, **kw):
+        total, metrics = orig(params, normalizer_params, data, rng, ppo_network, **kw)
+        obs = data.observation
+        x = obs["state"]
+        mask = jnp.zeros(x.shape[-1]).at[:n_sensor].set(1.0)
+
+        def mean_act(xs):
+            logits = ppo_network.policy_network.apply(normalizer_params, params.policy, dict(obs, state=xs))
+            return jnp.tanh(logits[..., : logits.shape[-1] // 2])
+
+        mu, vjp = jax.vjp(mean_act, x)
+        r = jnp.where(jax.random.bernoulli(jax.random.fold_in(rng, 77), 0.5, mu.shape), 1.0, -1.0)
+        g = vjp(r)[0] * mask
+        gp = jnp.mean(jnp.sum(g ** 2, -1))
+        metrics = dict(metrics, lcp_grad2=gp)
+        return total + coef * gp, metrics
+
+    ppo_losses.compute_ppo_loss = loss
+
+
 def build_cfg(a) -> EnvConfig:
     base = EnvConfig()
     over = dict(TASKS[a.task])
@@ -385,6 +412,9 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--entropy", type=float, default=0.005)
     ap.add_argument("--gamma", type=float, default=0.99)
+    ap.add_argument("--lcp", type=float, default=0.0,
+                    help="Lipschitz-constrained policy (Chen et al. 2024): loss += lcp * E||d action_mean / d sensors||^2 "
+                         "over the sensor inputs (gravity, gyro, joint angles / speeds, last action); 0 = off")
     a = ap.parse_args()
 
     out = ROOT / "runs" / a.name
@@ -419,6 +449,9 @@ def main():
     if a.init:
         with open(a.init, "rb") as f:
             restore = widen(pickle.load(f), env)
+
+    if a.lcp > 0:
+        install_lcp(a.lcp, 6 + 3 * env.nj)
 
     net = functools.partial(ppo_networks.make_ppo_networks, policy_hidden_layer_sizes=(128, 128, 128, 128),
                             value_hidden_layer_sizes=(256, 256, 256, 256, 256),

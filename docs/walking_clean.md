@@ -7,8 +7,23 @@ recovers from tends to be a fall, and a toe that catches the floor trips the rob
 things and trains against them, across a range from slow and safe to bigger, more natural steps.
 
 Everything in §1–7 is simulation (legs and pelvis, the robot's IMU filter in the loop, servo / mass / friction
-randomization per walk, floors from hard to a soft rug). **On the robot (§11): `c3m_T12` is the first policy to walk,
-10+ steps in most trials; the full-body `c3f_T12` balances and marches, mostly in place.**
+randomization per walk, floors from hard to a soft rug). §11 onward is the robot: what each policy did on it, and the
+simulator changes that followed.
+
+**Policies that walk on the real robot** (5 V, rug, cables from above, `--vx 0.015` unless noted):
+
+| policy | trained on | on the robot | where |
+|---|---|---|---|
+| `c3m_T12` | legs, rigid | the first walker: 10+ steps in most trials (2026-11-10); 0.015 yes, 0.02 no (11-11). 2026-11-12, 4 trials: 7-28 s, 3 / 6 / 3 / 20 steps; 2 of 4 falls sideways | §11, §14, §16 |
+| `c3f_T12` | full body, rigid | balances and marches, mostly in place; 0.015 or 0.02 | §11.3, §14 |
+| `s7_narrow` | pelvis + hip give k 2.4-6, stance-width penalty | 4 trials: 7-27 s (mean 18), 3-28 steps; no sideways fall | §15, §16 |
+| `s8_push` | s7 + stronger forward pay | 4 trials: 8-26 s (mean 15), 4-21 steps; the longest steps (~17 mm per step, c3m ~12) | §15, §16 |
+| **`s10_robust`** | s7 + give k 2-6 + IMU offsets | **4 trials: 19-28 s (mean 24), 18-24 steps: the steadiest**; one earlier walk of 93 s (95 steps) | §15, §16 |
+
+All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
+Tried on the robot and failed: `c6_T15` (stepped on its own foot), `c5i_big` (tipped every other step) (§11);
+`h9_w6kl_L`, `h4_w6k_L`, `h13_kl_L`, `h3_k_L` (fell sideways in the first steps, §14). Every walker before the ankle
+roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13 and §15 runs.
 
 ## 1. What the open-source biped trainers do
 
@@ -189,8 +204,8 @@ used unless `--params` says otherwise; `--vx` is required, without it they stand
 
 | run | gait | --vx | notes |
 |---|---|---|---|
-| `c3m_T12` | 1.2 s steps, 2 cm lift | 0.02 | **walks on the robot** (10+ steps in most trials); sim: 0/16 falls, boards never touched |
-| `c3f_T12` | c3m fine-tuned with torso and head | 0.015 | **full body on the robot**: balances, marches mostly in place, servo buzz (§10–11) |
+| `c3m_T12` | 1.2 s steps, 2 cm lift | **0.015** | **walks on the robot** at 0.015 (10+ steps, once 84 s); at 0.02 it does not (2026-11-11 evening, §14); sim: 0/16 falls, boards never touched |
+| `c3f_T12` | c3m fine-tuned with torso and head | 0.015 or 0.02 | **full body on the robot**: works at either speed but steps forward little at both; balances, servo buzz (§10–11) |
 | `c6_T15` | 1.5 s steps, 3 cm lift | 0.02 | sim: 0/16 falls, boards never touched. **Robot: steps on its own foot right away** |
 | `c6m_T15` | 1.5 s, steadier | 0.02 | calmer landings, 0/16 falls; boards overlap ~2 mm now and then (toe-in) |
 | `c6n_T15` | 1.5 s, steadier still | 0.02 | calmest landings, 14 mm minimum lift; boards overlap often (10/16) |
@@ -326,3 +341,490 @@ These and every earlier round's lessons are collected in [lessons.md](lessons.md
    ankle-less frame needed every correction on time, and the real servos' lag made that impossible.
 3. **Smoothness is a sim-to-real property.** Command jitter the simulator absorbs shows up as servo buzz on the
    robot; the action-rate penalty needs to be set for the robot, not for the simulator.
+
+## 12. Robot feedback round: shake, stepping in place, cables (2026-11-11)
+
+On the robot (night of 2026-11-10): `c3f_T12` (full body) marched mostly in place, the right foot stepping less than
+the left, with strong servo vibration that got worse at 7.4 V (it fell right away there; 5 V held). `c3m_T12` (legs
+only) was less steady and was pulled over whenever its cables went taut. ~7 h of GPU: 19 fine-tunes of 20 M steps
+(scripts/robot2_queue1-4.sh record every setting).
+
+### 12.1 What the robot logs showed
+
+From 24 `c3f_T12` logs ([`policy_stand.py`](../hardware/leg_p0/software/policy_stand.py) CSVs):
+
+- **The vibration is a sideways oscillation at ~4.8 Hz.** 69-73 % of the body's roll-rate energy is in 4-6.5 Hz,
+  peaking at 4.6-4.8 Hz, in nearly every run.
+- **The policy drives it.** Its hip-roll and ankle-roll commands oscillate at the same frequency, in phase with the
+  roll rate (coherence 0.86-0.88): a feedback loop from the gyro through the policy to the roll joints and back.
+- **7.4 V makes it worse**: in the one 7.4 V run the shake (RMS second difference of the roll/pitch rate) was 17.6 °/s
+  against ~12 at 5 V. Stronger, faster servos raise the loop's gain.
+- **The simulator's servos filter 5 Hz too much.** Measured from command to joint position, the real joints pass
+  0.25-0.41 (hip roll), 0.23-0.34 (ankle roll), 0.36-0.72 (hip pitch) of a 5 Hz command with ~30-40° less phase lag
+  than the fitted model (0.17-0.28, 0.14-0.15, 0.14-0.29). In simulation the loop never oscillated.
+- **The runner asks every servo for ~2230 °/s² (acceleration register 254),** while the model gives the yaw, roll and
+  ankle joints the old hips' ~400 °/s² ramp. The new ankle servos honour the register, so they may be faster on the
+  robot than in training.
+
+### 12.2 What changed
+
+| | where | what |
+|---|---|---|
+| `act_lpf` | mjx_env, evaluation, robot runner | action low-pass a = k·a_prev + (1-k)·a_policy; the filtered action is commanded, observed and penalized. The runner reads k from the run's config (`--act-lpf` overrides) |
+| `dr_prof_acc` [0.6, 4.0] | training | servo ramps randomized up to 4× faster (was 1.5×), toward the real servos' 5 Hz response |
+| `tug_force`, `tug_ramp_s` | mjx_env | a steady horizontal pull on the pelvis, random direction, on/off every 1-6 s; sudden or building over `tug_ramp_s` |
+| `mirror_aug` | training (existed) | half the episodes mirrored left/right: a symmetric gait |
+| `--accel-match` | robot runner | each servo's acceleration register set to the training model's ramp (yaw / roll / ankle 46 ≈ 400 °/s², hip pitch and knee 228) |
+| [`scripts/robot_probe.py`](../scripts/robot_probe.py) | evaluation | per supply voltage, extra delay and pull: falls, roll energy at 4-6.5 Hz, shake, forward distance, each foot's mean step |
+
+Evaluation: robot_probe with faster servos (`prof_acc=(25,60,60)`, the closest match to the robot's 5 Hz response),
+no extra delay, 6 × 30 s at 2 cm/s, supply 0.68 (5 V) and 1.0 (7.4 V); pulls ramped over 1 s. step_quality at
+2 cm/s on a hard floor and a rug.
+
+### 12.3 Results
+
+Shake in °/s (lower is calmer); forward in cm per 30 s; steps = mean left / right step (mm); pull = falls under a
+0.5 N pull building over 1 s (5 V / 7.4 V); step test = falls hard / rug (6 walks each).
+
+| policy | from | change | shake 5 V / 7.4 V | forward 5 V / 7.4 V | steps (5 V) | pull 0.5 N | step test |
+|---|---|---|---|---|---|---|---|
+| `c3f_T12` (robot's) | | | 7.7 / 10.4 | 35 / 38 | 21 / 26 | –¹ | |
+| `d1_lpf_F` | c3f | filter 0.5, faster servos | 6.1 / 8.5 | 39 / 35 | 27 / 25 | | 1/6, 0/6 |
+| `d2_sym_F` | c3f | mirroring, faster command | 8.2 / 10.6 | 39 / 29 | 28 / 28 | | 1/6, 0/6 |
+| `d3_both_F` | c3f | d1 + d2 | 7.5 / 10.3 | 28 / 24 | 15 / 25 | | 0/6, 0/6 |
+| **`d4_lpf7_F`** | c3f | d3 with filter 0.7 | **5.5 / 6.9** | 32 / 17 | 22 / 21 | 3/6 | 0/6, 0/6 |
+| `d5_tug_F` | c3f | d3 + sudden pulls ≤ 1 N | 8.1 / 10.8 | 32 / 37 | 24 / 24 | 3/6 | 0/6, 0/6 |
+| `e1_str_F` | d4 | stride reward ×2 | 5.1 / 6.6 | 42 / 27 | 28 / 25 | 4/6 / 3/6 | 1/6, 1/6 (boards touch) |
+| `e2_ref6_F` | d4 | reference tracking ×2 | 5.5 / 7.4 | 31 / 12 | 18 / 18 | 4/6 / 5/6 | 0/6, 0/6 |
+| `e3_trk_F` | d4 | speed reward ×3 | 5.3 / 7.1 | 31 / 24 | 12 / 9 (shuffles) | 2/6 / 4/6 | 1/6, 2/6 |
+| `e4_tugr_F` | d4 | ramped pulls ≤ 0.6 N | 5.4 / 7.4 | 20 / 11 | 11 / 9 | 2/6 / 4/6 | 0/6, 0/6 |
+| **`f1_tug15_F`** | d4 | sudden pulls ≤ 1.5 N | 5.9 / 7.7 | 29 / 20 | 16 / 17 | **1/6 / 0/6** | 0/6, 0/6 |
+| **`f2_strtug_F`** | e1 | stride ×2 + pulls ≤ 1.5 N | 5.7 / 8.1 | **37 / 35** | 25 / 23 | 3/6 / 3/6 | 0/6, 0/6 |
+| **`f3_stry_F` 10 M** | e1 | stride ×2 + board yaw | 5.7 / 7.9 | **62 / 60** | **44 / 39** | 3/6 / 4/6 | 1/6, 1/6 |
+| `c3m_T12` (robot's) | | | 15.7 / 20.7 | 55 / 48 | 41 / 36 | 5/6 | |
+| `l1_tug_L` | c3m | filter 0.5, mirroring, pulls ≤ 1 N | 15.1 / 20.9 | 35 / 29 | 25 / 18 | | 0/6, 0/6 |
+| `l2_tug15_L` | c3m | filter 0.5, pulls ≤ 1.5 N | 14.5 / 20.4 | 40 / 44 | 26 / 28 | 0/6 / 0/6 | 0/6, 0/6 |
+| **`e5_calm_L`** | c3m | filter 0.7, faster servos, mirroring | **8.5 / 10.4** | 32 / 23 | 23 / 21 | 2/6 / 5/6 | 0/6, 0/6 |
+| **`e6_tugr_L`** | c3m | e5 + ramped pulls ≤ 0.6 N | 11.6 / 15.6 | **63 / 64** | **48 / 33** | 4/6 | 0/6, 0/6 |
+| **`f4_strtug_L`** | l2 | filter 0.7, mirroring, stride ×2, pulls ≤ 1.5 N | 9.9 / 13.3 | 36 / 39 | 26 / 27 | 1/6 / 3/6 | 0/6, 0/6 |
+| **`f5_tug15_L`** | l2 | filter 0.7, mirroring, pulls ≤ 1.5 N | 10.8 / 15.3 | 34 / 41 | 26 / 20 | **0/6 / 1/6** | 0/6, 0/6 |
+| `g1_fartug_L` | e6 | pulls ≤ 1.5 N | 10.3 / 15.3 | 29 / 27 | 18 / 15 | **0/6 / 0/6** (0.8 N: 1/6 / 4/6) | 0/6, 0/6 |
+
+`g1_fartug_L` is the only policy that rides out 0.8 N (on 5 V), at the cost of e6's long steps (lift 11-17 mm).
+
+¹ not run with the ramped pull; under sudden 1 N pulls `c3f_T12` and `c3m_T12` both fall 6/6.
+
+### 12.4 Learnings
+
+1. **The shake is a feedback loop, and an action filter breaks it.** A low-pass of 0.7 on the actions (`d4`, `e5`)
+   halves the legs-only shake and brings the full body's shake at 7.4 V below the old policy's at 5 V. 0.5 was not
+   enough for the legs (`l1`). The filter is part of the policy: the runner applies it from the run's config.
+2. **Asking for speed doesn't lengthen steps.** A higher command (`d2`), heavier reference tracking (`e2`, shorter
+   steps) and a heavier speed reward (`e3`, shuffling) all failed. Only the per-step stride reward ×2 (`e1`, `f2`,
+   `f3`) gave longer steps. On the robot, also command more: at `--vx 0.015` the reference asks for 3.6 cm steps and
+   the policies take about half.
+3. **Mirrored training evens the feet** (`d2`: 28 / 28 mm against 21 / 26).
+4. **Cable pulls: strong sudden pulls in training work, gentle realistic ones don't.** Pulls up to 1.5 N (`l2`, `f1`,
+   `f5`) raised the tolerance to a 0.5 N pull from 5/6 falls to 0-1/6; pulls up to 0.6-1 N (`d5`, `e4`) taught
+   little, and gentle ramped pulls made the full body step in place. **0.8 N fells every policy but `g1_fartug_L`
+   (1/6 on 5 V, 4/6 at 7.4 V)**: on one
+   50 mm board the static tipping limit is about m·g·0.025 / 0.37 ≈ 1 N sideways, less while stepping. Route the
+   cables from above with slack; no policy can resist a taut sideways cable.
+5. **Late checkpoints can be worse** (`f3_stry_F`: 10 M walks 62 cm with 1/6 falls; 20 M falls 5/6 on the rug).
+
+### 12.5 What to try on the robot
+
+Run on 5 V first, `--vx 0.02`-`0.03`, cables hung from above. The filter is applied automatically.
+
+| goal | full body | legs only |
+|---|---|---|
+| calmest (vibration) | `d4_lpf7_F` | `e5_calm_L` |
+| all-round (calm, no step-test falls, keeps its steps at 7.4 V) | `f2_strtug_F` | `f4_strtug_L` |
+| cables (0.5 N pull; g1 also 0.8 N on 5 V) | `f1_tug15_F` | `f5_tug15_L`, `g1_fartug_L` |
+| longest steps (ambitious, 1/6 falls) | `f3_stry_F --params params_0010M.pkl` | `e6_tugr_L` |
+
+`python policy_stand.py run --run f2_strtug_F --enable --vx 0.025`; add `--accel-match` to test whether the servos'
+acceleration setting matters (the training model's ramps instead of 254 for all), and try 7.4 V only with the calm
+ones.
+
+## 13. Robot round 3: knee twitch, feet together, leaning over (2026-11-11 afternoon)
+
+On the robot (2026-11-11 late morning): none of §12's policies walked more than a step. The calmest stepped on its own
+other foot and tripped; the others leaned too far onto the standing leg and tipped over it. `c3m_T12` and `c3f_T12`
+stayed the best, but `c3m` reached 6+ steps in only ~half of today's trials, the knees twitched constantly at 5 V,
+and falls followed the boards drifting together. ~6.5 h of GPU: 18 fine-tunes of 20 M steps, one stopped at 10 M
+(scripts/robot3_queue*.sh record every setting).
+
+### 13.1 What the robot logs showed
+
+From 47 `c3m_T12` logs (today and the night before), 34 `c3f_T12` logs and the 13 logs of §12's policies. 57 of
+them were replayed through the policy offline, and the replay reproduces every logged action exactly:
+
+- **The action filter was not involved.** It was off in every `c3m` / `c3f` run (the runner applies it only to runs
+  trained with it), and today's `c3m` numbers match last night's (knee command jitter, gyro shake, foot spacing).
+- **The twitch is the policy's own command jitter, not the servos.** Standing in the ready pose with the policy off,
+  every joint reads perfectly still. With the policy on, every joint's target jitters 0.45-0.6° around its 100 ms
+  mean; the knees and hip pitches pass about half of it to the joint (the hip rolls and ankles a fifth).
+- **The jitter comes from the joint-speed inputs.** The policy's sensitivity to its inputs (`c3m`): joint angles 48,
+  joint speeds 34, gravity 8 (squared, per unit). The servos report speed in 0.077 rad/s steps with 0.1-0.25 rad/s
+  of noise, enough for ~2° of command jitter from the speeds alone. Training used 0.3 rad/s of speed noise;
+  Open Duck uses 2.5.
+- **Most falls and near-falls started at the first left step, 1.9 s after engaging.** The first right step fell
+  inside the runner's 1 s blend-in (its weight shift scaled down) and landed inward (boards 81-88 mm apart instead of
+  ~120), and the left foot lifted with the pelvis still 52-62 mm inside the standing board: the robot toppled toward
+  the lifted foot. The others: the pelvis over or past the standing board's centre during a step, tipping over the
+  support leg (as §12's policies did).
+- **The real hip rolls are about 2.5× stiffer than the model's.** With one foot up, the standing hip roll sags
+  1.4° under the body's weight on the robot, 3.5° in simulation (5 V); the knees match (2.7 vs 3.2°). The soft
+  model hip sagged *into* the weight shift and did part of the policy's work: on the robot the pelvis lifts the other
+  foot 44-59 mm inside the standing board, in simulation 21-31 mm. With the hip rolls 2.5× stiffer the simulation
+  gives 37-48 mm, and `c3m`'s steps shrink to 8-12 mm at 7.4 V (marching in place) and `c3f` falls in the first
+  seconds at 7.4 V, as on the robot.
+
+### 13.2 What changed
+
+| | where | what |
+|---|---|---|
+| `kp_hip_roll` | mjx_env, evaluation | hip-roll servo stiffness factor; 2.5 matches the robot (trained and evaluated with it from h3 on) |
+| `noise_q`, `noise_qd` | mjx_env, evaluation | joint angle / speed noise in the observation (were fixed at 0.005 rad, 0.3 rad/s) |
+| `--lcp` | scripts/train.py | Lipschitz-constrained policy ([Chen et al. 2024](https://arxiv.org/abs/2410.11825)): a gradient penalty on how fast the action changes with the sensor inputs (gravity, gyro, joint angles and speeds, last action) |
+| `upright_sigma` | mjx_env | width of the upright kernel; tight = imitating the reference's level pelvis (Open Duck imitates the torso orientation) |
+| `--splay` | shift_gait.py | wider stance: both hips abducted, the ankles keep the boards flat. `c_T12w6` (0.06 rad, shift 0.15): boards 138 mm apart at the ready pose (was 106); `c_T12w3` (0.03): 122 mm |
+| `narrow` (existed) | training | penalty on boards closer than `narrow_min`, 10 mm under the gait's spacing |
+| `--ramp` default | robot runner | 0 for ready-pose policies (they trained fully engaged from the first step); any blend now holds the gait clock until it ends |
+| robot_probe | evaluation | command jitter (deg, comparable with the robot logs), board spacing, pelvis vs standing board at lift-off and its outward lean, falls in the first 5 s; `--blend` emulates the runner's blend-in |
+
+Open Duck Mini's recipe (STS3215 servos, the closest robot to ours) next to ours: action-rate penalty -0.5 (ours
+-0.1), command and IMU delay 0-3 steps (ours 0-1), joint noise 0.03-0.08 rad and speed noise 2.5 rad/s (ours
+0.005, 0.3), imitation of joints, contacts *and* torso orientation and velocities. Its runtime has an optional
+low-pass on the targets that training does not see.
+
+### 13.3 Evaluation
+
+[`scripts/robot3_eval.sh`](../scripts/robot3_eval.sh): robot_probe, 6 × 30 s at 2 cm/s, faster servos
+(`prof_acc=(25,60,60)`), robot-like speed noise, **hip rolls 2.5× stiffer (the robot-like model)** at 5 V and 7.4 V,
+plus 5 V with the old soft hips. Command jitter in simulation reads about twice the robot's (`c3m`: 1.0° in
+simulation, 0.45-0.6° on the robot) but ranks policies the same way.
+
+### 13.4 Results
+
+All fine-tunes of 20 M steps. Robot-like model; jitter = command jitter (°); feet = board spacing median / minimum
+(mm); lift-off = pelvis inside the standing board at lift-off (mm, the robot: 44-59); forward in cm per 30 s; steps =
+mean left / right step (mm). K = robot-like hip rolls in training, N = speed noise 1.0 rad/s, LCP = Lipschitz
+penalty 0.0005, smooth = Open Duck's smoothness (action rate and action jerk -0.5, command delay 0-2 steps,
+`narrow`).
+
+| policy | from | change | falls 5 V / 7.4 V | shake 5 V | jitter | feet | lift-off | forward 5 V / 7.4 V | steps 5 V | soft-hip falls |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `c3m_T12` (robot's) | | | 0/6 / 0/6 | 21.6 | 1.03 | 125 / 82 | 37 | 57 / 28 | 27 / 26 (7.4 V: 8 / 12) | 0/6 |
+| `h1_od_L` | c3m | smooth | 0/6 / 0/6 | 19.6 | 0.71 | 144 / 84 | 44 | 53 / 24 | 23 / 23 | 0/6 |
+| `h2_w6_L` | c3m | smooth, wide gait, imitation ×5/3, level pelvis | 0/6 / 0/6 | 19.2 | 0.72 | 158 / 117 | 46 | 8 / 1 (in place) | 5 / 3 | 0/6 |
+| `h3_k_L` 10 M | c3m | smooth + K | 0/6 / 0/6 | 20.1 | 0.82 | 129 / 87 | 28 | 55 / 48 | 38 / 34 | 0/6 |
+| **`h4_w6k_L`** | h2 10 M | wide + K | 0/6 / 0/6 | 18.2 | 0.55 | 135 / 109 | 14 | 65 / 65 | 46 / 40 | 0/6 |
+| `h6_nq_L` | c3m | smooth + K + N | 0/6 / 0/6 | 18.5 | 0.55 | 129 / 82 | 33 | 69 / 59 | 47 / 47 | 0/6 |
+| **`h7_lcp_L` 10 M** | c3m | smooth + K + LCP | 0/6 / 0/6 | 15.8 | 0.27 | 117 / 82 | 25 | 72 / 79 | 49 / 52 | 0/6 |
+| **`h9_w6kl_L` 10 M** | h4 | wide + K + N + LCP | 0/6 / 0/6 | 15.1 | 0.30 | 127 / 104 | 16 | 60 / 58 | 54 / 36 | 0/6 |
+| `h12_w3kl_L` | h7 10 M | milder wide gait (w3) + K + N + LCP | 0/6 / 0/6 | 18.6 | 0.31 | 129 / 97 | 27 | 41 / 55 | 21 / 20 | 0/6 |
+| **`h13_kl_L`** | h7 10 M | + N | 0/6 / 0/6 | 15.6 | 0.24 | 111 / 82 | 23 | 64 / 67 | 52 / 42 | 0/6 |
+| `h14_lcp1_L` | c3m | smooth + K + N + LCP 0.001 | 1/6 / 5/6 (10 M: 6/6) | 15.8 | 0.19 | 121 / 86 | 31 | 67 / 8 | 54 / 38 | 0/6 |
+| `h17_w6kl_L` | h7 10 M | wide + K + N + LCP | 0/6 / 0/6 | 18.5 | 0.26 | 136 / 114 | 25 | 61 / 53 | 26 / 33 | 0/6 |
+| `c3f_T12` (robot's) | | | 2/6 / 2/6 | 11.8 | 1.02 | 141 / 81 | 48 | 41 / 33 | 26 / 24 | 1/6 |
+| `h5_k_F` 10 M | c3f | smooth + K | 0/6 / 0/6 | 11.4 | 0.89 | 127 / 82 | 31 | 57 / 56 | 43 / 44 | 2/6 |
+| `h8_w6k_F` | h4 | wide + K (full body) | 1/6 / 3/6 | 9.6 | 0.56 | 123 / 104 | 11 | 43 / 27 | 38 / 28 | 0/6 |
+| **`h10_kl_F`** | h5 10 M | + N + LCP | 0/6 / 0/6 | 8.1 | 0.24 | 114 / 83 | 27 | 59 / 50 | 46 / 45 | 0/6 |
+| **`h11_w6kl_F`** | h8 | + N + LCP | 0/6 / 0/6 | 8.5 | 0.30 | 127 / 114 | 18 | 48 / 53 | 39 / 26 | 0/6 |
+| `h15_w6kl_F` 10 M | h5 10 M | wide + K + N + LCP | 0/6 / 0/6 | 9.5 | 0.31 | 144 / 114 | 41 | 54 / 57 | 41 / 25 (right foot double-steps) | 0/6 |
+| `h16_kl_F` | c3f | smooth + K + N + LCP in one go | 5/6 / 5/6 (10 M: 1/6 / 3/6) | 8.4 | 0.22 | 132 / 86 | 42 | 20 / 15 | 38 / 32 | 0/6 |
+
+Not in the table: a first try with LCP 0.002 + speed noise + stiffness randomization at once collapsed (episodes
+178 steps long at 10 M; runs/zz_h2_lcp002_collapsed).
+
+### 13.5 Learnings
+
+1. **Read the logs before believing the story.** The filter blamed for `c3m`'s twitch was never on; replaying the
+   policy against its own logs settles such questions exactly.
+2. **The twitch is the policy reacting to sensor noise, and a Lipschitz penalty fixes it best.** Command jitter
+   (`c3m` 1.03°): Open Duck's smoothness penalties 0.71 (`h1`); with the robot-like hips 0.80 (`h3`), plus speed
+   noise 1.0 rad/s 0.55 (`h6`), plus a Lipschitz penalty 0.0005 instead **0.24-0.30** (`h7`, `h13`, `h10`) (as smooth as the filtered policies of §12, with no filter lag),
+   and those policies also walked furthest. LCP is sharp-edged: 0.001 and 0.002 broke the policies.
+3. **The model's hip rolls were too soft, and that hid the real weight-shift problem.** *(Half wrong, see §14: the
+   servo is stiffer, but the hip as a whole gives more, invisibly to the encoders; K policies tip over on the robot.)* On the robot the pelvis
+   lifts the foot 44-59 mm inside the standing board; the soft model did part of the shift for the policy (21-31 mm).
+   Training with 2.5× stiffer hip rolls (K) makes the policies shift their own weight and keep their steps at 7.4 V
+   (`c3m` marches in place there: 8-12 mm; K policies 20-47 mm). With K the full body takes 43-46 mm steps instead of
+   `c3f`'s 24-26.
+4. **A wider stance works, but not as a jump.** Switching `c3m` straight to the 0.06 rad wide gait made it march in
+   place (`h2`: the swing lift collapsed at the switch); continuing from its 10 M checkpoint with K and a looser
+   level-pelvis kernel walked 65 cm with the boards never closer than 104-118 mm (`h4`, `h9`), against 82 for `c3m`.
+   A milder widening (0.03 rad) shortened the steps.
+5. **Add one change at a time.** The same three changes reached in two stages (`c3f` → `h5` → `h10`) give the best
+   full-body policy; all at once from `c3f` (`h16`) falls 5/6.
+6. **Starting up matters on the robot.** Most of today's near-falls came at the very first left step, after a right
+   step taken inside the runner's blend-in. The runner now engages ready-pose policies fully at once, as trained.
+
+### 13.6 What to try on the robot
+
+*Tried 2026-11-11 evening: all fell sideways within the first steps; see §14.* 5 V first, `--vx 0.02`, cables from above. No filter in any of these. The runner now starts ready-pose policies
+without the 1 s blend (`--ramp 0` is the new default for them, also for `c3m` / `c3f`; the old behaviour was `--ramp 1`
+with the clock running).
+
+| goal | legs only | full body |
+|---|---|---|
+| smoothest, furthest (normal width) | `h13_kl_L`, `h7_lcp_L --params params_0010M.pkl` | `h10_kl_F` |
+| wider stance + smooth | `h9_w6kl_L --params params_0010M.pkl` | `h11_w6kl_F` |
+| wider stance, no Lipschitz penalty | `h4_w6k_L` | |
+| robot-like hips only (control) | `h3_k_L --params params_0010M.pkl` | `h5_k_F --params params_0010M.pkl` |
+
+`python policy_stand.py run --run h10_kl_F --enable --vx 0.02`. If the twitch is gone at 5 V, try 7.4 V with the
+smooth ones: in simulation they keep their steps there.
+
+## 14. Why §13's policies fell sideways: the legs give where the encoders can't see (2026-11-11 evening)
+
+On the robot (19:42-19:59, 5 V, cables from above): `c3m_T12` walks at `--vx 0.015` (one walk of 84 s, one of 43 s)
+but not at 0.02; `c3f_T12` works at 0.015 or 0.02 but steps forward little at both. Right after the 84 s `c3m` walk,
+one trial each of `h9_w6kl_L`, `h4_w6k_L`, `h13_kl_L` and `h3_k_L` (10 M): all fell sideways over the standing leg
+within the first steps (1.8-4 s). In simulation, robot-like or not, all of them walk 6/6.
+
+Note: the first eleven `c3m` trials at 0.02 (19:45-19:49) replay exactly as `c3m`'s **10 M checkpoint**, not its
+final one (a `--params params_0010M.pkl` left on the command line). The final `c3m` at 0.02 (19:50-19:51) ran 9-12 s
+without falling; next to its 0.015 walks it lifted the foot with the pelvis a little closer to the standing board
+(44-49 mm inside against 50-54) and rolled a little further onto it (3.3-4.4° against 3.0-3.8°): the same direction
+as the h policies' falls, much smaller.
+
+### 14.1 What the logs show
+
+The replay reproduces every logged action exactly, so the policies did on the robot what they would do in
+simulation given the same inputs. The difference is in how the body answers.
+
+- **Every h fall is the same: the weight shift doesn't stop.** After the first right step the pelvis moves toward the
+  right board at ~220 mm/s, passes its centre, the board tips onto its outer edge (+7° while the pelvis is over the
+  centre, +17° at the end) and the robot rolls 21-24° over the standing leg. `c3m` makes the same shift at a similar
+  speed but stops it with the pelvis 40-55 mm inside the standing board; it never balances over one board, it takes
+  short steps falling gently back toward the lifted foot.
+- **Same commands, different body (open loop).** The robot's logged commands played open-loop into the simulator from
+  the robot's start pose: the joints follow them as on the robot (hip roll, ankle roll, hip pitch within ~1°), but the
+  simulated body bounces sideways much more (roll-rate spikes 50-90°/s at each lift-off and touchdown, the robot's
+  20-40°/s) and leans *inward* toward the swing foot at the first step (+5 to +9° roll) where the robot stays over its
+  standing foot (-2°).
+- **Same state, different outcome (branching).** The simulator started from the robot's logged state mid-fall
+  (joints, joint speeds, tilt, gyro, pelvis velocity with the standing board's outer edge still) and the policy run
+  from there: `h13` recovers in every seed from as late as 1.3 s (robot rolled 9°, rolling 39°/s), `h9` up to 1.8 s.
+  The simulated body even accelerates *inward* from poses in which the robot kept tipping outward: with the same
+  joint angles and tilt, the model's weight sits further inside the standing board than the robot's.
+- **The two boards disagree.** With both feet down, the boards' tilts computed from the encoders and the IMU should
+  agree; on the robot they differ by +5.2 to +5.9° (`c3m`, `h9`), in simulation by +2.3 to +3.2.
+
+### 14.2 The mismatch: encoder-invisible sideways give at the hips
+
+All of this fits one missing piece: under the body's weight the real legs give sideways at the hips by several
+degrees, and the servo encoders don't see it (the servo holds its own output angle; what bends is beyond it, e.g. the
+horns, brackets, bearings, or the hip-yaw servo carrying the leg's bending moment). It lets the real pelvis drift
+further over the standing foot than the encoders say. `c3m`'s modest shift then puts the weight near the board's inner
+edge, which is enough to lift a foot; the h policies' larger shift (to "over the board" by the model) carries it
+past the outer edge.
+
+Modelled in the evaluator (a patch of `CpuBiped`, not yet in the repo): the servo and the observation read q + f,
+the physics uses q, with f → τ/k (10 ms lag), k in N·m/rad. 5 V, 3-6 × 15-20 s at 0.015:
+
+| hidden give | `c3m` | `h13` | `h9` | `h4` | `h3` 10 M | `c3m` lift-off (robot -50 to -54 mm) |
+|---|---|---|---|---|---|---|
+| none (robot-like model of §13) | 0/6 | 0/6 | 0/6 | 0/6 | 0/6 | -35 |
+| hip roll k = 3 (~5° under one-leg load) | **0/6** | **6/6** (2.2-9.5 s, all outward) | **6/6** (5 outward) | **6/6** (5 outward) | 1/6 | **-47** |
+| hip roll k = 6 + ankle roll k = 6 | 0/3 | 0/3 | 0/3 | 0/3 | | -46 |
+| ankle roll k = 3 only | 0/3 | 0/3 | 0/3 | 0/3 | | -39 |
+| hip roll ±2.3° free play (backlash) | 0/3 | 0/3 | 0/3 | | | -40 |
+
+With hip-roll give of k ≈ 3 the simulator reproduces the robot: `c3m` survives, every h policy falls outward over the
+standing leg within seconds, and `c3m` lifts its feet with the pelvis as far inside the board as on the robot. Give at
+the ankles alone, stiffer give, or free play does not.
+
+### 14.3 What §13 got wrong
+
+§13.1 measured the hip rolls 2.5× stiffer than the model from the encoders and trained with it (K). That is right
+for the servo, but the hip as a whole is softer than either model, and the encoders can't show it. K made the
+simulated body stiffer still, so the K policies learned a bigger weight shift, which is exactly what tips the robot
+over. §13's evaluation never had the give in it, so it passed all of them.
+
+All existing candidates with hip-roll give k = 3 (5 V, 6 × 20 s at 0.015; falls with direction, out = over the
+standing leg; forward cm):
+
+| policy | falls | forward | | policy | falls | forward |
+|---|---|---|---|---|---|---|
+| **`c3m_T12`** | **0/6** | 23 | | `h7_lcp_L` 10 M | 6/6 out | 11 |
+| `c3i_T12` | 1/6 out | 20 | | `h13_kl_L` | 6/6 out | 5 |
+| `e5_calm_L` | 4/6 in | 9 | | `h9_w6kl_L` | 6/6 | 1 |
+| `e6_tugr_L` | 1/6 in | 36 | | `h4_w6k_L` | 6/6 | 9 |
+| `l1_tug_L` | 1/6 in | 20 | | `c3f_T12` (full body) | 3/6 | 17 |
+| `l2_tug15_L` | 1/6 in | 29 | | `h5_k_F` 10 M | 6/6 | 14 |
+| `h1_od_L` | 1/6 in | 16 | | `h10_kl_F` | 6/6 out | 2 |
+| `h6_nq_L` | 1/6 in | 32 | | `h11_w6kl_F` | 6/6 out | -7 |
+| `h3_k_L` 10 M | 1/6 out | 29 | | | | |
+
+Only `c3m` never falls, as on the robot. `e5`'s falls are inward (on the robot it stepped on its own foot). Every
+policy trained with the Lipschitz penalty falls outward: smoother commands also mean slower correction. `c3f` falls
+3/6 here but works on the robot, so the full body (heavier, more hip torque) probably gives less than k = 3 suggests;
+the give is a calibration to measure, not yet a number.
+
+### 14.4 Next
+
+1. **Confirm the give on the robot** (minutes): powered in the ready pose, hold the robot by the pelvis and press one
+   board sideways on the floor, or stand it on one foot by hand; watch the pelvis tilt (IMU) against the hip-roll /
+   ankle-roll encoders. A few degrees of tilt with the encoders nearly still is the give; also look for where it
+   bends (horn, bracket, hip-yaw servo shaft).
+2. **Stiffen it mechanically if it is cheap** (bracket, horn screws, a support bearing on the hip-yaw output): less
+   give helps every policy.
+3. **Measure, then train with it.** [measuring.md](measuring.md) has the exercises (tip-over angles, hip give, one-foot
+   stand, clearance, landing) with the simulator's prediction for each. Note: with the pelvis shell on the model
+   (`hw_ank3_b150_legs_pelvis_10dof`, +110 g higher up) the give that separates `c3m` from the h policies is
+   k ≈ 5 rather than 3 (`c3m` 0/4 falls at k = 6, 1/4 at 4.5; `h13` 2/4 at both): measure it. Encoder-invisible give in the training model (`mjx_env` servo: read q + f, f → τ/k, k
+   randomized around the measured value at the hips and some at the ankles), K kept for the servo, and the evaluator
+   with the give as the gate any policy must pass before the robot. Fine-tune from `c3m_T12`, one change at a time.
+
+## 15. Robot round 4: the measured give in training, and outer strips (2026-11-12 night)
+
+E1 on the robot ([measuring.md](measuring.md)): from the stance pose the robot tips sideways at 6-7 deg (the rigid
+model says 14.9), its feet start slipping inward at 4-5 deg, and every sway narrows the stance (85 -> 70 -> 65 mm) and
+lowers the next limit. Fore-aft is about right.
+
+### 15.1 The give, calibrated
+
+`scripts/tilt_test_sim.py` does E1 in simulation: a stiff "hand" (PD force at the pelvis) tilts the robot at 1 deg/s;
+the tip angle is where the hand's force reverses, the slip angle where the standing board moves 2 mm. With the
+encoder-invisible hip-roll give of §14 (`hidden_flex`):
+
+| hip-roll give k (N·m/rad) | tip | slip from | gap after letting go at 6 deg |
+|---|---|---|---|
+| rigid | 13.8 | 4.5 | 81 -> 76 mm |
+| 5 | 9.1 | 5.3 | -> 52 |
+| **4** | **8.5** | **5.7** | -> 51 |
+| 3 | 5.6 | 6.5 | -> 51 |
+| robot | 6-7 | 4-5 | 85 -> 60-70 |
+
+Ankle-roll give and friction change little. k = 4 is the calibration. At k = 4 the walking screen
+(`scripts/robot4_eval.py`: 12 x 30 s per speed, 5 V, robot-like servos) agrees with the robot for the first time: `c3m`
+and `c3f` walk, `h13` and `h9` fall 6/6. `c3m` there: 1 / 2 / 5 / 9 falls in 12 at 0.015 / 0.02 / 0.03 / 0.04 m/s,
+steps ~20 mm at every speed.
+
+### 15.2 Training with it
+
+`mjx_env` now has the give (`hidden_flex`, `dr_flex` scales k per episode) and a `roll_lim` term. Fine-tunes on the
+pelvis model, hip rolls 2.5x stiffer (as §13) plus the give:
+
+| run | change | k=4 falls (0.015/0.02/0.03/0.04) | steps (mm) | k=3 falls |
+|---|---|---|---|---|
+| `c3m_T12` | baseline | 1 / 2 / 5 / 9 | 20 / 20 / 21 / 19 | 10, -, 12, - |
+| `r1_flex` | give on, c3m's recipe | 0 / 0 / 1 / 11 | 19 / 20 / 22 / 4 | 1, -, 2, - |
+| `r2_lim` | + roll_lim -1 past 4 deg + narrow | 0 everywhere | ~0: stopped walking | |
+| `r3_long` | commands 0.02-0.04 | 0 | ~0: steps in place | |
+| `s1_fwd` | r1 + progress 1, stride 40 | 0 / 0 / 0 / 2 | 22 / 21 / 23 / 26 | 1, -, 0, - |
+| `s2_long` | s1 recipe, 0.02-0.04 | 0 / 0 / 0 / 0 | 28 / 26 / 24 / 25 | 4 / 1 / 0 / 3 |
+| `s4_mild` | s2 + roll_lim -0.1 past 5 deg | 1 / 1 / 1 / 1 | slower | 2-3 |
+| `s6_wide` | s2 + give k 2.4-6, 0.015-0.04 | 0 / 0 / 0 / 0 | 28 / 27 / 27 / 30 | 1 / 1 / 0 / 1 |
+| **`s7_narrow`** | **s6 + narrow (-1 below 65 mm)** | **0 / 0 / 0 / 0** | **20 / 20 / 25 / 33** | **0 / 0 / 0 / 0** |
+| `s8_push` | s7 + progress 2, stride 60 | 0 / 0 / 0 / 0 | 28 / 27 / 27 / 31 | 3 / 3 / 4 / 3 (0 on the 15 mm strip) |
+| `s9_t15` | s7 on the slower c_T15 gait (1.5 s a step) | 0 / 0 / 0 / 0 (0.035) | 13 / 13 / 20 / 26 | 0 / 0 / 0 / 1; calmest (past 4 deg 6-12%) |
+| `s10_robust` | s7 + give k 2-6 + IMU tilt offsets | 0 / 0 / 0 / 0 | 26 / 27 / 29 / 32 | 0 / 0 / 0 / 2 |
+| `s11_pushn` | s8 + narrow x3 + give k 2-6 | 0 / 0 / 0 / 0 | 21 / 20 / 20 / 25 | 0 / 0 / 0 / 0 |
+
+(`s3_w15`, `s5_w25`: the s2 recipe trained on the outer strips of §15.3; see there.)
+
+Learnings:
+1. **With the give, policies stop walking unless forward motion pays.** c3m's stride reward alone lets them settle on
+   stepping in place (r3: as many touchdowns as c3m, speed 0), because going forward is what costs falls. A
+   progress term (cycle-averaged speed / command) plus a doubled stride reward fixes it.
+2. **A roll limit as a penalty hurts**, even mild (r2 stopped walking; s4 fell earlier and walked slower). The give in
+   the model already makes leaning over expensive; the policy learns to stay inside it without being told.
+3. **Keeping the stance wide is worth a penalty** (`narrow`): s7 keeps its gap >= 65 mm and is the first policy that
+   neither falls at k = 3 nor shortens its steps.
+
+### 15.3 Outer strips
+
+`scripts/make_outpad_model.py` adds pads to the model. Tilt test with the give (k = 4), sideways tip: plain 8.5 deg;
+a 30 mm half-disc on the outer edge 10.0 (a 45 mm one is unstable: the disc's apex is a single point, the robot
+balances on it and falls fore or aft); the board moved 15 mm outward 10.3; **a full-length strip on the outer edge,
+15 mm: 12.1, 25 mm: 14.5.** A straight outer edge is what sideways stability needs; a half circle gives only a point.
+
+Walking on the 15 mm strip, untrained for it: `h13` and `h9` 6/6 -> 0/6; `c3m` 0/12 at k = 4 and 3 (10-12/12 on plain
+boards at k = 3); `s7` 0/12 even at k = 2.5. Trained on the strip (`s3_w15`, `s5_w25`), policies spend the margin: they
+draw the feet in and lean on the strip, and fall more or walk slower than s2 run on it. So: train on plain boards,
+add the strip as a margin.
+
+Part: `hardware/feet_p1/cad/outer_strip.py` -> `hardware/feet_p1/exports/F_outer_strip{15,25}.{stl,3mf}`. It
+follows the board (120 mm flat, the 15 mm ends kicked up 25 deg), its bottom 0.3 mm above the sole (the board stands
+as before, the strip touches once the board rolls outward ~1 deg; the simulator's strip is flush), and a lip over the board's top edge (7 mm past the servo
+socket, 12 mm at the screws) holds it with two M2 x 6 self-tapping screws (drill the board 1.6 mm through the lip's
+holes). 16 g (15 mm) / 23 g (25 mm); one part fits both feet (turned 180 deg).
+
+### 15.4 What to try on the robot
+
+1. `s10_robust` at `--vx 0.015`, then 0.02, 0.03 (the runner's c3m settings otherwise); `s7_narrow` as the calmer
+   alternative. Compare with c3m's run: steps should be ~25-30 mm (c3m ~20), sideways sway small. At k = 2.5 (a hip
+   much softer than measured) every policy here falls 3-7/12, c3m 12/12: if they fall on the robot, measure E6.
+2. With the strips: `s8_push` (27-31 mm steps; 0/12 on the strip at k = 4 and 3).
+3. Print two `F_outer_strip15` and repeat E1 (expect a tip near 10-12 deg instead of 6-7), then `s7` and `c3m` on them.
+4. If s10 / s7 still fall sideways on plain boards, the give on the robot is softer than k = 4: E6 (`exercises.py shift`)
+   measures it directly.
+
+## 16. Round 4 on the robot: steadier sideways, now falling backward (2026-11-12 morning)
+
+**The round in brief.** After `c3m_T12` walked (§11), about fifteen fine-tunes (§12-13: smoother actions, longer
+strides, mirroring, stiffer hips, wider stances) all beat it in simulation and all fell on the robot, most within the
+first steps (§14). Training didn't reliably reproduce a policy that transfers: `c3m` had been lucky, and the gap was the
+simulator, not the reward. Measuring the robot (E1, [measuring.md](measuring.md)) showed why: it tips sideways at
+6-7° where the rigid model says 14.9, because the hips give at larger angles where the encoders can't see it, the
+lifted leg swings in and every sway narrows the stance. With that give fitted into the simulator (§15.1), the
+simulator ranks the old policies as the robot does, and the policies trained on it (§15.2) all walk on the robot from
+the first step and outlast `c3m` (below). The method that worked, and the plan from here: measure the robot, fix the
+model until it reproduces the measurement and the robot's history, only then train. Next in line is the backward lean
+(§16.1).
+
+`s7_narrow`, `s8_push`, `s10_robust` and `c3m_T12`, four trials each at `--vx 0.015` (10:00-10:12, 5 V, rug, plain
+boards), each policy's four trials started from four different orientations so the cables pull differently. Logs:
+`hardware/leg_p0/software/stand_<run>_20261112_0958*`-`1012*.csv`. Every policy here walked from the first step; all
+16 trials ended in a fall (the 25° tilt cut-out).
+
+The step numbers are from the encoders and IMU: the model's forward kinematics put both boards in a level, heading
+frame; a swing is a board more than 5 mm above the other, its reach the change in the boards' fore-aft offset over the
+swing, halved (body advance per step). This sees neither foot slip nor the hidden give. Run through the same
+estimator, simulated walks (k = 4, 6 x 30 s) read within a few mm of their true advance for `s8` / `s10` and 3-6 mm high
+for `s7` / `c3m`.
+
+| policy | trials (s) | steps | reach per step, L / R (mm) | same estimator in simulation | fell |
+|---|---|---|---|---|---|
+| `s7_narrow` | 20.7, 16.0, 26.9, 6.7 | 23, 16, 28, 3 | 15 / 10 | 21 / 19 | 4 backward (one back-left) |
+| `s8_push` | 8.0, 11.1, 14.3, 25.6 | 4, 7, 10, 21 | 19 / 15 | 24 / 22 | 3 backward, 1 right |
+| **`s10_robust`** | **18.9, 23.8, 23.6, 28.2** | **20, 18, 19, 24** | 12 / 6 | 23 / 23 | 3 backward, 1 left |
+| `c3m_T12` | 7.4, 11.0, 7.9, 28.1 | 3, 6, 3, 20 | 13 / 11 | 19 / 20 | 1 backward, 2 sideways, 1 back-left |
+
+What the logs show:
+
+1. **The sideways falls are mostly gone.** `c3m` fell sideways (|roll| > 20° at the cut-out, little pitch) in 2 of 4
+   trials, and leaned left in a third; the new policies in 2 of 12 (`s8` once right, `s10` once left), `s7` never. The
+   give in training (§15) did what it was for.
+2. **The new failure is backward.** 11 of 16 trials end pitched back 16-25°. It is not sudden: the pitch,
+   per 2.4 s gait cycle, settles at 0 to +2° back after the first cycle (the robot stands at +3.8, E1's back
+   lean), then creeps to +4 to +6
+   over the last 2-3 cycles, and the fall comes during a swing. In simulation the same policies walk at 1-3° *forward*
+   and hold it. So the robot walks 3-6° further back than the model, and drifts further back the longer it walks.
+3. **`s10_robust` is the steadiest**: every trial 19-28 s, mean 24 (`s7` 18, `s8` 15, `c3m` 14); it also walked 93 s
+   (95 steps) in an earlier trial at 09:54. `c3m` reached 20 steps once, in its fourth trial.
+4. **Steps are shorter than in simulation, and lopsided.** By the encoders the robot reaches 40-75% of the simulated
+   steps, and every new policy steps further with the left foot than the right (`s10` 12 / 6 mm); in simulation they
+   are even. Of the four, only `s8` steps clearly longer than `c3m` on the robot (~17 against ~12 mm). `s8` also holds
+   each foot up 1.0-1.2 s of its 1.2 s step (0.7-0.8 in simulation), `s7` and `s10` only 0.45-0.5 s (0.6-0.8).
+5. **The orientation mattered.** For `s8`, `s10` and `c3m` the fourth orientation gave the longest walk (25.6, 28.2,
+   28.1 s), for `s7` the shortest (6.7 s). Since each policy's four trials ran in order, orientation and trial order
+   can't be told apart, but a backward pull growing with distance walked fits a cable from above and the pitch creep
+   in 2.
+6. **Not heat.** Hip-pitch and knee servos read 23-28 °C throughout.
+
+### 16.1 Next
+
+1. **Put the back lean in the model.** The robot stands 3.7° back with its boards flat (E1), and walks 3-6° further
+   back than the simulator; there is no ankle pitch to correct it. In training: hip-pitch zero offsets that lean the
+   real body back 0-6° (the policy's encoders reading the stance angles), and a small backward pull at the pelvis
+   (a cable). `s10`'s IMU tilt offsets only fake the reading, not the lean.
+2. **On the robot, separate the cables from the lean**: a couple of `s10` trials with the cables slack (held and
+   followed by hand), and note which orientation each trial uses.
+3. **The left / right asymmetry**: check the hip-pitch and knee zero offsets of the right leg (the right foot reaches
+   half as far as the left in `s7` and `s10`).

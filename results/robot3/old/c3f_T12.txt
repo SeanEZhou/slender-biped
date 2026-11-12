@@ -1,0 +1,3 @@
+c3f_T12 params_0025M.pkl on hw_ank3_b150_10dof, vx 0.02, floor tc 0.02, 6 x 30 s prof_acc=(25.0,60.0,60.0) noise_qd=0.25
+  volt 0.68 delay 0 tug 0.0 N: falls 1/6 | roll 4-6.5 Hz  15% (peak 2.1 Hz) shake  7.7 deg/s act zig 0.570 cmd hp 1.01 deg | width 126 min  70 mm | pelvis vs standing board: at lift-off  -31 lean p95  -27 mm | fwd 36.9 cm | step L 21.5 R 31.3 mm (12/14 steps)
+  volt 1.00 delay 0 tug 0.0 N: falls 0/6 | roll 4-6.5 Hz  15% (peak 2.1 Hz) shake 10.4 deg/s act zig 0.563 cmd hp 1.06 deg | width 129 min  70 mm | pelvis vs standing board: at lift-off  -38 lean p95  -31 mm | fwd 38.6 cm | step L 23.9 R 28.7 mm (14/16 steps)

@@ -1,0 +1,4 @@
+r1_flex                      k=4    vx=0.015  falls 0/12                  fwd  49.1 cm  step 19.2 mm  |roll|>4: 11.3%  peak  8.9  gap min  71 end  93 mm
+r1_flex                      k=4    vx=0.02   falls 0/12                  fwd  49.8 cm  step 19.7 mm  |roll|>4:  9.1%  peak  8.3  gap min  70 end  91 mm
+r1_flex                      k=4    vx=0.03   falls 1/12 (22 s)           fwd  55.7 cm  step 22.0 mm  |roll|>4: 13.1%  peak  9.1  gap min  66 end  87 mm
+r1_flex                      k=4    vx=0.04   falls 11/12 (7,10,13,9,15,14,7,7,7,7,10 s) fwd   9.2 cm  step  3.7 mm  |roll|>4: 23.5%  peak 11.8  gap min  60 end  91 mm

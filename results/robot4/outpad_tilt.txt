@@ -1,0 +1,12 @@
+== 10dof []  tip +13.8 slip +4.5 | let go at 6.0: width 81 -> 76 mm, roll +0.0 -> +0.0
+== 10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +8.5 slip +5.7 | let go at 6.0: width 81 -> 51 mm, roll +0.0 -> -0.2
+== op30s0_10dof []  tip +15.1 slip +3.1 | let go at 6.0: width 81 -> 76 mm, roll +0.0 -> -0.3
+== op30s0_10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +10.0 slip +2.2 | let go at 6.0: width 81 -> 58 mm, roll +0.0 -> +0.0
+== op0s15_10dof []  tip none slip +3.8 | let go at 6.0: width 111 -> 107 mm, roll +0.0 -> -0.0
+== op0s15_10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +10.3 slip +3.7 | let go at 6.0: width 111 -> 71 mm, roll +0.0 -> -0.2
+== op0s0w15_10dof []  tip none slip +3.9 | let go at 6.0: width 96 -> 92 mm, roll +0.0 -> -0.1
+== op0s0w15_10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +12.1 slip +3.7 | let go at 6.0: width 96 -> 67 mm, roll +0.0 -> -0.1
+== op0s0w25_10dof []  tip none slip +3.8 | let go at 6.0: width 106 -> 102 mm, roll +0.0 -> -0.2
+== op0s0w25_10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +14.5 slip +3.4 | let go at 6.0: width 106 -> 77 mm, roll +0.0 -> -0.1
+== op0s10w15_10dof []  tip none slip +3.8 | let go at 6.0: width 116 -> 112 mm, roll +0.0 -> -0.1
+== op0s10w15_10dof [hip_roll=4]  4.0} fr None tc 0.02: tip +12.5 slip +3.4 | let go at 6.0: width 116 -> 78 mm, roll +0.0 -> -0.1

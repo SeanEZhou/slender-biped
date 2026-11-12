@@ -1198,16 +1198,77 @@ follows the policy's step-to-step command jitter (correlation +0.7–0.8). The s
 dips to 4.7 V), and the sag follows the shake rather than causing it: in simulation a 5.1 V supply didn't shake
 more than 7.4 V. Smoother actions (stronger action-rate penalties or an action filter) are the next retraining.
 
+**Retraining against the robot's problems (2026-11-11, simulation).** The robot logs showed the buzz is a 4.8 Hz
+sideways oscillation: the policy's hip- and ankle-roll commands feed the roll rate back in phase, and the real servos
+pass about twice as much 5 Hz motion as the simulated ones, so training never saw it. Nineteen fine-tunes followed:
+- An action low-pass filter halves the shake: at 7.4 V the new policies shake less than `c3f_T12` did at 5 V.
+- A doubled stride reward lengthens the steps, up to ~4 cm with the full body.
+- Mirrored training evens out the two feet.
+- Strong random pulls in training let the robot ride out a 0.5 N cable-like pull. About 1 N sideways tips the robot
+  on one foot whatever the policy does, so the cables need to hang from above.
+
+Policies to try, from calmest to most ambitious: [docs/walking_clean.md §12](docs/walking_clean.md#12-robot-feedback-round-shake-stepping-in-place-cables-2026-11-11).
+
+**Round 3: knee twitch, feet together, leaning over (2026-11-11, simulation).** None of those policies walked more
+than a step on the robot, so the robot logs were read again, with the policy replayed against them:
+- The knee twitch is the policy's own command jitter, driven by noisy joint-speed readings. A Lipschitz gradient
+  penalty in training ([Chen et al. 2024](https://arxiv.org/abs/2410.11825)) cut it 4× without any filter lag.
+- The real hip rolls are about 2.5× stiffer than the model's. The soft model hip had done part of the weight shift
+  for the policy, and the robot lifts each foot with its weight 44–59 mm inside the standing board (sim: 21–31 mm).
+  Training with the stiffer hip makes the policies shift their own weight and keep their steps at 7.4 V.
+- A wider gait (hips abducted 0.06 rad, ankles keeping the boards flat) keeps the boards at least 104–118 mm apart,
+  against `c3m`'s 82.
+- The runner now starts the policy fully engaged: most of the day's near-falls came at the first step after its
+  1 s blend-in.
+
+Policies to try: [docs/walking_clean.md §13.6](docs/walking_clean.md#136-what-to-try-on-the-robot).
+
+**Why they fell (2026-11-11 evening).** On the robot every round-3 policy fell sideways over the standing leg within
+a few steps, while `c3m_T12` walked up to 84 s at `--vx 0.015`. The logs, played open-loop into the simulator and used
+as starting states for it, show the real hips give sideways under load by ~5° where the servo encoders can't see it.
+With that give in the simulator, every round-3 policy falls outward and `c3m` survives, as on the robot:
+[docs/walking_clean.md §14](docs/walking_clean.md#14-why-13s-policies-fell-sideways-the-legs-give-where-the-encoders-cant-see-2026-11-11-evening).
+
 The runner ([`policy_stand.py`](hardware/leg_p0/software/policy_stand.py)) now drives 10 joints. It logs each servo's
 voltage, temperature and load. On a bus or IMU error it rides through a few missed reads, then holds the stance pose
 with torque on instead of going limp. Details, commands and every policy: [docs/walking_clean.md](docs/walking_clean.md)
 §8 and §10–11. What led to the walk, including the techniques borrowed from Open Duck Mini and
 which worked: [docs/lessons.md §2](docs/lessons.md#2-what-led-to-the-first-walk).
 
+### 16.2 Closing the gap with measurements (2026-11-12)
+
+After `c3m_T12` walked, about fifteen fine-tunes tried to improve on it: smoother actions, longer strides, mirrored
+gaits, stiffer hips, wider stances. Every one scored as well as or better than `c3m` in simulation, and every one fell
+on the robot, most within the first steps. `c3m` had been lucky: the training recipe didn't reliably produce a policy
+that transfers, because the simulator was wrong where it mattered, and policies that exploited the error looked best.
+
+So the robot was measured instead of guessed at ([docs/measuring.md](docs/measuring.md)). Tilted by hand from its
+stance, it tips sideways at 6–7°; the rigid model said 14.9°. Fore-aft matched. The hips give sideways under load where
+the servo encoders can't see it: the lifted leg swings inward as the robot tips, the feet slip together from 4–5°, and
+each sway narrows the stance (85 → 70 → 65 mm) and lowers the next limit. The simulator had assumed rigid hips.
+
+That give, as a spring behind each hip-roll encoder, was fitted to the tilt test (4 N·m/rad) and checked against the
+robot's history: with it, the simulator passes the two policies that walk on the robot and fails the ones that don't,
+for the first time. Policies trained on it, with a reward for real forward progress and a penalty for letting the
+stance narrow, all walked on the robot from the first step and outlast `c3m`:
+
+| policy | on the robot (4 trials, 0.015 m/s) | fell |
+|---|---|---|
+| `c3m_T12` | 7–28 s, mean 14 | 2 of 4 sideways |
+| `s7_narrow` | 7–27 s, mean 18 | backward |
+| `s8_push` | 8–26 s, mean 15; the longest steps | mostly backward |
+| **`s10_robust`** | **19–28 s, mean 24; one walk of 93 s** | mostly backward |
+
+The sideways falls that ended every earlier policy are mostly gone. The new failure is a slow backward lean: the
+robot stands 3.7° further back than the model and drifts further back as it walks, where the simulated robot leans
+slightly forward. That, and the outer-edge strips for the feet designed this round, are the next measurements to bring
+into the model. Details: [docs/walking_clean.md §15–16](docs/walking_clean.md#15-robot-round-4-the-measured-give-in-training-and-outer-strips-2026-11-12-night).
+
 ## Limitations and next steps
 
-- **Sim-to-real transfer is under way (§14, §16.1).** Quiet standing transfers, and with ankle roll one walking
-  policy of three transfers (10+ steps in most trials, legs only). With torso and head the robot marches mostly in
+- **Sim-to-real transfer is under way (§14, §16.1–16.2).** Quiet standing transfers. With ankle roll and the
+  measured hip give in the simulator, every walking policy trained on it now transfers (legs only, 15–28 s walks),
+  where before only one of ~15 did; the robot still falls backward after 15–30 s. With torso and head the robot marches mostly in
   place, its servos buzzing, and every policy still falls on the softest simulated rug. The main gaps to close:
   - The servo model is fitted to 5 V step tests on the hips and knees; 7.4 V and the swapped hip-pitch servos still
     need measuring. Rotor inertia, gear friction and thermal behaviour are estimates.
@@ -1222,6 +1283,9 @@ which worked: [docs/lessons.md §2](docs/lessons.md#2-what-led-to-the-first-walk
   seed that walker is just as straight but slower.
 - **Torso and head.** Printed and assembled (§12). The full-body walker `c3f_T12` balances with them on but barely
   moves forward on the robot, and needs smoother actions to stop the servo buzz.
+- **First, keep closing the sim-to-real gap with measurements** ([docs/measuring.md](docs/measuring.md)): fit the
+  simulator to each before training on it: the backward lean (stance offsets, cable pull), the outer-edge strips, the
+  hip give directly (E6), landings and foot clearance (E3–E5).
 - **Next steps:**
   0. retrain the full-body walker for smoother actions and real forward progress; move to the 7.4 V supply;
   1. merge standing and walking into one policy (today: a hand-over between two);

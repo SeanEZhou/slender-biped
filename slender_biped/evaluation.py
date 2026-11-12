@@ -75,6 +75,8 @@ class EvalConfig:
     ctrl_dt: float = 0.02
     sim_dt: float = 0.002
     kp: float = 8.0
+    dr_kp: tuple = (0.75, 1.25)
+    kp_hip_roll: float = 1.0          # 2026-11-11: the robot's hip rolls sag ~2.5x less under load than the model's
     kd: float = 0.05
     slew: float = 8.0
     latency_sub: int = 2
@@ -96,6 +98,8 @@ class EvalConfig:
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
     obs_noise: float = 1.0
+    noise_q: float = 0.005
+    noise_qd: float = 0.3
     dr: bool = False
     push_vel: float = 0.0
     push_interval_s: tuple = (2.0, 4.0)
@@ -130,6 +134,10 @@ class EvalConfig:
     imu_alpha: float = 0.0776
     imu_gate: float = 0.15
     gyro_range: float = 0.0
+    act_lpf: float = 0.0               # see mjx_env.EnvConfig
+    # 2026-11-11 (docs/walking_clean.md §14): give the servo encoders can't see. ((joint suffix, k N*m/rad), ...): the
+    # servo loop and the observation read q + f, the physics moves q, f -> tau / k with a 10 ms lag. Empty = rigid.
+    hidden_flex: tuple = ()
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
@@ -138,6 +146,8 @@ class EvalConfig:
         for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias"):
             if k in keep:
                 keep[k] = tuple(keep[k])
+        if "hidden_flex" in keep:
+            keep["hidden_flex"] = tuple(tuple(x) for x in keep["hidden_flex"])
         return cls(**keep)
 
 
@@ -245,8 +255,11 @@ class CpuBiped:
             m.dof_armature[6:] *= rng.uniform(0.6, 1.6, m.nv - 6)
             m.dof_frictionloss[6:] *= rng.uniform(0.5, 2.0, m.nv - 6)
             self.servo = dict(strength=rng.uniform(0.8, 1.05, self.nj), speed=rng.uniform(0.8, 1.05, self.nj),
-                              kp=rng.uniform(0.75, 1.25, self.nj), latency=int(rng.integers(0, 7)),
+                              kp=rng.uniform(c.dr_kp[0], c.dr_kp[1], self.nj), latency=int(rng.integers(0, 7)),
                               deadzone=rng.uniform(0.0, 0.015, self.nj), acc=self.prof_acc.copy(), delay=c.delay_steps)
+            if c.kp_hip_roll != 1.0:
+                self.servo["kp"] = self.servo["kp"] * np.array([c.kp_hip_roll if j.endswith("hip_roll") else 1.0
+                                                                for j in self.joints])
             if c.dr_volt != (1.0, 1.0) or c.dr_prof_acc != (1.0, 1.0) or c.dr_delay_steps != (0, 0):
                 volt = rng.uniform(*c.dr_volt)          # new draws only for configs that use them: older evaluations
                 self.servo["strength"] *= volt          # keep their exact random sequence
@@ -263,6 +276,10 @@ class CpuBiped:
             m.body_mass[:] *= c.mass_scale
             m.body_inertia[:] *= c.mass_scale
         mujoco.mj_resetDataKeyframe(m, d, self.kid)
+        kf = dict(c.hidden_flex)
+        self.flex_kinv = np.array([1.0 / kf[s] if (s := next((x for x in kf if j.endswith(x)), None)) else 0.0
+                                   for j in self.joints])
+        self.flex = np.zeros(self.nj)
         q0 = self.q_nom
         if c.reset_ref_pose and self.ref is not None:
             from .ref_gait import lookup
@@ -337,14 +354,14 @@ class CpuBiped:
         w = d.qvel[3:6].copy()
         if c.gyro_range > 0:
             w = np.clip(w, -c.gyro_range, c.gyro_range)
-        q = d.qpos[7:] - self.q_nom
+        q = d.qpos[7:] + self.flex - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
         qd = d.qvel[6:].copy()
         n = c.obs_noise
         r = self.rng
         g = g + n * 0.03 * r.normal(size=3)
         w = w + n * 0.15 * r.normal(size=3)
-        q = q + n * 0.005 * r.normal(size=self.nj)
-        qd = qd + n * 0.3 * r.normal(size=self.nj)
+        q = q + n * c.noise_q * r.normal(size=self.nj)
+        qd = qd + n * c.noise_qd * r.normal(size=self.nj)
         clock = np.array([np.sin(self.phase), np.cos(self.phase)])
         self._frame = np.concatenate([g, w, q, 0.1 * qd, self.last_act])
         extra = []
@@ -404,6 +421,8 @@ class CpuBiped:
     def step(self, action):
         c, m, d, s_ = self.cfg, self.m, self.d, self.servo
         action = np.clip(action, -1, 1)
+        if c.act_lpf > 0:
+            action = c.act_lpf * self.last_act + (1.0 - c.act_lpf) * action
         q_base = self.q_nom
         if self.ref is not None and c.ref_residual:
             from .ref_gait import lookup
@@ -424,7 +443,7 @@ class CpuBiped:
         for i in range(n_sub):
             cmd = cmd_prev if i < s_["latency"] else cmd_now
             self.q_tgt, self.v_tgt = target_update(self.q_tgt, self.v_tgt, cmd, a_prof, c.slew, c.sim_dt)
-            q, qd = d.qpos[7:], d.qvel[6:]
+            q, qd = d.qpos[7:] + self.flex, d.qvel[6:]
             e = self.q_tgt - q
             e = np.sign(e) * np.maximum(np.abs(e) - s_["deadzone"], 0)
             u_req = kp * e - c.kd * qd
@@ -432,6 +451,8 @@ class CpuBiped:
             tau = np.clip(ts * (u - qd / w0), -ts, ts)
             d.ctrl[:] = tau
             mujoco.mj_step(m, d)
+            if c.hidden_flex:
+                self.flex += (tau * self.flex_kinv - self.flex) * min(1.0, c.sim_dt / 0.01)
             log["tau"].append(tau.copy())
             log["qd"].append(d.qvel[6:].copy())
             log["u_req"].append(u_req.copy())

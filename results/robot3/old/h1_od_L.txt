@@ -1,0 +1,4 @@
+h1_od_L params_0020M.pkl on hw_ank3_b150_legs_10dof, vx 0.02, floor tc 0.02, 6 x 30 s prof_acc=(25.0,60.0,60.0) noise_qd=0.25 dr_kp=(0.75,1.25)
+  volt 0.68 delay 0 tug 0.0 N: falls 0/6 | roll 4-6.5 Hz   8% (peak 2.0 Hz) shake 14.5 deg/s act zig 0.344 cmd hp 0.67 deg | width 124 min  77 mm | pelvis vs standing board: at lift-off  -25 lean p95  -22 mm | fwd 70.2 cm | step L 49.2 R 39.5 mm (13/16 steps)
+  volt 1.00 delay 0 tug 0.0 N: falls 0/6 | roll 4-6.5 Hz   8% (peak 2.0 Hz) shake 19.1 deg/s act zig 0.360 cmd hp 0.74 deg | width 132 min  78 mm | pelvis vs standing board: at lift-off  -37 lean p95  -29 mm | fwd 39.2 cm | step L 21.6 R 20.4 mm (16/20 steps)
+  STIFF volt 0.68 delay 0 tug 0.0 N: falls 2/6 | roll 4-6.5 Hz   9% (peak 2.0 Hz) shake 28.1 deg/s act zig 0.379 cmd hp 0.82 deg | width 137 min  79 mm | pelvis vs standing board: at lift-off  -43 lean p95  -33 mm | fwd 28.3 cm | step L 11.2 R 11.9 mm (15/16 steps)

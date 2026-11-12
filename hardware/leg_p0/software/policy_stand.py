@@ -3,7 +3,8 @@
 FIRST HARDWARE TEST OF A SIMULATION POLICY. Keep a hand next to the robot and on the power switch.
 
     python policy_stand.py ports                      # which serial port is the servo bus and which the IMU
-    python policy_stand.py imu-calib                  # once per IMU mounting: learn the sensor -> pelvis axes
+    python policy_stand.py imu-calib                  # once per IMU mounting: zero = hip plate level
+    python policy_stand.py imu-calib --axis roll      # redo one zero only (roll | pitch)
     python policy_stand.py imu-check                  # live gravity/gyro in pelvis axes (no motion)
     python policy_stand.py timing                     # how fast the bus + IMU loop can run (no motion)
     python policy_stand.py run --dry-run              # policy runs, servos stay limp: hold the robot and tilt it
@@ -343,7 +344,8 @@ class Servos:
         for (n, j), q in zip(self.joints.items(), q_rad):
             c = fb.deg_to_counts(j, math.degrees(q))
             goal = [c & 0xFF, (c >> 8) & 0xFF]
-            self.wr.addParam(j["id"], goal if self.accel is None else [self.accel] + goal + [0, 0, 0, 0])
+            acc = self.accel if self.accel is None or np.isscalar(self.accel) else int(self.accel[n])
+            self.wr.addParam(j["id"], goal if acc is None else [acc] + goal + [0, 0, 0, 0])
         res = self.wr.txPacket()
         if res != COMM_SUCCESS:
             raise IOError(f"sync write: {self.bus.pk.getTxRxResult(res)}")
@@ -409,32 +411,70 @@ def mean_gravity(imu, s=1.0):
     return g / np.linalg.norm(g)
 
 
+def axis_from_pair(g_up, g_tilt, axis):
+    """One pelvis axis (sensor coordinates) from two gravity readings taken with the plate level along one direction.
+    roll: plate level SIDEWAYS in both readings, the second leaning FORWARD -> both lie in the pelvis x-z plane, whose
+    normal is the pelvis y axis (left). pitch: plate level FORE-AFT in both, the second leaning LEFT -> both lie in the
+    y-z plane, whose normal is the pelvis x axis (forward). The upright reading need not be level the other way."""
+    g1, g2 = g_up / np.linalg.norm(g_up), g_tilt / np.linalg.norm(g_tilt)
+    n = np.cross(-g1, g2) if axis == "roll" else np.cross(g1, g2)     # roll: ey = z x x; pitch: ex = y x z
+    return n / np.linalg.norm(n)
+
+
+def mount_from_axes(ex, ey):
+    """The nearest rotation whose x / y rows are ex / ey (they are measured separately, so only nearly orthogonal)."""
+    M = np.vstack([ex, ey, np.cross(ex, ey) / np.linalg.norm(np.cross(ex, ey))])
+    U, _, Vt = np.linalg.svd(M)
+    return U @ Vt
+
+
 def cmd_imu_calib(a):
+    old = np.array(yaml.safe_load(MOUNT_FILE.read_text())["R_sensor_to_pelvis"], float) if MOUNT_FILE.exists() else None
+    if a.axis != "both" and old is None:
+        sys.exit(f"no {MOUNT_FILE.name} yet to keep the other axis from: run `imu-calib` (both axes) first")
     imu = Imu(imu_port(a))
-    print("IMU mounting calibration (sensor axes -> pelvis axes: x forward, y left, z up). Nothing moves.\n")
-    input("1/2  Stand the robot UPRIGHT with the pelvis level (on its pads in the stance pose, or held level).\n"
-          "     Hold it still and press Enter... ")
-    g1 = mean_gravity(imu)
-    input("2/2  Now tilt the whole robot FORWARD (chest toward the floor) by about 20-30 deg and hold it there.\n"
-          "     Press Enter... ")
-    g2 = mean_gravity(imu)
-    ang = math.degrees(math.acos(max(-1.0, min(1.0, float(g1 @ g2)))))
-    if ang < 10:
-        sys.exit(f"only {ang:.1f} deg between the two poses: tilt further (20-30 deg) and run it again")
-    ez = -g1                                           # pelvis up, in sensor coordinates
-    ex = g2 - (g2 @ g1) * g1                           # leaning forward moves gravity toward +x (pelvis frame)
-    ex /= np.linalg.norm(ex)
-    ey = np.cross(ez, ex)
-    R = np.vstack([ex, ey, ez])                        # rows = pelvis axes in sensor coordinates
+    print("IMU mounting calibration (sensor axes -> pelvis axes: x forward, y left, z up), against the HIP PLATE: the\n"
+          "simulator's pelvis frame is the plate, level when both boards are flat. Nothing moves. Each axis needs a\n"
+          "spirit level (or a phone level app) along ONE direction only, on the plate or a face parallel to it.\n")
+    steps = [("roll", "SIDEWAYS (level across the plate, left to right)", "FORWARD (chest toward the floor)"),
+             ("pitch", "FORE-AFT (level along the plate, front to back)", "to its LEFT (left side toward the floor)")]
+    got, info = {}, {}
+    for axis, level, lean in steps:
+        if a.axis not in ("both", axis):
+            continue
+        print(f"--- {axis.upper()} zero: the plate level {level}; the other direction doesn't matter.")
+        while True:
+            input(f"  a. Robot upright, plate level {level.split(' (')[0]}. Hold still, Enter... ")
+            g1 = mean_gravity(imu)
+            input(f"  b. Keep it level {level.split(' (')[0]} and tilt the whole robot {lean} by 20-30 deg. Hold, Enter... ")
+            g2 = mean_gravity(imu)
+            ang = math.degrees(math.acos(max(-1.0, min(1.0, float(g1 @ g2)))))
+            if ang >= 10:
+                break
+            print(f"  only {ang:.1f} deg between the two readings: tilt further (20-30 deg). Again.")
+        got[axis] = axis_from_pair(g1, g2, axis)
+        info[f"{axis}_tilt_used_deg"] = round(ang, 1)
+        info[f"{axis}_readings"] = [[round(float(x), 4) for x in g] for g in (g1, g2)]
+    ex = got.get("pitch", old[0] if old is not None else None)
+    ey = got.get("roll", old[1] if old is not None else None)
+    skew = math.degrees(math.asin(max(-1.0, min(1.0, float(ex @ ey)))))
+    R = mount_from_axes(ex, ey)
+    if abs(skew) > 3:
+        print(f"\nWARNING: the forward and left axes are {90 - skew:.1f} deg apart, not 90: a level was misread, the robot\n"
+              f"moved, or (with --axis) the IMU moved since the saved axis. Redo it (both axes if unsure).")
     MOUNT_FILE.write_text(
         "# IMU mounting: v_pelvis = R_sensor_to_pelvis @ v_sensor. Written by `policy_stand.py imu-calib` "
-        f"{time.strftime('%Y-%m-%d %H:%M')}.\n# Redo it whenever the IMU board is moved.\n"
+        f"{time.strftime('%Y-%m-%d %H:%M')}.\n# Zero = the hip plate level (roll and pitch levelled separately). "
+        "Redo it whenever the IMU board is moved.\n"
         + yaml.safe_dump({"R_sensor_to_pelvis": [[round(float(x), 5) for x in r] for r in R],
-                          "forward_tilt_used_deg": round(ang, 1)}, sort_keys=False))
-    print(f"\nforward tilt used: {ang:.1f} deg. Saved {MOUNT_FILE.name}:")
+                          "axes_measured": a.axis, "axes_skew_deg": round(skew, 2), **info}, sort_keys=False))
+    print(f"\nSaved {MOUNT_FILE.name} ({a.axis}; axes {90 - skew:.1f} deg apart):")
     for r, ax in zip(R, "xyz"):
         print(f"  pelvis {ax} = sensor ({r[0]:+.3f}, {r[1]:+.3f}, {r[2]:+.3f})")
-    print("Check it with `python policy_stand.py imu-check`.")
+    if old is not None:
+        _, r0, p0 = tilt_deg(old @ (R.T @ np.array([0.0, 0.0, -1.0])))
+        print(f"vs the previous calibration: the plate level now reads roll {r0:+.1f}, pitch {p0:+.1f} deg in the old one")
+    print("Check it with `python policy_stand.py imu-check` (plate level -> roll and pitch ~0).")
     imu.close()
 
 
@@ -711,7 +751,7 @@ def cmd_run(a):
         print(f"non-learning balancer, gains {pol.gains}")
     if isinstance(pol, Rocker):
         print(f"deterministic controller {a.run}, parameters {pol.ctl.p}")
-        if a.ramp > 0:
+        if a.ramp is None or a.ramp > 0:
             print("  (it ramps itself in; --ramp 0 is enough)")
     print(f"policy {pol.path.relative_to(ROOT)} ({env['model']}, task {env['task']}), {1 / dt:.0f} Hz, "
           f"action scale {scale} rad, gait clock {hz} Hz")
@@ -732,6 +772,16 @@ def cmd_run(a):
     slew = float(env.get("cmd_vx_slew", 0.0))
     ready = a.ready if a.ready is not None else (2.0 if env.get("reset_ref_pose") and ref is not None else 0.0)
     q_ready = ref_lookup(ref, 0.0, 0.0) if (ready > 0 and ref is not None) else q_nom
+    # 2026-11-11: robot logs: with the 1 s blend and the clock running, the first right step (inside the blend, its weight
+    # shift scaled down) landed inward (boards 81-88 mm apart) and the first left lift-off came with the pelvis 52-62 mm
+    # inside the standing board: most of the day's near-falls 1.9 s after engaging. Ready-pose policies trained fully
+    # engaged from the first step: no blend by default; any blend holds the clock until it ends.
+    if a.ramp is None:
+        a.ramp = 0.0 if ready > 0 else 1.0
+    print(f"policy blend-in {a.ramp:.1f} s" + (" (gait clock held until it ends)" if a.ramp > 0 else ""))
+    lpf = a.act_lpf if a.act_lpf is not None else float(env.get("act_lpf", 0.0))   # action low-pass, as trained
+    if lpf > 0:
+        print(f"action low-pass {lpf:.2f}" + (" (override)" if a.act_lpf is not None else " (from the run's config)"))
     if ready > 0:
         print(f"ready pose first: {ready:.1f} s blend to the gait's start pose, then the policy; forward command "
               f"ramps at {slew:.2f} m/s^2" if slew else f"ready pose first: {ready:.1f} s")
@@ -765,7 +815,17 @@ def cmd_run(a):
                 sys.exit("\nCtrl-C: torque off")
             # the fitted servo model assumes the fastest ramp the register allows (0 = a slow default on some units)
             set_motion_regs(bus, sv.ids, a.accel, sv.names)
-            sv.set_accel(a.accel)
+            if a.accel_match:                       # 2026-11-11: each servo's ramp as in the run's training model
+                pa = list(env.get("prof_acc", [0.0, 0.0])) + [None]
+                acc_j = {}
+                for n in sv.names:
+                    r = pa[1] if n.endswith("knee") else (pa[2] if n.endswith("hip_pitch") and pa[2] else pa[0])
+                    acc_j[n] = int(np.clip(round(math.degrees(r) / 8.79), 1, 254)) if r else a.accel
+                print("acceleration register per joint (training model):",
+                      " ".join(f"{n} {v}" for n, v in acc_j.items()))
+                sv.set_accel(acc_j)
+            else:
+                sv.set_accel(a.accel)
             imu.rebias()                                # re-zero the gyro while it stands still
             print("\nRobot on its pads, standing? Keep a hand near it.\n"
                   "  Enter = ENGAGE the policy      q = abort (holds the stance pose)")
@@ -829,6 +889,8 @@ def cmd_run(a):
                     obs = np.concatenate([g, wv, q - q_nom, 0.1 * qd, last_a, cmd_v,
                                           [math.sin(phase), math.cos(phase)]])
                     act = np.clip(pol(obs), -1.0, 1.0)
+                    if lpf > 0:
+                        act = lpf * last_a + (1.0 - lpf) * act
                     ramp = min(1.0, (t_run - ready) / a.ramp) if a.ramp > 0 else 1.0
                     q_base = q_nom
                     if ref is not None:
@@ -839,7 +901,7 @@ def cmd_run(a):
                 if a.enable:
                     sv.write(q_cmd)
                 last_a = act
-                if t_run >= ready:
+                if t_run >= ready + a.ramp:              # the clock starts once the policy is fully engaged
                     ph_new = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
                     if gate_u:                          # settle gate (as trained): hold the clock at a lift-off
                         u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)   # while the body still rotates
@@ -933,7 +995,10 @@ def main():
     ap.add_argument("--imu-port", help="default: auto-detect the RP2040")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("ports")
-    sub.add_parser("imu-calib")
+    sp = sub.add_parser("imu-calib", help="IMU zero = the hip plate level; roll and pitch levelled separately")
+    sp.add_argument("--axis", choices=["both", "roll", "pitch"], default="both",
+                    help="redo only the roll zero (plate level sideways) or only the pitch zero (level fore-aft), "
+                         "keeping the other from the saved calibration")
     sub.add_parser("imu-check")
     sp = sub.add_parser("timing", help="bus + IMU speed (no motion)")
     sp.add_argument("--write", action="store_true", help="also time sync writes (torque must be off: nothing moves)")
@@ -961,7 +1026,16 @@ def main():
                     "the torque off instead of holding the stance pose (the behaviour before 2026-11-11)")
     sp.add_argument("--imu-timeout", type=float, default=0.2,
                     help="s without an IMU sample before the safety stop (shorter gaps run on the last sample)")
-    sp.add_argument("--ramp", type=float, default=1.0, help="s to blend the policy in from the plain stance")
+    sp.add_argument("--ramp", type=float, default=None,
+                    help="s to blend the policy in from the plain stance (default 1; 0 for policies that start from the "
+                         "gait's ready pose, which trained fully engaged from the first step). The gait clock waits at "
+                         "0 until the blend ends")
+    sp.add_argument("--accel-match", action="store_true",
+                    help="set each servo's acceleration register to the run's training model (prof_acc: hip yaw / "
+                         "roll / ankle ~46 = 400 deg/s^2, hip pitch and knee ~228) instead of --accel for all; the old "
+                         "hip servos ignore it, the newer ones (ankles, knees) follow it")
+    sp.add_argument("--act-lpf", type=float, default=None,
+                    help="action low-pass a = k * a_prev + (1 - k) * a_policy (default: the run's act_lpf, else 0 = off)")
     sp.add_argument("--ready", type=float, help="s to blend into the gait's start pose before the policy engages "
                     "(default 2 for policies trained from that pose, step-and-settle walkers; else 0)")
     sp.add_argument("--pitch-trim", type=float, default=0.0,

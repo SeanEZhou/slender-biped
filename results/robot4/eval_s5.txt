@@ -1,0 +1,6 @@
+s5_w25                       k=4    vx=0.015  falls 0/12                  fwd  42.9 cm  step 18.5 mm  |roll|>4: 36.2%  peak  8.6  gap min  70 end  78 mm
+s5_w25                       k=4    vx=0.03   falls 0/12                  fwd  37.8 cm  step 17.2 mm  |roll|>4: 28.0%  peak  7.9  gap min  70 end  81 mm
+s5_w25                       k=4    vx=0.04   falls 0/12                  fwd  35.3 cm  step 15.6 mm  |roll|>4: 21.3%  peak  7.8  gap min  71 end  80 mm
+s5_w25                       k=3    vx=0.015  falls 0/12                  fwd  42.8 cm  step 18.8 mm  |roll|>4: 41.2%  peak  9.7  gap min  71 end  78 mm
+s5_w25                       k=3    vx=0.03   falls 0/12                  fwd  37.9 cm  step 18.2 mm  |roll|>4: 35.1%  peak  9.2  gap min  71 end  80 mm
+s5_w25                       k=3    vx=0.04   falls 0/12                  fwd  36.9 cm  step 17.4 mm  |roll|>4: 27.2%  peak  8.9  gap min  71 end  80 mm
