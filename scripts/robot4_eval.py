@@ -37,7 +37,7 @@ def episode(args):
     pol = NumpyPolicy(pp)
     over = dict(floor_tc=0.02, push_vel=0.0, imu_filter=True, imu_gate=0.15, gyro_range=17.45, dr_imu_tilt=0.0,
                 dr_volt=(0.68, 0.68), dr_delay_steps=(0, 1), prof_acc=(25.0, 60.0, 60.0), noise_qd=0.25,
-                dr_kp=(0.75, 1.25), kp_hip_roll=2.5, hidden_flex=((("hip_roll", float(flex)),) if flex else ()))
+                dr_kp=(0.75, 1.25), kp_hip_roll=2.5, hidden_off=(), drag_back=0.0, hidden_flex=((("hip_roll", float(flex)),) if flex else ()))
     over.update(extra)
     env = CpuBiped(model, EvalConfig.from_train(cfg["env"], **over), seed=91000 + seed)
     obs = env.reset((vx, 0, 0)); y0 = yaw_of(env.d.qpos[3:7])

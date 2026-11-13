@@ -1,0 +1,12 @@
+sim s7_narrow                      falls 0/8 T  30.0 s                     pitch early  -0.1 late  -0.6  reach L  21.4 R  19.3 mm fwd  64.1 cm
+sim s8_push                        falls 0/8 T  30.0 s                     pitch early  -1.8 late  -1.5  reach L  27.3 R  24.4 mm fwd  82.7 cm
+sim s10_robust                     falls 0/8 T  30.0 s                     pitch early  -0.7 late  -1.2  reach L  24.0 R  22.3 mm fwd  70.6 cm
+sim c3m_T12                        falls 2/8 T  23.5 s  left:2             pitch early  -0.7 late  -0.9  reach L  17.8 R  19.1 mm fwd  41.3 cm
+sim s7_narrow hidden_off=[["knee", falls 2/8 T  23.5 s  back:1 left:1      pitch early  +6.9 late  +3.4  reach L  21.3 R  16.3 mm fwd  49.0 cm
+sim s8_push hidden_off=[["knee",-0 falls 1/8 T  26.8 s  back:1             pitch early  +3.4 late  +2.7  reach L  25.3 R  23.5 mm fwd  62.1 cm
+sim s10_robust hidden_off=[["knee" falls 0/8 T  30.0 s                     pitch early  +3.6 late  +3.3  reach L  21.6 R  20.9 mm fwd  62.6 cm
+sim c3m_T12 hidden_off=[["knee",-0 falls 2/8 T  24.7 s  left:2             pitch early  +4.2 late  +3.8  reach L  22.7 R  21.4 mm fwd  52.8 cm
+sim s7_narrow hidden_off=[["hip_pi falls 2/8 T  24.4 s  left:2             pitch early  +3.8 late  +3.2  reach L  20.9 R  16.6 mm fwd  53.8 cm
+sim s8_push hidden_off=[["hip_pitc falls 0/8 T  30.0 s                     pitch early  +1.8 late  +2.0  reach L  25.8 R  22.7 mm fwd  76.0 cm
+sim s10_robust hidden_off=[["hip_p falls 0/8 T  30.0 s                     pitch early  +2.4 late  +2.1  reach L  21.3 R  20.8 mm fwd  65.6 cm
+sim c3m_T12 hidden_off=[["hip_pitc falls 3/8 T  22.6 s  left:3             pitch early  +3.1 late  +3.1  reach L  19.0 R  18.3 mm fwd  43.6 cm

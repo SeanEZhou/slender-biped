@@ -1,0 +1,4 @@
+sim b6_mid hidden_off=[["knee",-0. falls 0/24 T  30.0 s                     pitch early  -2.4 late  -1.6  reach L  20.6 R  21.7 mm fwd  52.1 cm
+b6_mid                       k=4    vx=0.015  falls 0/12                  fwd  46.5 cm  step 18.9 mm  |roll|>4: 10.8%  peak  9.0  gap min  70 end 102 mm
+b6_mid                       k=4    vx=0.03   falls 0/12                  fwd  48.7 cm  step 19.6 mm  |roll|>4:  6.8%  peak  7.7  gap min  70 end 101 mm
+sim b6_mid hidden_off=[["knee",-0. falls 2/12 T  27.6 s  back:2             pitch early  +0.2 late  +1.6  reach L  21.3 R  23.9 mm fwd  44.8 cm

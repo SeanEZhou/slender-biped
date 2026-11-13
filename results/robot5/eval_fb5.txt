@@ -1,0 +1,4 @@
+sim fb5_seed1 hidden_off=[["knee", falls 12/24 T  22.1 s  back:9 left:1 right:2 pitch early  -1.1 late  -0.1  reach L  21.4 R  20.1 mm fwd  48.8 cm
+fb5_seed1                    k=4    vx=0.015  falls 0/12                  fwd  78.5 cm  step 27.0 mm  |roll|>4: 26.8%  peak 10.8  gap min  63 end  95 mm
+fb5_seed1                    k=4    vx=0.03   falls 0/12                  fwd  66.7 cm  step 23.8 mm  |roll|>4: 21.6%  peak  9.5  gap min  67 end  96 mm
+sim fb5_seed1 hidden_off=[["knee", falls 12/12 T  14.9 s  back:11 right:1    pitch early  +1.2 late  +2.3  reach L  19.8 R  19.7 mm fwd  12.4 cm

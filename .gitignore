@@ -192,3 +192,17 @@ personal-notes/
 !runs/s9_t15/params_0030M.pkl
 !runs/s10_robust/params_0030M.pkl
 !runs/s11_pushn/params_0030M.pkl
+# robot round 5 (2026-11-12): the back lean and the cable pull in training (docs/walking_clean.md §17-18); final checkpoints
+!runs/b1_lean/params_0030M.pkl
+!runs/b2_lean_s8/params_0030M.pkl
+!runs/b3_lean_long/params_0030M.pkl
+!runs/b4_lean_soft/params_0030M.pkl
+!runs/b5_seed1/params_0030M.pkl
+!runs/b6_mid/params_0030M.pkl
+!runs/b7_seed2/params_0030M.pkl
+!runs/b8_mid2/params_0030M.pkl
+!runs/fb1_s10/params_0030M.pkl
+!runs/fb2_lean/params_0030M.pkl
+!runs/fb3_c3f/params_0030M.pkl
+!runs/fb4_soft/params_0030M.pkl
+!runs/fb5_seed1/params_0030M.pkl

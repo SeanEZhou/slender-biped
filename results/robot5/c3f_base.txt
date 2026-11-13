@@ -1,0 +1,5 @@
+c3f_T12                      k=4    vx=0.015  falls 0/12                  fwd  43.7 cm  step 14.1 mm  |roll|>4: 18.0%  peak  8.2  gap min  76 end 115 mm
+c3f_T12                      k=4    vx=0.03   falls 0/12                  fwd  52.7 cm  step 19.1 mm  |roll|>4: 18.7%  peak  7.6  gap min  78 end 116 mm
+sim c3f_T12                        falls 0/8 T  30.0 s                     pitch early  -2.5 late  -2.5  reach L  21.3 R  16.1 mm fwd  50.2 cm
+sim s10_robust                     falls 7/8 T   8.6 s  back:7             pitch early +13.8 late  +2.7  reach L  18.1 R  19.3 mm fwd   4.8 cm
+sim c3f_T12 hidden_off=[["knee",-0 falls 6/8 T  16.2 s  back:6             pitch early  +2.2 late  +2.4  reach L  21.5 R  15.0 mm fwd  11.5 cm

@@ -76,6 +76,15 @@ class EnvConfig:
     # 4-5 deg slip onset at hip_roll k ~3.5-5.
     hidden_flex: tuple = ()
     dr_flex: tuple = (1.0, 1.0)
+    # 2026-11-12 round 5 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, lo, hi, spread),
+    # ...): per episode one common offset U(lo, hi) for the matching joints plus U(-spread, spread) per joint (the legs
+    # differ); the servo and the observation read q + off. The robot stands 3.7 deg further back than the model with its
+    # boards flat; a knee offset of -0.045 rad reproduces it and the robot's walking pitch.
+    hidden_off: tuple = ()
+    # backward pull on the pelvis growing with the distance walked (a cable from above): per episode U(0, drag_back) N
+    # per m, capped at drag_back_max N
+    drag_back: float = 0.0
+    drag_back_max: float = 0.0
     roll_lim: float = 0.07             # rad: pelvis roll above which `roll_lim` penalizes (deg^2); the robot's feet slip
                                        # inward from ~4-5 deg of sideways tilt and it tips at 6-7 (measuring.md E1)
     dr_latency_sub: tuple = (0, 6)     # 0-12 ms
@@ -386,8 +395,15 @@ class SlenderBipedEnv(Env):
         if c.reset_ref_pose and self.ref is not None:
             from .ref_gait import lookup
             q0 = lookup(self.ref, jp.array(0.0), jp.array(0.0), jp)[0]
-        qj = q0 + c.reset_joint_noise * jax.random.normal(k1, (self.nj,))
+        q_off = jp.zeros(self.nj)
+        for n_, (suf, lo, hi, spr) in enumerate(c.hidden_off):
+            ko = jax.random.split(jax.random.fold_in(k1, 100 + n_), 2)
+            msk = jp.array([1.0 if j.endswith(suf) else 0.0 for j in self.joints])
+            q_off = q_off + msk * (jax.random.uniform(ko[0], (), minval=lo, maxval=hi)
+                                   + jax.random.uniform(ko[1], (self.nj,), minval=-spr, maxval=spr))
+        qj = q0 - q_off + c.reset_joint_noise * jax.random.normal(k1, (self.nj,))
         qj = jp.clip(qj, self.q_lo, self.q_hi)
+        qe = qj + q_off                                      # what the encoders read
         k2, k2h, k2p, k2a, k2w = jax.random.split(k2, 5)
         tilt = c.reset_tilt * jax.random.normal(k2, (2,))
         ang = jax.random.uniform(k2a, minval=-np.pi, maxval=np.pi)
@@ -432,7 +448,9 @@ class SlenderBipedEnv(Env):
             rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj), last_act2=jp.zeros(self.nj),
             w_prev=jp.zeros(2),
-            flex=jp.zeros(self.nj), prev_cmd=qj, q_tgt=qj, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qj, (self.max_delay + 1, 1)),
+            flex=jp.zeros(self.nj), prev_cmd=qe, q_tgt=qe, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qe, (self.max_delay + 1, 1)),
+            q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
+            drag_k=c.drag_back * jax.random.uniform(jax.random.fold_in(kb3, 9), ()),
             phase=jp.array(0.0), air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
@@ -503,7 +521,7 @@ class SlenderBipedEnv(Env):
             data, q_tgt, v_tgt, acc, flex = carry
             cmd = jp.where(i < s_["latency"], cmd_prev, cmd_now)
             q_tgt, v_tgt = target_update(q_tgt, v_tgt, cmd)
-            q = data.qpos[7:] + flex
+            q = data.qpos[7:] + flex + state.info["q_off"]
             qd = data.qvel[6:]
             e = q_tgt - q
             e = jp.sign(e) * jp.maximum(jp.abs(e) - s_["deadzone"], 0.0)
@@ -523,8 +541,13 @@ class SlenderBipedEnv(Env):
 
         acc0 = dict(tau2=0.0, over_rated=0.0, sat=0.0, over=0.0, peak=0.0, tau=jp.zeros(self.nj))
         data0 = state.pipeline_state
-        if c.tug_force > 0:
-            data0 = data0.replace(xfrc_applied=jp.zeros_like(data0.xfrc_applied).at[1, :3].set(state.info["tug"]))
+        if c.tug_force > 0 or c.drag_back > 0:
+            f_ext = state.info["tug"] if c.tug_force > 0 else jp.zeros(3)
+            if c.drag_back > 0:                 # cable from above: pulls back harder the further the robot has walked
+                i_ = state.info
+                dist = jp.maximum((data0.qpos[0:2] - i_["drag_x0"]) @ i_["drag_dir"], 0.0)
+                f_ext = f_ext.at[0:2].add(-i_["drag_dir"] * jp.minimum(i_["drag_k"] * dist, c.drag_back_max))
+            data0 = data0.replace(xfrc_applied=jp.zeros_like(data0.xfrc_applied).at[1, :3].set(f_ext))
         (data, q_tgt, v_tgt, acc, flex), _ = jax.lax.scan(
             sub, (data0, state.info["q_tgt"], state.info["v_tgt"], acc0, state.info["flex"]), jp.arange(self.n_sub))
 
@@ -774,7 +797,7 @@ class SlenderBipedEnv(Env):
         w_body = data.qvel[3:6]
         if c.gyro_range > 0:
             w_body = jp.clip(w_body, -c.gyro_range, c.gyro_range)
-        q = data.qpos[7:] + info["flex"] - self.q_nom
+        q = data.qpos[7:] + info["flex"] + info["q_off"] - self.q_nom
         qd = data.qvel[6:]
         k = jax.random.split(rng, 4)
         n = c.obs_noise

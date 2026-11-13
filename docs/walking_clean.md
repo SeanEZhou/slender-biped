@@ -10,7 +10,8 @@ Everything in §1–7 is simulation (legs and pelvis, the robot's IMU filter in 
 randomization per walk, floors from hard to a soft rug). §11 onward is the robot: what each policy did on it, and the
 simulator changes that followed.
 
-**Policies that walk on the real robot** (5 V, rug, cables from above, `--vx 0.015` unless noted):
+**Policies that walk on the real robot** (5 V, rug, cables from above, `--vx 0.015` unless noted; from 2026-11-12 19:26 the
+cables hang slack above and slightly behind the robot instead of pulling, §18):
 
 | policy | trained on | on the robot | where |
 |---|---|---|---|
@@ -18,12 +19,18 @@ simulator changes that followed.
 | `c3f_T12` | full body, rigid | balances and marches, mostly in place; 0.015 or 0.02 | §11.3, §14 |
 | `s7_narrow` | pelvis + hip give k 2.4-6, stance-width penalty | 4 trials: 7-27 s (mean 18), 3-28 steps; no sideways fall | §15, §16 |
 | `s8_push` | s7 + stronger forward pay | 4 trials: 8-26 s (mean 15), 4-21 steps; the longest steps (~17 mm per step, c3m ~12) | §15, §16 |
-| **`s10_robust`** | s7 + give k 2-6 + IMU offsets | **4 trials: 19-28 s (mean 24), 18-24 steps: the steadiest**; one earlier walk of 93 s (95 steps) | §15, §16 |
+| **`s10_robust`** | s7 + give k 2-6 + IMU offsets | **4 trials: 19-28 s (mean 24), 18-24 steps: the steadiest of round 4**; one earlier walk of 93 s (95 steps) | §15, §16 |
+| `b6_mid` | s10 + back lean + pull, shorter steps | 66 s, stopped; stable but mostly steps in place (11-14 mm), toes catch the rug | §17, §18 |
+| **`b7_seed2`** | s10 + back lean + pull | **122 s and 99 s, 45 s**: the best leg policy so far, smooth on a flat rug; the longest steps (L 22-33, R 14-21 mm), fewest servo reversals. Toes catch on rougher rug; heels close (one fall with the heels together) | §17, §18 |
+| `fb2_lean`, `fb4_soft` | full body, back lean + pull | step forward (c3f marches in place), but 5-24 s, every trial falls sideways; a 4.5-5 Hz shake on most steps | §17, §18 |
 
 All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
 Tried on the robot and failed: `c6_T15` (stepped on its own foot), `c5i_big` (tipped every other step) (§11);
 `h9_w6kl_L`, `h4_w6k_L`, `h13_kl_L`, `h3_k_L` (fell sideways in the first steps, §14). Every walker before the ankle
-roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13 and §15 runs.
+roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13, §15 and §17
+runs. With the cables no longer pulling (§18), all of round 5's leg policies and the s policies walk for a minute or
+more; `c3m` still falls sideways within 10-20 s. The legs are now steadier than the full body, which is the gap to close
+next (§18.4).
 
 ## 1. What the open-source biped trainers do
 
@@ -828,3 +835,238 @@ What the logs show:
    followed by hand), and note which orientation each trial uses.
 3. **The left / right asymmetry**: check the hip-pitch and knee zero offsets of the right leg (the right foot reaches
    half as far as the left in `s7` and `s10`).
+
+## 17. Round 5: the backward lean in the model, and the full body (2026-11-12 afternoon, simulation)
+
+No new measurements this round: the simulator was fitted to §16's 16 robot walks, then trained on. Scripts:
+`scripts/gap_fit.py` (runs policies in the robot-like evaluator and reports what the robot logs show, measured the same
+way: time to the fall, fall direction, walking pitch, step reach per foot from the encoders; `--logs` does the same for
+robot logs), queues `scripts/robot5_queue{1..4}.sh`, notes and raw results in `results/robot5/`.
+
+### 17.1 What the walks say about the model
+
+- **The servos aren't it.** On the robot hip pitch and knee follow their commands within 1-2° (80-140 ms lag, knees
+  sagging 1.5° under load), and the joint ranges while walking match the simulator's (hip pitch ~23°, knee ~25°).
+- **The falls happen at landings.** Each swing lifts the thigh to 35-38°; at touchdown the body pitches back (up to
+  -96°/s, to +8-14°) and, late in a walk, doesn't come back.
+- **The robot walks leaning back.** It stands 3.7° back of the model with its boards flat (E1) and walks at +1 to +5°;
+  the simulator at -1 to -2.
+
+Three changes to the evaluator (`EvalConfig`) and the training environment (`EnvConfig`):
+
+| change | what | effect |
+|---|---|---|
+| `hidden_off` | encoder zero errors the servos can't see; knee -0.045 rad stands the model 3.7° back as the robot | walking pitch +3-4° and pitch wobble (7-8° p5-95) as on the robot; alone, few falls |
+| `drag_back`, `drag_back_max` | a backward pull at the pelvis growing with the distance walked (a cable from above, rug drag): N per m, capped | 2 N/m capped 0.6 N: everything falls in 10-16 s (too strong) |
+| hip-roll give k 3.5 (was 4) | softer sideways give | c3m's sideways falls appear |
+
+**Fitted simulator: hip-roll give k = 3.5, knee offset -0.045 rad, pull 0.6 N/m capped at 0.2 N.** It reproduces the
+robot's ranking and its backward falls (12 x 30 s each, 0.015 m/s):
+
+| policy | robot: mean time to fall | fitted sim: mean time (falls) | sim: fall directions |
+|---|---|---|---|
+| `s10_robust` | 23.6 s | 24.8 s (5/12) | back |
+| `s7_narrow` | 17.6 | 21.1 (7/12) | back, one left |
+| `s8_push` | 14.8 | 19.8 (8/12) | back |
+| `c3m_T12` | 13.6 | 17.2 (9/12) | back 5, left 4 |
+
+Not fitted: the robot's steps are still about half the simulated ones. The joints move as far; the swing is shorter
+by the encoders (0.45-0.5 s against ~0.6), which points at the foot touching down early on the rug: less real clearance
+than the model has (E4 measures it).
+
+### 17.2 Training on it
+
+Fine-tunes with the round-4 recipe plus, randomized per episode: knee offset U(-0.07, 0) common to both legs plus
+±0.015 rad per joint, hip pitch ±0.015 per joint (the legs differ), pull 0-1 N/m capped 0.3 N. Yardstick: the fitted
+sim (24 seeds), and a harder version (give k 3, knee -0.07, pull 1 N/m capped 0.3 N).
+
+Legs (`hw_ank3_b150_legs_pelvis_10dof`):
+
+| run | from, change | fitted sim | harder | robot-like k=4 (old screen): falls, steps |
+|---|---|---|---|---|
+| `s10_robust` | round 4 | 5/12, 36 cm | 11/12 | 0/12, 26-32 mm |
+| **`b1_lean`** | s10 + lean + pull | **1/24, 50 cm** | 4/12 | 0/12, 18-20 mm |
+| `b2_lean_s8` | s8 + lean + pull | 0/12, 67 cm | 8/12 | 1/12 (at 2 s), chatter |
+| `b3_lean_long` | b1 + progress 2, stride 60 | 8/12 | 11/12 | 0/12, 29-33 mm |
+| `b4_lean_soft` | b1 + softer give, stronger lean / pull | 6/12 | 12/12 | 0/12, 26-28 mm |
+| `b5_seed1` | b1's recipe and start, training seed 1 | 10/24 | 12/12 | 0/12, 28-32 mm |
+| **`b6_mid`** | b1 + progress 1.5, stride 50 | **0/24, 52 cm** | **2/12** | 0/12, 19-20 mm, calm (7-11%) |
+| **`b7_seed2`** | b1's recipe and start, seed 2 | **1/24, 60 cm** | 6/12 | 0/12, 27-29 mm |
+| `b8_mid2` | b7 + progress 1.5, stride 50 | 3/24, 67 cm | 9/12 | 0/12, 26-28 mm, calm (9-11%) |
+
+Full body (`hw_ank3_b150_10dof`, torso and head):
+
+| run | from, change | fitted sim | harder | robot-like k=4: falls, cm / 30 s, steps |
+|---|---|---|---|---|
+| `c3f_T12` | round 2 | 7/12, 22 cm | | 0/12, 44-53 cm, 14-19 mm |
+| `fb1_s10` | s10's recipe on the full body | 8/12, 30 cm | | 0/12, 55-60 cm, 20 mm; sways (|roll| > 4° 27-34%) |
+| **`fb2_lean`** | fb1 + lean + pull | **2/24, 43 cm** | 6/12 | 0-1/12, 36-44 cm, 15-17 mm, calm (12%) |
+| `fb3_c3f` | c3f + give + lean + pull | 2/12, 38 cm | 10/12 | 0/12, 44 cm, 16 mm |
+| `fb4_soft` | fb2 + softer give, stronger lean / pull | 4/24, 47 cm | 6/12 | 0/12, 58-59 cm, 20-21 mm |
+| `fb5_seed1` | fb2's recipe and start, seed 1 | 12/24, 49 cm | 12/12 | 0/12, 67-79 cm, 24-27 mm |
+
+Learnings:
+1. **The old screen can't see the lean.** `b3` and `b4` look like the best walkers yet without it (0/12 falls, 26-33
+   mm steps) and fail the fitted sim; `b1` and `fb2` pass it. Ranking against the fitted simulator is the point of
+   fitting it.
+2. **More forward pay spends the margin** the lean takes away (`b3`), and harsher training conditions don't
+   automatically give more margin (`b4` came out worse than the run it started from).
+3. **Policies trained with the lean lean forward to meet it**: `b1_lean` walks at -3° in the unfitted simulator, +0 to
+   +1° in the fitted one (s10: +3 to +4°, falling back).
+4. **The recipe doesn't reliably reproduce its best result.** Run again with another training seed, `b1_lean`'s
+   recipe gave `b5_seed1` (10/24 in the fitted sim against 1/24), and `fb2_lean`'s gave `fb5_seed1` (12/24 against
+   2/24); seed 2 (`b7_seed2`) passes again (1/24) and with s10-length steps. So the leg recipe lands on 2 of 3
+   seeds. As with `c3m`, which policy a run ends up with is partly luck; the difference now is a simulator that tells
+   the lucky ones apart before the robot does.
+
+### 17.3 What to try on the robot
+
+1. Legs: **`b6_mid`** at `--vx 0.015`, then 0.02 / 0.03 (`b1_lean` the alternative). Expect walks well past s10's
+   24 s, the pitch staying near 0-2° instead of creeping to +5, and steps no longer than s10's. Then **`b7_seed2`**
+   for longer steps (27-29 mm in the old screen, s10's length; 1/24 in the fitted sim, less margin in the harder one).
+   If they fall back as s10 did, the fitted lean / pull is too weak; if they fall forward, too strong.
+2. Full body: **`fb2_lean`** at 0.015 (`c3f_T12` for comparison); `fb4_soft` for longer steps.
+3. Measurements, to replace guesses in the fitted simulator: one trial with the cables slack (is the pull real?); E4,
+   foot clearance (the short steps); E6, the hip give directly (k 3.5 or 4?); the knee / hip-pitch zeros of each leg
+   with the boards flat (the lean, and the L / R reach difference).
+
+## 18. Round 5 on the robot: cables off the robot, a centred stance, and the full body shaking (2026-11-12 evening)
+
+Logs `hardware/leg_p0/software/stand_<run>_20261112_1926*`-`2123*.csv`. 5 V, rug, `--vx` 0.015 or 0.02 (the logs can't
+tell the two apart). Analysis scripts: the step estimator of §16 (`scripts/gap_fit.py`), plus the swing board's tilt
+and the 4-8 Hz content of the gyro and commands.
+
+### 18.1 The cables were part of the problem
+
+Earlier in the evening the cables still hung from the side and pulled on the robot. Depending on the direction the
+robot faced, they helped it or held it back, so trials of the same policy disagreed. From 19:26 (the last `b6_mid`
+trial) the cables hover above the robot, slightly behind it, and stay slack. The results got much more consistent. Only
+those runs are used below.
+
+This also changes §17's model. The backward pull fitted there (0.6 N/m capped at 0.2 N, trained on 0-1 N/m) was mostly
+these cables. The knee offset that stands the model 3.7° back is real: without any pull, `s10` still drifted back and
+fell on its back (18.2).
+
+### 18.2 Legs
+
+| policy | trial | how it ended | pitch, early -> late (+ = back) | step reach L / R (mm) |
+|---|---|---|---|---|
+| `b6_mid` | 66 s | stopped | -6.7 -> -6.2 | 11 / 14 |
+| **`b7_seed2`** | **122 s** | stopped | -4.9 -> -3.9 | 24 / 14 |
+| `b7_seed2` | 99 s | fell right | -4.6 -> -2.5 | 22 / 18 |
+| `b7_seed2` | 45 s | fell left | -3.9 -> -3.3 | 33 / 21 |
+| `c3m_T12` | 17 s, 9 s | both fell right | -2 -> 0 | 1-13 |
+| `s10_robust` | 105 s | fell back | -0.9 -> **+7.5** | 9 / 10 |
+| `s8_push` | 47 s | stopped | -0.9 -> +1.5 | 22 / 20 |
+| `s7_narrow` | 90 s | stopped | -1.5 -> +2.6 | 16 / 13 |
+
+What was seen on the robot, and what the logs show:
+
+1. **Every new policy is stable; none falls on its first steps.** With the measured hip give, the knee offset and the
+   cables out of the way, policies that walk in the simulator now also walk on the robot. `c3m` is the exception: its
+   sideways stability is clearly worse, and both its trials fell right within 20 s.
+2. **The b policies stand centred, slightly forward.** They walk pitched 4-7° forward and hold it. They were trained to
+   expect the 3.7° back lean *and* a backward pull. Without the pull they over-correct a little. The s policies drift
+   back (`s10` to +7.5° before it fell), and even a slight push from the front makes them fall on their backs. The b
+   stance is the one to keep.
+3. **The cost of leaning forward: the toes catch the rug.** The robot has no ankle pitch, so the board's pitch is the
+   body's pitch. Leaning forward tilts the swing board toe-down, and the toe lifts last and lands first. By the
+   encoders and IMU (both boards' tips, rigid legs):
+
+   | policy | swing board toe-down at peak lift | swings with the toe under 5 mm through mid-swing |
+   |---|---|---|
+   | `b6_mid` | +7.3° | 29% |
+   | `b7_seed2` | +3.7 to +4.7° | 0-5% |
+   | `c3m_T12` | +3.3° | 14% |
+   | `s8_push` | +2.3° | 0% |
+   | `s10_robust` | +0.9° | 6% |
+   | `s7_narrow` | -2.0° | 5% |
+
+   The real clearance is lower still: the hidden give and the rug's pile aren't in these numbers. On the robot, most
+   toe catches don't trip it. Instead the step comes to nothing, a none-step, and the robot stays in place. When `b6`
+   and `b7` do fall, a caught toe is usually the cause. `b6` leans furthest and mostly steps in place. `b7` leans less
+   and steps harder, so it catches less. On a flat rug it walks smoothly. On a rougher rug many of its steps come to
+   nothing.
+4. **`b7` turns its toes out, and its heels come close.** Its hip yaws sit near +6° (s8 +2°), so its toes are
+   about 20 mm further apart than its heels. Its heel gap (heel-tip centres, by the encoders) has a median of 107-111 mm
+   and drops to 88-92 mm, the narrowest of all (`s7` / `s8` 106-112 at their narrowest). The encoders can't see the
+   hip give, which narrows the stance by another 20-30 mm (E1), so only 10-15 mm can remain between the heel edges. On
+   the robot the heels sometimes scrape. Once they came together, and the robot fell at once.
+5. **`b7` and `s8` take the longest steps:** about 20-30 mm per step, against 9-16 mm for the others. `b7` still steps
+   further with the left foot than with the right, as every policy did in §16; `s8` is even. On the robot `s8` is the
+   best of the s policies and close to `b7`.
+6. **The b policies switch their servos less.** `b7`'s knee loads reverse direction 2-3 times per second, against
+   3.3-5.6 for the s policies. Its command jitter is about 20% lower (second difference 0.65-0.72° against
+   0.80-0.88°). A body leaning forward likely keeps the knees loaded in one direction.
+
+### 18.3 Full body: steps, but falls sideways and shakes
+
+`fb2_lean` and `fb4_soft` (§17.2), in seven trials (20:03-20:04 and 21:21-21:23):
+
+| policy | trials (s) | how they ended | pitch | step reach L / R (mm) | lift, median (mm) |
+|---|---|---|---|---|---|
+| `fb2_lean` | 12.3, 23.8, 5.4, 15.2 | all fell sideways (2 right, 2 left) | -2 to -5 | 7-23 / 6-17 | 19-27 |
+| `fb4_soft` | 6.0, 10.5, 18.8 | all fell left | -1 to -6 | 7-16 / 11-15 | 32-45 |
+| `b7_seed2` (legs, for comparison) | 122, 99, 45 | | -3 to -5 | 22-33 / 14-21 | 26 |
+
+They step forward, which `c3f` never really did, but they are far less stable than the legs alone:
+
+1. **Each step decides between tipping and recovering.** The full body rolls ±5-6° on every step; `b7` rolls
+   ±1-3°. That is right at the sideways limit measured in E1 (5-7° before the feet slip in). Every trial ended in a
+   sideways fall.
+2. **A 4.5-5 Hz shake through the whole body, in roll, pitch and yaw.** The gyro's 4-8 Hz component, as RMS:
+
+   | | robot: roll / pitch / yaw (°/s) | robot: share of the commands' power at 4-8 Hz | simulator (fitted, no pull): roll |
+   |---|---|---|---|
+   | `fb2_lean` | 24-31 / 20-22 / 27-31 | 8-15% | 7 |
+   | `fb4_soft` | 16 / 16 / 21 | 3% | 6 |
+   | `c3f_T12` (2026-11-11 logs) | 25 total, peak at 5.0-5.5 Hz | | |
+   | `b7_seed2` (legs) | 6.5 / 5 / 11 | 1% | 10 |
+
+   The legs match the simulator; the full body shakes 3-4 times more on the robot. `c3f` had the same shake (§11.3's
+   "buzz", now located at 5 Hz). Within a run, a swing's shake follows the policy's 4-8 Hz command content (correlation
+   0.83), with the hip yaws, knees and ankle rolls taking part. So the policy is feeding a body oscillation that the
+   simulator doesn't have. The servo loop isn't the cause: it runs on time (3 ms per cycle, under 0.2% of cycles late).
+3. **What makes the clean steps clean** (67 swings across the trials, the calmest quarter against the shakiest
+   quarter, by 4-8 Hz gyro):
+
+   | | 4-8 Hz gyro during the swing | already before lift-off | roll at lift-off, toward the standing foot | lift | swing time |
+   |---|---|---|---|---|---|
+   | calmest quarter | 18°/s | 26 | **+3.4°** | 41 mm | 0.82 s |
+   | shakiest quarter | 50°/s | 49 | **-0.1°** | 21 mm | 0.47 s |
+
+   A clean step starts with the weight already on the standing foot. A shaky one lifts a foot that is still carrying
+   weight, so the lift comes out short and low, and the shake from the previous step carries on. The falls are the
+   other extreme. In every trial the last swing starts with the body already rolled 5-12° over the standing foot,
+   and it tips outward. The weight shift is either too small (shake) or too large (fall). Somewhere in between is the
+   "one clean step in four".
+4. **The simulator has no such mode.** Pushed sideways or fore-aft while holding its stance, the simulated full body
+   doesn't ring at all: the motion dies within 0.5 s at 0.1-1 Hz. Softening the hip give to k = 2, adding a 40 ms
+   delay or weakening the servos doesn't produce a 4.5-5 Hz shake either. The model lumps the torso and head rigidly
+   into the pelvis (§10: 0.574 kg, centre of mass 125 mm above the hips). The real torso is printed in sections, with
+   the head on top. Their own flex, the pelvis mount and the hip give under 1.45 kg can make a lightly damped mode near
+   5 Hz. A policy trained without it pushes at the wrong phase.
+
+### 18.4 Next: measure the full body
+
+The goal is walking with the full body, and it is the full body that the simulator misses now. As in round 4, the
+plan is to measure first, fit the model, then train:
+
+1. **Tap test (new; the 5 Hz mode).** Under `hold`, tap the head sideways, then fore-aft, then twist the torso
+   about the vertical. Do each a few times and log the gyro. Two numbers come out, the mode's frequency and how fast it
+   dies out, which together give stiffness and damping. Repeat with the robot held by the torso (feet free), which
+   isolates the hips and legs from the torso's own flex. Simulator: no ringing.
+2. **E0 / E1 with the torso and head on.** Weight against the model's 1.45 kg; tip angles forward, back and sideways.
+   The sideways limit is the margin each step has. With the centre of mass higher, it should come out under the
+   legs-only 5-7°.
+3. **E6 / E3 with the full body:** the hip give under the larger load (k = 3.5 was fitted on the legs alone), and how
+   far the weight can shift onto one board before it tips outward. That bounds the shift that 18.3.3 shows the policy
+   getting wrong.
+4. **E4, foot clearance** (for the legs' toe catches).
+
+In the model and training, once measured:
+- a torso joint with the measured stiffness and damping (or the measured give at the hips);
+- the pull reduced or removed;
+- for the legs, starting from `b7`:
+  - a swing-clearance term on the board's front tip (toe-down near the floor);
+  - the stance-width penalty applied to the heel corners as well as to the board centres.

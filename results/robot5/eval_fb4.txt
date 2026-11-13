@@ -1,0 +1,7 @@
+sim fb4_soft hidden_off=[["knee",- falls 4/24 T  27.3 s  back:1 left:2 right:1 pitch early  -2.3 late  -1.3  reach L  17.4 R  17.2 mm fwd  47.0 cm
+fb4_soft                     k=4    vx=0.015  falls 0/12                  fwd  57.7 cm  step 20.7 mm  |roll|>4: 15.0%  peak 11.6  gap min  62 end  81 mm
+fb4_soft                     k=4    vx=0.03   falls 0/12                  fwd  58.9 cm  step 20.5 mm  |roll|>4: 13.9%  peak 11.6  gap min  66 end  85 mm
+fb4_soft                     k=3    vx=0.015  falls 0/12                  fwd  60.5 cm  step 22.2 mm  |roll|>4: 22.1%  peak  9.8  gap min  57 end  78 mm
+fb4_soft                     k=3    vx=0.03   falls 1/12 (29 s)           fwd  56.9 cm  step 21.3 mm  |roll|>4: 17.1%  peak 12.2  gap min  60 end  76 mm
+sim fb4_soft hidden_off=[["knee",- falls 6/12 T  21.0 s  back:6             pitch early  +0.0 late  +1.2  reach L  17.0 R  16.7 mm fwd  26.6 cm
+sim fb2_lean hidden_off=[["knee",- falls 6/12 T  23.0 s  back:6             pitch early  +0.5 late  +2.3  reach L  16.9 R  15.4 mm fwd  25.2 cm

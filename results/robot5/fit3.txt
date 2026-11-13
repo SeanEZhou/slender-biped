@@ -1,0 +1,16 @@
+sim s7_narrow drag_back=1.0 drag_b falls 6/8 T  21.2 s  back:5 left:1      pitch early  +0.5 late  +2.1  reach L  22.8 R  20.4 mm fwd  39.1 cm
+sim s8_push drag_back=1.0 drag_bac falls 5/8 T  24.6 s  back:5             pitch early  -0.9 late  +1.0  reach L  29.0 R  24.2 mm fwd  54.5 cm
+sim s10_robust drag_back=1.0 drag_ falls 2/8 T  28.7 s  back:2             pitch early  -0.0 late  +2.0  reach L  22.8 R  22.0 mm fwd  63.4 cm
+sim c3m_T12 drag_back=1.0 drag_bac falls 3/8 T  28.1 s  back:3             pitch early  -0.2 late  +1.7  reach L  23.2 R  22.7 mm fwd  54.7 cm
+sim s7_narrow drag_back=1.0 drag_b falls 8/8 T  13.5 s  back:7 left:1      pitch early  +6.7 late  +5.3  reach L  23.1 R  16.0 mm fwd  12.8 cm
+sim s8_push drag_back=1.0 drag_bac falls 8/8 T  16.0 s  back:8             pitch early  +3.4 late  +4.9  reach L  27.6 R  22.7 mm fwd  17.9 cm
+sim s10_robust drag_back=1.0 drag_ falls 6/8 T  17.3 s  back:6             pitch early  +4.1 late  +5.1  reach L  19.2 R  20.7 mm fwd  18.5 cm
+sim c3m_T12 drag_back=1.0 drag_bac falls 7/8 T  14.0 s  back:6 left:1      pitch early  +5.1 late  +6.1  reach L  24.8 R  22.9 mm fwd  19.0 cm
+sim s7_narrow floor_tc=0.05 hidden falls 3/8 T  21.3 s  back:2 left:1      pitch early  +6.9 late  +4.1  reach L  21.7 R  17.1 mm fwd  42.5 cm
+sim s8_push floor_tc=0.05 hidden_o falls 3/8 T  21.0 s  back:3             pitch early  +3.3 late  +2.8  reach L  25.8 R  22.1 mm fwd  40.8 cm
+sim s10_robust floor_tc=0.05 hidde falls 0/8 T  30.0 s                     pitch early  +3.3 late  +2.9  reach L  22.1 R  20.7 mm fwd  60.7 cm
+sim c3m_T12 floor_tc=0.05 hidden_o falls 4/8 T  22.2 s  back:1 left:3      pitch early  +4.6 late  +4.3  reach L  23.2 R  20.2 mm fwd  40.4 cm
+sim s7_narrow drag_back=0.6 drag_b falls 7/8 T  15.7 s  back:6 left:1      pitch early  +4.4 late  +5.1  reach L  22.7 R  18.8 mm fwd  20.4 cm
+sim s8_push drag_back=0.6 drag_bac falls 6/8 T  18.3 s  back:5 left:1      pitch early  +3.2 late  +4.5  reach L  27.3 R  22.7 mm fwd  31.6 cm
+sim s10_robust drag_back=0.6 drag_ falls 5/8 T  22.8 s  back:5             pitch early  +3.9 late  +4.7  reach L  22.2 R  21.0 mm fwd  35.1 cm
+sim c3m_T12 drag_back=0.6 drag_bac falls 6/8 T  20.2 s  back:5 left:1      pitch early  +4.8 late  +5.3  reach L  23.5 R  23.1 mm fwd  33.2 cm

@@ -1,0 +1,10 @@
+sim b1_lean hidden_off=[["knee",-0 falls 0/12 T  30.0 s                     pitch early  +0.2 late  +1.1  reach L  21.1 R  20.2 mm fwd  55.6 cm
+sim s10_robust hidden_off=[["knee" falls 5/12 T  24.8 s  back:5             pitch early  +3.3 late  +4.1  reach L  21.2 R  19.7 mm fwd  36.0 cm
+b1_lean                      k=4    vx=0.015  falls 0/12                  fwd  49.8 cm  step 19.8 mm  |roll|>4: 16.8%  peak  8.8  gap min  69 end  96 mm
+b1_lean                      k=4    vx=0.03   falls 0/12                  fwd  44.5 cm  step 17.9 mm  |roll|>4:  9.9%  peak  8.7  gap min  69 end  95 mm
+b1_lean                      k=3    vx=0.015  falls 0/12                  fwd  48.9 cm  step 20.1 mm  |roll|>4: 22.7%  peak 10.2  gap min  63 end  83 mm
+b1_lean                      k=3    vx=0.03   falls 0/12                  fwd  38.1 cm  step 15.5 mm  |roll|>4: 13.1%  peak  8.5  gap min  63 end  83 mm
+sim b1_lean                        falls 0/12 T  30.0 s                     pitch early  -3.2 late  -3.2  reach L  19.9 R  17.5 mm fwd  56.3 cm
+sim s10_robust                     falls 0/12 T  30.0 s                     pitch early  -1.1 late  -1.7  reach L  22.5 R  21.3 mm fwd  65.3 cm
+sim b1_lean hidden_off=[["knee",-0 falls 4/12 T  24.0 s  back:3 right:1     pitch early  +2.4 late  +3.6  reach L  21.5 R  22.7 mm fwd  38.6 cm
+sim s10_robust hidden_off=[["knee" falls 11/12 T  15.6 s  back:11            pitch early  +7.0 late  +6.4  reach L  19.1 R  16.7 mm fwd   4.6 cm

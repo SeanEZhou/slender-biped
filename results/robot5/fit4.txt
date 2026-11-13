@@ -1,0 +1,4 @@
+sim s7_narrow hidden_off=[["knee", falls 7/8 T  19.0 s  back:4 left:3      pitch early  +4.1 late  +5.4  reach L  21.6 R  15.6 mm fwd  30.9 cm
+sim s8_push hidden_off=[["knee",-0 falls 6/8 T  18.6 s  back:6             pitch early  +2.7 late  +3.9  reach L  26.7 R  24.7 mm fwd  28.3 cm
+sim s10_robust hidden_off=[["knee" falls 4/8 T  23.7 s  back:4             pitch early  +3.7 late  +4.9  reach L  21.1 R  22.8 mm fwd  35.9 cm
+sim c3m_T12 hidden_off=[["knee",-0 falls 8/8 T   4.8 s  back:1 left:7      pitch early  +4.4 late  +4.0  reach L  20.0 R  19.0 mm fwd   3.7 cm

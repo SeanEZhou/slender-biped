@@ -138,6 +138,13 @@ class EvalConfig:
     # 2026-11-11 (docs/walking_clean.md §14): give the servo encoders can't see. ((joint suffix, k N*m/rad), ...): the
     # servo loop and the observation read q + f, the physics moves q, f -> tau / k with a 10 ms lag. Empty = rigid.
     hidden_flex: tuple = ()
+    # 2026-11-12 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, rad), ...): the servo
+    # loop and the observation read q + off (so the servo holds the physical joint off away from its target); a suffix
+    # like "knee" matches both legs, "R_knee" one. The robot stands 3.7 deg further back than the model, boards flat.
+    hidden_off: tuple = ()
+    # backward pull on the pelvis growing with forward distance walked (a cable from above): N per m, capped
+    drag_back: float = 0.0
+    drag_back_max: float = 0.0
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
@@ -146,8 +153,9 @@ class EvalConfig:
         for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias"):
             if k in keep:
                 keep[k] = tuple(keep[k])
-        if "hidden_flex" in keep:
-            keep["hidden_flex"] = tuple(tuple(x) for x in keep["hidden_flex"])
+        for k in ("hidden_flex", "hidden_off"):
+            if k in keep:
+                keep[k] = tuple(tuple(x) for x in keep[k])
         return cls(**keep)
 
 
@@ -231,6 +239,7 @@ class CpuBiped:
         return low, d.geom_xpos[self.tip_gid].copy()
 
     def reset(self, cmd=(0.0, 0.0, 0.0)):
+        self.__dict__.pop("_drag_x0", None)
         c, m, d, rng = self.cfg, self.m, self.d, self.rng
         # model randomization (same ranges as mjx_env.randomization_fn)
         m.body_mass[:] = self.m0_mass
@@ -280,11 +289,15 @@ class CpuBiped:
         self.flex_kinv = np.array([1.0 / kf[s] if (s := next((x for x in kf if j.endswith(x)), None)) else 0.0
                                    for j in self.joints])
         self.flex = np.zeros(self.nj)
+        self.q_off = np.zeros(self.nj)
+        for e in c.hidden_off:                 # (suffix, rad), or a training range (suffix, lo, hi, spread): its middle
+            v = e[1] if len(e) == 2 else 0.5 * (e[1] + e[2])
+            self.q_off += np.array([float(v) if j.endswith(e[0]) else 0.0 for j in self.joints])
         q0 = self.q_nom
         if c.reset_ref_pose and self.ref is not None:
             from .ref_gait import lookup
             q0 = lookup(self.ref, 0.0, 0.0)[0]
-        qj = np.clip(q0 + c.reset_joint_noise * rng.normal(size=self.nj), self.q_lo, self.q_hi)
+        qj = np.clip(q0 - self.q_off + c.reset_joint_noise * rng.normal(size=self.nj), self.q_lo, self.q_hi)
         tilt = c.reset_tilt * rng.normal(size=2)
         q_rp = np.array([1.0, tilt[0] / 2, tilt[1] / 2, 0.0])
         d.qpos[3:7] = q_rp / np.linalg.norm(q_rp)
@@ -354,7 +367,7 @@ class CpuBiped:
         w = d.qvel[3:6].copy()
         if c.gyro_range > 0:
             w = np.clip(w, -c.gyro_range, c.gyro_range)
-        q = d.qpos[7:] + self.flex - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
+        q = d.qpos[7:] + self.flex + self.q_off - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
         qd = d.qvel[6:].copy()
         n = c.obs_noise
         r = self.rng
@@ -440,10 +453,15 @@ class CpuBiped:
         self.cmd_buf = np.concatenate([q_cmd[None], old_buf[:-1]], 0)
         cmd_now, cmd_prev = self.cmd_buf[s_["delay"]], old_buf[s_["delay"]]
         a_prof = s_["acc"]
+        if c.drag_back > 0:                     # cable from above: pulls back harder the further the robot has walked
+            if not hasattr(self, "_drag_x0"):
+                self._drag_x0 = d.qpos[0:2].copy(); y = yaw_of(d.qpos[3:7]); self._drag_dir = np.array([np.cos(y), np.sin(y)])
+            dist = max(float((d.qpos[0:2] - self._drag_x0) @ self._drag_dir), 0.0)
+            d.xfrc_applied[1, 0:2] = -self._drag_dir * min(c.drag_back * dist, c.drag_back_max)
         for i in range(n_sub):
             cmd = cmd_prev if i < s_["latency"] else cmd_now
             self.q_tgt, self.v_tgt = target_update(self.q_tgt, self.v_tgt, cmd, a_prof, c.slew, c.sim_dt)
-            q, qd = d.qpos[7:] + self.flex, d.qvel[6:]
+            q, qd = d.qpos[7:] + self.flex + self.q_off, d.qvel[6:]
             e = self.q_tgt - q
             e = np.sign(e) * np.maximum(np.abs(e) - s_["deadzone"], 0)
             u_req = kp * e - c.kd * qd
