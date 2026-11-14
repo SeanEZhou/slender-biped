@@ -1,0 +1,4 @@
+d7_vib                   [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -2.6 walk -4.6 |roll|p95  5.5 >4deg  17% reach L/R 11.2/10.7 fwd 27.7cm shake  8.3 cmd4-8 0.8%
+d7_vib                   [r7 com_dx=0.015] falls  1/6 T 25.2s back:1         pitch0 -2.7 walk -7.0 |roll|p95  5.5 >4deg  17% reach L/R  6.3/ 5.4 fwd  7.6cm shake  8.1 cmd4-8 1.4%
+d7_vib                   [r7hard] falls  4/6 T 10.8s back:3 left:1  pitch0 +3.8 walk -4.0 |roll|p95  9.5 >4deg  25% reach L/R -5.2/12.4 fwd -1.6cm shake 16.7 cmd4-8 2.0%
+d7_vib           per deg of back tilt: hip pitch +0.231 knee -0.329 (knee-hip -0.560) deg/deg | pitch-rate gain rms hip 0.059 knee 0.100 deg per deg/s

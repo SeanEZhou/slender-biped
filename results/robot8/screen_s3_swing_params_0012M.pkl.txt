@@ -1,0 +1,4 @@
+s3_swing:params_0012M.pkl [r7] falls  0/6 T 30.0s                pitch0 -1.0 walk -2.9 |roll|p95  6.0 >4deg  22% reach L/R 12.2/12.5 fwd 30.2cm shake  8.0 cmd4-8 0.9%
+s3_swing:params_0012M.pkl [r7 com_dx=0.015] falls  2/6 T 21.2s fwd:2          pitch0 -3.1 walk -5.3 |roll|p95  5.5 >4deg  17% reach L/R -1.3/ 7.2 fwd 15.3cm shake  8.5 cmd4-8 1.3%
+s3_swing:params_0012M.pkl [fitted com_dx=0.015] falls  3/6 T 22.7s fwd:3          pitch0 -2.3 walk -3.3 |roll|p95  5.9 >4deg  20% reach L/R  8.0/ 9.7 fwd 28.0cm shake  9.7 cmd4-8 0.7%
+s3_swing:params_0012M.pkl [r7hard] falls  2/6 T 20.4s back:2         pitch0 +3.2 walk -2.7 |roll|p95  9.6 >4deg  23% reach L/R 12.1/11.8 fwd 11.9cm shake 12.4 cmd4-8 1.1%

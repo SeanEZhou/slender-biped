@@ -1,0 +1,14 @@
+g1_t10l:params_0010M.pkl [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -1.9 walk -3.3 |roll|p95  5.9 >4deg  19% reach L/R  9.6/13.5 fwd 32.3cm shake  7.7 cmd4-8 0.7%
+g1_t10l:params_0010M.pkl [r7 com_dx=0.015] falls  2/6 T 22.7s back:1 fwd:1   pitch0 -3.0 walk -4.8 |roll|p95  6.0 >4deg  24% reach L/R -0.3/11.3 fwd 24.2cm shake 10.9 cmd4-8 1.5%
+g1_t10l:params_0010M.pkl [r7hard] falls  5/6 T  7.9s back:3 fwd:1 left:1 pitch0 +4.4 walk -2.0 |roll|p95 10.4 >4deg  38% reach L/R 18.2/16.6 fwd  0.9cm shake 18.6 cmd4-8 2.6%
+Traceback (most recent call last):
+  File "/home/sean/slender-biped/scripts/robot8_analysis/gains.py", line 12, in <module>
+    pol, O, A, t = replay.build(run, f or LOG)
+                   ~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "/home/sean/slender-biped/scripts/robot7_analysis/replay.py", line 15, in build
+    t, g, w, q, qd, act = load(f)
+                          ~~~~^^^
+  File "/home/sean/slender-biped/scripts/robot7_analysis/replay.py", line 8, in load
+    rows = list(csv.reader(open(f))); h = rows[0]; A = np.array(rows[1:], float)
+                           ~~~~^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'params_0010M.pkl'

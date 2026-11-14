@@ -790,7 +790,11 @@ def cmd_run(a):
         print(f"gyro low-pass {a.gyro_lpf:.1f} Hz on the policy's input (override)")
     if a.ready_act and ready > 0:
         print("ready blend goes to the pose the policy holds standing (gait start pose + its action, clock at 0)")
-    if a.gyro_scale != 1.0:
+    if a.gyro_scale is None:                       # 2026-11-14: a gyro-blind policy (gyro_obs_scale 0) runs blind
+        a.gyro_scale = float(env.get("gyro_obs_scale", 1.0))
+        if a.gyro_scale != 1.0:
+            print(f"gyro x {a.gyro_scale:.2f} on the policy's input (as trained)")
+    elif a.gyro_scale != 1.0:
         print(f"gyro x {a.gyro_scale:.2f} on the policy's input (not as trained)")
     lpf = a.act_lpf if a.act_lpf is not None else float(env.get("act_lpf", 0.0))   # action low-pass, as trained
     if lpf > 0:
@@ -1075,8 +1079,8 @@ def main():
                     help="Hz: first-order low-pass on the gyro the policy sees (default: the run's gyro_lpf, else off). 2026-11-13: the "
                          "full-body shake is a loop: the frame rings at 4.5-5 Hz, the gyro sees it and the policy "
                          "answers it at the knees and hip rolls. 2-3 Hz cuts that loop's gain at 4.5 Hz to 0.4-0.55")
-    sp.add_argument("--gyro-scale", type=float, default=1.0,
-                    help="multiply the gyro the policy sees (1 = as trained); <1 lowers its gain round the shake loop")
+    sp.add_argument("--gyro-scale", type=float, default=None,
+                    help="multiply the gyro the policy sees (default: the run's gyro_obs_scale, else 1); <1 lowers its gain round the shake loop")
     sp.add_argument("--act-lpf", type=float, default=None,
                     help="action low-pass a = k * a_prev + (1 - k) * a_policy (default: the run's act_lpf, else 0 = off)")
     sp.add_argument("--ready", type=float, help="s to blend into the gait's start pose before the policy engages "

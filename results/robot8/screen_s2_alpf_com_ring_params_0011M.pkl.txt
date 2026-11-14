@@ -1,0 +1,4 @@
+s2_alpf_com_ring:params_0011M.pkl [r7] falls  0/6 T 30.0s                pitch0 -2.4 walk -3.8 |roll|p95  6.1 >4deg  22% reach L/R  6.9/ 9.5 fwd 17.2cm shake  7.4 cmd4-8 0.8%
+s2_alpf_com_ring:params_0011M.pkl [r7 com_dx=0.015] falls  1/6 T 25.2s fwd:1          pitch0 -4.5 walk -6.2 |roll|p95  5.6 >4deg  18% reach L/R -2.8/ 2.9 fwd  2.5cm shake  7.6 cmd4-8 0.8%
+s2_alpf_com_ring:params_0011M.pkl [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -3.1 walk -3.7 |roll|p95  5.5 >4deg  15% reach L/R  5.6/ 4.0 fwd  5.2cm shake  9.1 cmd4-8 0.7%
+s2_alpf_com_ring:params_0011M.pkl [r7hard] falls  2/6 T 20.4s back:2         pitch0 +2.4 walk -2.9 |roll|p95  6.5 >4deg  21% reach L/R  6.1/ 9.0 fwd  0.1cm shake 14.0 cmd4-8 1.5%

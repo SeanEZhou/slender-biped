@@ -1,0 +1,4 @@
+d6_glcp                  [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -1.6 walk -3.9 |roll|p95  5.2 >4deg  15% reach L/R  9.0/ 8.6 fwd 21.0cm shake  6.0 cmd4-8 0.4%
+d6_glcp                  [r7 com_dx=0.015] falls  4/6 T 14.8s fwd:3 left:1   pitch0 -3.8 walk -6.2 |roll|p95  9.2 >4deg  27% reach L/R 11.7/ 9.2 fwd 24.1cm shake  7.9 cmd4-8 1.0%
+d6_glcp                  [r7hard] falls  4/6 T 10.8s back:2 left:2  pitch0 +3.1 walk -2.9 |roll|p95 14.5 >4deg  38% reach L/R 10.0/ 3.9 fwd  4.8cm shake 16.5 cmd4-8 1.7%
+d6_glcp          per deg of back tilt: hip pitch +0.193 knee -0.243 (knee-hip -0.436) deg/deg | pitch-rate gain rms hip 0.011 knee 0.016 deg per deg/s

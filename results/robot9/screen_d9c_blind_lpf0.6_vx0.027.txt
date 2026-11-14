@@ -1,0 +1,6 @@
+d9c_blind                [fitted com_dx=0.015] falls  4/6 T 16.8s back:1 left:3  pitch0 +0.9 walk -3.5 |roll|p95 10.4 >4deg  33% reach L/R 13.4/13.3 fwd 16.3cm shake  9.0 cmd4-8 1.2%
+d9c_blind                [r7 com_dx=0.015] falls  3/6 T 15.8s back:1 fwd:1 left:1 pitch0 -0.9 walk -7.2 |roll|p95 11.3 >4deg  29% reach L/R  4.7/ 4.2 fwd  6.6cm shake 11.3 cmd4-8 2.0%
+/home/sean/slender-biped/scripts/eval6.py:80: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+d9c_blind                [r7hard] falls  6/6 T  1.3s back:5 left:1  pitch0 +6.9 walk +nan |roll|p95 13.3 >4deg  37% reach L/R  nan/52.9 fwd -17.2cm shake 19.7 cmd4-8 3.1%
+d9c_blind        per deg of back tilt: hip pitch +0.208 knee -0.278 (knee-hip -0.487) deg/deg | pitch-rate gain rms hip 0.025 knee 0.037 deg per deg/s

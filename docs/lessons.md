@@ -2,15 +2,62 @@
 
 What this project has learned, in one place, for whoever picks it up next: me later, or an agent. Each lesson is a
 short statement plus a link to where it was learned, with the data. The detail docs keep the full record; this file
-keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-13, after robot round 7 (the
-full body's 5 Hz shake).
+keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-14, after robot round 9 (a faster
+gait, and a breadth-first search on the shake loop).
 
 Status in one line: the robot (10 STS3215 servos, ankle roll, 150 × 50 mm snowboard pads, IMU on the pelvis) walks
 with the legs alone for minutes (`b7_seed2`: 122 s, 99 s) and, since 2026-11-13, with the torso and head on:
 `python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` walked 188 s (299 steps), 74 s and 76 s.
 Its remaining faults: bouts of twitching against the frame's 5 Hz ring, and falls after a minute or so. The full
 detail: [walking_clean.md §18-22](walking_clean.md#22-round-7-on-the-robot-the-ring-is-tamed-the-steps-tip-forward-2026-11-13-evening).
-Next: fine-tune h4 with the action filter in training, one simulator change at a time (§22.1).
+Rounds 8-9 tried to make it faster and calmer; nothing beat it on the robot yet, but they showed why it works
+([walking_clean.md §26](walking_clean.md#26-round-9-on-the-robot-the-new-gait-tips-sideways-the-gyro-penalty-transfers-and-why-h4-works-2026-11-14-1104-1132)).
+Next: single changes from h4 (speed, a gyro-only gradient penalty, centre of mass, higher steps) and an
+open-loop-within-a-step policy (round 10).
+
+## Full body: what rounds 8-9 taught (2026-11-13 / 14)
+
+- **Train without a ring rather than with a wrong one.** A policy trained against a simulated ring learns a
+  counter-move timed to that ring; on a body that rings differently the same move feeds the ring. On the no-ring
+  simulator, the shake grew with the training ring's strength (7 → 8 → 20 → 33°/s at 0, ½, 1, 1.5× the round-7 ring),
+  and no ring-trained policy did better on the robot. ([walking_clean.md §25.4, §26](walking_clean.md))
+- **Train without the action filter, and apply it at run time.** With the filter in training the smoothness penalties
+  only see the filtered action, so the policy pushes harder behind it: the hip's gyro gain doubled every time (s1, s3,
+  d5, d11), and those twitched worst on the robot.
+- **A gyro-only gradient penalty is the first training change that cut the twitch on the robot.** `--lcp 0.01
+  --lcp-idx 3:6` (the Lipschitz penalty of [Chen et al. 2024](https://arxiv.org/abs/2410.11825), on the gyro inputs
+  only) halved the 4-8 Hz commands against h4's and kept the pitch damping. 0.05, or no gyro at all, removed the fast
+  balance too: those fell forward or twisted within 3 s.
+- **More reward pressure means more twitch.** Doubling the progress and swing pay sped the policy up and made it shake
+  ~30% more. h4's light weights are part of why it is calm.
+- **The gait must let the landing settle.** Cutting the double support (release 0.25 → 0.15 s, the settle gate's
+  hold 1.0 → 0.2 s) made every policy lift the next foot while the body still rolled from the last landing, and tip
+  over the stance foot at the third step. The simulator doesn't charge for this; keep the wait after landing and
+  shorten other phases if faster stepping is wanted.
+- **Rewards on the symptom teach avoidance.** A landing-speed penalty taught hesitation; fake gyro vibration taught
+  nothing to a policy with no memory.
+- **Make the step target follow the command.** h4 walks ~1.2 cm/s at any command because its fixed 5 cm step target
+  paid standing about as well as walking; `stride_cmd` (target = speed command / step rate) fixed the speed in
+  simulation.
+
+### Why h4_t05 works, and what to improve
+
+| h4 has | why it matters |
+|---|---|
+| No ring in training | its gyro answer is generic, so the run-time filter can cut the loop where the robot rings |
+| Light reward pressure (tilt -0.05, progress 1.5, pose σ 0.1) | nothing pushes it to answer every disturbance |
+| No filter in training, `--act-lpf 0.6` at run time | the smoothness penalties see its raw actions; the filter removes only the 5 Hz part |
+| A gait that waits for calm (c_T12, 0.25 s release, gate up to 1 s) | the landing roll dies out before the next weight shift |
+| A strong slow posture answer (-0.57° knee - hip per degree of lean) | it catches slow leans; policies that lost it fell forward |
+
+| weakness | fix to try |
+|---|---|
+| ~1.2 cm/s at any command (fixed 5 cm step target) | `stride_cmd` at h4's pay level |
+| Twitch bouts (gyro gain 0.047 / 0.096) | gyro-only LCP 0.01 |
+| Leans 4.5° forward (model's centre of mass 1-2 cm back) | `dr_com_x` [-0.005, 0.025] |
+| Toes catch | a reference gait that lifts higher (a clearance penalty alone doesn't teach lifting) |
+| Jolt at engage | blend the first actions in |
+| No memory to tell the ring from a real rotation | observation history (experimental) |
 
 ## Full body: what rounds 5-7 taught (2026-11-12 / 13)
 

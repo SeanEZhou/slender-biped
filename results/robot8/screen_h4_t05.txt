@@ -1,0 +1,4 @@
+h4_t05                   [r7] falls  0/6 T 30.0s                pitch0 -2.2 walk -3.8 |roll|p95  6.5 >4deg  23% reach L/R  9.7/14.3 fwd 31.2cm shake 10.1 cmd4-8 2.0%
+h4_t05                   [r7 com_dx=0.015] falls  3/6 T 21.1s fwd:3          pitch0 -4.2 walk -5.7 |roll|p95  6.6 >4deg  25% reach L/R  5.4/13.4 fwd 28.9cm shake 10.7 cmd4-8 2.2%
+h4_t05                   [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -3.3 walk -3.9 |roll|p95  5.6 >4deg  14% reach L/R  6.1/11.3 fwd 13.0cm shake  8.3 cmd4-8 2.3%
+h4_t05                   [r7hard] falls  5/6 T  8.8s back:4 right:1 pitch0 +3.7 walk -1.5 |roll|p95  7.5 >4deg  23% reach L/R  9.2/16.4 fwd -5.6cm shake 19.7 cmd4-8 5.1%

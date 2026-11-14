@@ -1,0 +1,4 @@
+s3_swing                 [r7] falls  0/6 T 30.0s                pitch0 -1.1 walk -2.8 |roll|p95  5.9 >4deg  20% reach L/R  7.9/11.4 fwd 24.4cm shake  7.4 cmd4-8 0.7%
+s3_swing                 [r7 com_dx=0.015] falls  1/6 T 25.3s fwd:1          pitch0 -3.3 walk -5.0 |roll|p95  5.2 >4deg  15% reach L/R -1.0/ 5.9 fwd  7.8cm shake  8.4 cmd4-8 1.0%
+s3_swing                 [fitted com_dx=0.015] falls  1/6 T 28.0s fwd:1          pitch0 -2.6 walk -2.8 |roll|p95  5.8 >4deg  19% reach L/R  6.2/ 5.6 fwd 17.1cm shake  9.4 cmd4-8 0.7%
+s3_swing                 [r7hard] falls  2/6 T 20.4s back:2         pitch0 +2.8 walk -2.2 |roll|p95  6.7 >4deg  21% reach L/R  8.3/11.1 fwd  6.8cm shake 11.5 cmd4-8 1.2%

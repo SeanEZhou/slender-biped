@@ -103,6 +103,13 @@ class EnvConfig:
     ring_delay: float = 0.0
     dr_ring: tuple = (0.85, 1.15, 0.6, 1.6, 0.6, 1.5)
     gyro_lpf: float = 0.0              # Hz: first-order low-pass on the gyro the policy sees (robot: policy_stand --gyro-lpf); 0 = off
+    # 2026-11-14 round 9 (walking_clean.md §25): ways to stop the policy answering the 5 Hz shake.
+    gyro_obs_scale: float = 1.0        # multiply the gyro the policy sees before its noise (0 = blind: the policy sees noise only;
+                                       # robot: policy_stand --gyro-scale defaults to this)
+    gyro_vib: tuple = ()               # (amp rad/s, f_lo, f_hi Hz): fake roll / pitch oscillation added to the gyro the policy sees,
+                                       # per episode, in bursts; the body doesn't move, so answering it only costs (the critic sees the truth)
+    act_hf_hz: float = 2.0             # act_hf: penalize the policy's raw output (before act_lpf) above this cutoff
+    stride_cmd: bool = False           # stride pays up to the commanded step length (cmd vx * step time) instead of stride_target
     flex_dscale: float = 1.0           # share of the servo's damping acting on the give (round 7: small = structural flex outside the servo, rings)
     dr_flex_tc: tuple = ()
     # 2026-11-12 round 5 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, lo, hi, spread),
@@ -138,6 +145,9 @@ class EnvConfig:
     dr_friction: tuple = (0.5, 1.2)
     dr_floor_tc: tuple = (0.004, 0.004)
     dr_floor_damp: tuple = (1.0, 1.0)
+    # 2026-11-13 round 8: extra forward shift (m) of the pelvis centre of mass, uniform per walk, on top of the +-5 mm
+    # (the robot's round-7 policies walk as the simulator does with the mass 1-2 cm further forward)
+    dr_com_x: tuple = (0.0, 0.0)
     push_interval_s: tuple = (2.0, 4.0)
     push_vel: float = 0.0              # m/s std of random base velocity kicks (0 = off)
     # commands
@@ -172,7 +182,7 @@ class EnvConfig:
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
         track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, scuff=0.0, foot_tilt=0.0, ang_acc=0.0, action_acc=0.0,
-        clear=0.0, roll_lim=0.0, tilt_lim=0.0, narrow=0.0, board_yaw=0.0, alive=0.5,
+        clear=0.0, roll_lim=0.0, tilt_lim=0.0, narrow=0.0, board_yaw=0.0, alive=0.5, act_hf=0.0,
         termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
@@ -322,7 +332,7 @@ class SlenderBipedEnv(Env):
         # the area, so the time constant is scaled by sqrt(reference area / pad area) (reference: the 31 x 18 mm pad)
         tc_scale = float(np.sqrt(PAD_AREA_REF / self.meta["pad_area"])) if "pad_area" in self.meta else 1.0
         FLOOR_DR = dict(friction=tuple(cfg.dr_friction), tc=tuple(cfg.dr_floor_tc), damp=tuple(cfg.dr_floor_damp),
-                        tc_scale=tc_scale)
+                        tc_scale=tc_scale, com_x=tuple(cfg.dr_com_x))
         self.ref = None
         if cfg.ref_table:
             from .ref_gait import load
@@ -524,13 +534,24 @@ class SlenderBipedEnv(Env):
             tug=jp.zeros(3), tug_goal=jp.zeros(3), tug_timer=self._steps(jax.random.fold_in(kb4, 3), c.tug_s),
             ring=dict(r=jp.zeros(3), rd=jp.zeros(3), us=self._ring_W @ qe, buf=jp.tile(self._ring_W @ qe, (self._ring_nbuf, 1)),
                       i=jp.array(0, jp.int32)),
-            w_f=jp.zeros(3),
+            w_f=jp.zeros(3), raw_lp=jp.zeros(self.nj),
+            vib=self._vib_sample(jax.random.fold_in(kb4, 11)),
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
         obs, frame = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         info["hist"] = jp.tile(frame, (c.obs_hist, 1))
         obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
+
+    def _vib_sample(self, k):
+        c = self.cfg
+        k = jax.random.split(k, 5)
+        amp = c.gyro_vib[0] if c.gyro_vib else 0.0
+        flo, fhi = (c.gyro_vib[1], c.gyro_vib[2]) if c.gyro_vib else (5.0, 5.0)
+        return dict(a=jax.random.uniform(k[0], (3,), maxval=amp) * jp.array([1.0, 1.0, 0.0]),
+                    f=jax.random.uniform(k[1], (3,), minval=flo, maxval=fhi),
+                    p=jax.random.uniform(k[2], (3,), maxval=2 * jp.pi),
+                    fe=jax.random.uniform(k[3], (), minval=0.1, maxval=0.5), pe=jax.random.uniform(k[4], (), maxval=2 * jp.pi))
 
     def _metric_keys(self):
         return ["r_" + k for k in self.cfg.rw] + ["sat_frac", "overspeed_frac", "peak_tau_frac", "touchdowns",
@@ -540,6 +561,7 @@ class SlenderBipedEnv(Env):
     def step(self, state: State, action):
         c, s_ = self.cfg, state.info["servo"]
         action = jp.clip(action, -1, 1)
+        raw_act = action
         if c.act_lpf > 0:
             action = c.act_lpf * state.info["last_act"] + (1.0 - c.act_lpf) * action
         mir = state.info["mirror"]
@@ -759,7 +781,8 @@ class SlenderBipedEnv(Env):
         # stride: forward (heading-direction) travel of a tip between its lift-off and touchdown
         fwd = jp.array([jp.cos(yaw_cur), jp.sin(yaw_cur)])
         step_len = (centre[:, :2] - lift_pos[:, :2]) @ fwd
-        stride = jp.sum(jp.where(touchdown, jp.clip(step_len, 0.0, c.stride_target) / c.stride_target, 0.0))
+        s_tgt = jp.maximum(cmd[0] / (2.0 * c.gait_hz), 0.005) if c.stride_cmd else c.stride_target
+        stride = jp.sum(jp.where(touchdown, jp.clip(step_len, 0.0, s_tgt) / s_tgt, 0.0))
         rw = c.rw
         tilt2 = jp.sum(g_body[:2] ** 2)
         clear_err = 0.0
@@ -819,6 +842,7 @@ class SlenderBipedEnv(Env):
                                                                 (1.0 + (pad_sp < 0)) * pad_sp ** 2) + pad_sr ** 2, 0.0)),
             ang_acc=jp.sum(((w_body[:2] - info["w_prev"]) / c.ctrl_dt) ** 2),
             action_acc=jp.sum((action - 2 * info["last_act"] + info["last_act2"]) ** 2),
+            act_hf=jp.sum((raw_act - info["raw_lp"]) ** 2),
             clear=clear_err,
             # boards turned toe-in / toe-out relative to the pelvis heading (sin^2 of each board's yaw): toe-in brings the
             # board ends together while the centres stay apart (c6n_T15: boards overlapping 2-3 mm at 59 mm centre gap)
@@ -863,7 +887,8 @@ class SlenderBipedEnv(Env):
         info["y_true"] = jp.where(resample, 0.0, info["y_true"])
 
         info.update(rng=rng, last_act=action, last_act2=info["last_act"], w_prev=w_body[:2], prev_cmd=q_cmd, q_tgt=q_tgt, v_tgt=v_tgt, cmd_buf=new_buf, air_time=air,
-                    contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1)
+                    contact_prev=contact, tip_prev=centre, lift_pos=lift_pos, step=info["step"] + 1,
+                    raw_lp=info["raw_lp"] + (1.0 - np.exp(-2 * np.pi * c.act_hf_hz * c.ctrl_dt)) * (raw_act - info["raw_lp"]))
         metrics = dict(state.metrics)
         for k, v in terms.items():
             metrics["r_" + k] = rw[k] * v
@@ -897,6 +922,11 @@ class SlenderBipedEnv(Env):
         k = jax.random.split(rng, 4)
         n = c.obs_noise
         g_n = g_body + n * 0.03 * jax.random.normal(k[0], (3,))
+        w_body = c.gyro_obs_scale * w_body
+        if c.gyro_vib:
+            v, t = info["vib"], info["step"] * c.ctrl_dt
+            env_ = jp.clip(0.5 + jp.sin(2 * jp.pi * v["fe"] * t + v["pe"]), 0.0, 1.0)   # bursts about half the time
+            w_body = w_body + env_ * v["a"] * jp.sin(2 * jp.pi * v["f"] * t + v["p"])
         w_n = w_body + n * 0.15 * jax.random.normal(k[1], (3,))
         q_n = q + n * c.noise_q * jax.random.normal(k[2], (self.nj,))
         qd_n = qd + n * c.noise_qd * jax.random.normal(k[3], (self.nj,))
@@ -946,7 +976,7 @@ class SlenderBipedEnv(Env):
 
 
 TIP_PAIRS = jp.array([0, 1])  # set by SlenderBipedEnv from pair names (tip-floor pairs)
-FLOOR_DR = dict(friction=(0.5, 1.2), tc=(0.004, 0.004), damp=(1.0, 1.0), tc_scale=1.0)  # set by SlenderBipedEnv
+FLOOR_DR = dict(friction=(0.5, 1.2), tc=(0.004, 0.004), damp=(1.0, 1.0), tc_scale=1.0, com_x=(0.0, 0.0))  # set by SlenderBipedEnv
 from .feet import PAD_AREA_REF  # noqa: E402  (rug softness reference area)
 
 
@@ -965,6 +995,8 @@ def randomization_fn(sys, rng, num_envs=None):
         body_mass = sys.body_mass * ms
         body_inertia = sys.body_inertia * ms[:, None]
         pel_off = jax.random.uniform(k[2], (3,), minval=-0.005, maxval=0.005)
+        if FLOOR_DR["com_x"] != (0.0, 0.0):
+            pel_off = pel_off.at[0].add(jax.random.uniform(jax.random.fold_in(key, 7), minval=FLOOR_DR["com_x"][0], maxval=FLOOR_DR["com_x"][1]))
         body_ipos = sys.body_ipos.at[1].add(pel_off)
         arm = sys.dof_armature.at[6:].multiply(jax.random.uniform(k[3], (sys.nv - 6,), minval=0.6, maxval=1.6))
         fl = sys.dof_frictionloss.at[6:].multiply(jax.random.uniform(k[4], (sys.nv - 6,), minval=0.5, maxval=2.0))

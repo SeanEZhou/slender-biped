@@ -228,3 +228,23 @@ personal-notes/
 !runs/r11_alpf_fwd/params_0030M.pkl
 !runs/r12_alpf5_h4/params_0030M.pkl
 !runs/r13_alpf_b7/params_0030M.pkl
+# robot rounds 8-9 (2026-11-13 night / 11-14): filter trained into h4, the c_T10L gait and the shake-loop search (docs/walking_clean.md §23-26)
+!runs/s1_alpf_com/params_0025M.pkl
+!runs/s2_alpf_com_ring/params_0011M.pkl
+!runs/s3_swing/params_0024M.pkl
+!runs/g1_t10l/params_0040M.pkl
+!runs/d1_ignore/params_0028M.pkl
+!runs/d1b_ignore/params_0028M.pkl
+!runs/d2_ring05/params_0028M.pkl
+!runs/d2b_ring05/params_0028M.pkl
+!runs/d3_ring10/params_0028M.pkl
+!runs/d4_ring15/params_0028M.pkl
+!runs/d5_hf/params_0028M.pkl
+!runs/d6_glcp/params_0028M.pkl
+!runs/d6b_glcp01/params_0028M.pkl
+!runs/d7_vib/params_0028M.pkl
+!runs/d8_glpf/params_0028M.pkl
+!runs/d9_blind/params_0028M.pkl
+!runs/d9c_blind/params_0028M.pkl
+!runs/d10_land/params_0028M.pkl
+!runs/d11_combo/params_0028M.pkl

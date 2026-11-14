@@ -165,6 +165,7 @@ class EvalConfig:
     ring: tuple = ()                   # round 7 frame mode: ((axis, f_hz, zeta, gain, inertia), ...), axis pitch / roll / yaw (mjx_env.EnvConfig)
     ring_hp: float = 0.3
     gyro_lpf: float = 0.0              # Hz, low-pass on the policy's gyro (mjx_env.EnvConfig)
+    gyro_obs_scale: float = 1.0        # the gyro the policy sees x this (0 = a gyro-blind policy; mjx_env.EnvConfig)
     ring_delay: float = 0.0            # s: dead time of the frame mode's drive
     flex_dscale: float = 1.0          # share of the servo's damping that acts on the give (1 = give inside the servo; small = structural flex outside it)
     # 2026-11-12 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, rad), ...): the servo
@@ -174,6 +175,8 @@ class EvalConfig:
     # backward pull on the pelvis growing with forward distance walked (a cable from above): N per m, capped
     drag_back: float = 0.0
     drag_back_max: float = 0.0
+    com_dx: float = 0.0                # 2026-11-13 round 8: shift of the pelvis centre of mass forward (m), after randomization
+    push_fwd: float = 0.0              # constant forward force on the pelvis (N), a probe
 
     @classmethod
     def from_train(cls, env_cfg: dict, **over):
@@ -313,6 +316,7 @@ class CpuBiped:
         if c.mass_scale is not None:
             m.body_mass[:] *= c.mass_scale
             m.body_inertia[:] *= c.mass_scale
+        m.body_ipos[1, 0] += c.com_dx
         mujoco.mj_resetDataKeyframe(m, d, self.kid)
         kf = {e[0]: e[1:] for e in c.hidden_flex}
         sel = [next((x for x in kf if j.endswith(x)), None) for j in self.joints]
@@ -405,6 +409,7 @@ class CpuBiped:
             w = self.w_f.copy()
         q = d.qpos[7:7 + self.nj] + self.flex + self.q_off - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
         qd = d.qvel[6:6 + self.nj].copy()
+        w = c.gyro_obs_scale * w
         n = c.obs_noise
         r = self.rng
         g = g + n * 0.03 * r.normal(size=3)
@@ -536,6 +541,8 @@ class CpuBiped:
         self.cmd_buf = np.concatenate([q_cmd[None], old_buf[:-1]], 0)
         cmd_now, cmd_prev = self.cmd_buf[s_["delay"]], old_buf[s_["delay"]]
         a_prof = s_["acc"]
+        if c.push_fwd:
+            y = yaw_of(d.qpos[3:7]); d.xfrc_applied[1, 0:2] = c.push_fwd * np.array([np.cos(y), np.sin(y)])
         if c.drag_back > 0:                     # cable from above: pulls back harder the further the robot has walked
             if not hasattr(self, "_drag_x0"):
                 self._drag_x0 = d.qpos[0:2].copy(); y = yaw_of(d.qpos[3:7]); self._drag_dir = np.array([np.cos(y), np.sin(y)])

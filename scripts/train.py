@@ -349,7 +349,7 @@ def widen(restore, env):
     return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
-def install_lcp(coef, n_sensor):
+def install_lcp(coef, n_sensor, idx=""):
     """2026-11-11: gradient penalty on the policy mean's sensitivity to its sensor inputs (LCP, arXiv 2410.11825), so
     sensor noise (the servos' quantized speed readings) does not turn into command jitter. Hutchinson estimate of the
     squared Frobenius norm of the Jacobian: one vector-Jacobian product with a random +-1 vector per sample."""
@@ -359,7 +359,11 @@ def install_lcp(coef, n_sensor):
         total, metrics = orig(params, normalizer_params, data, rng, ppo_network, **kw)
         obs = data.observation
         x = obs["state"]
-        mask = jnp.zeros(x.shape[-1]).at[:n_sensor].set(1.0)
+        if idx:                                  # 2026-11-14: "a:b" = only these inputs (3:6 = the gyro)
+            lo, hi = (int(v) for v in idx.split(":"))
+            mask = jnp.zeros(x.shape[-1]).at[lo:hi].set(1.0)
+        else:
+            mask = jnp.zeros(x.shape[-1]).at[:n_sensor].set(1.0)
 
         def mean_act(xs):
             logits = ppo_network.policy_network.apply(normalizer_params, params.policy, dict(obs, state=xs))
@@ -415,6 +419,7 @@ def main():
     ap.add_argument("--lcp", type=float, default=0.0,
                     help="Lipschitz-constrained policy (Chen et al. 2024): loss += lcp * E||d action_mean / d sensors||^2 "
                          "over the sensor inputs (gravity, gyro, joint angles / speeds, last action); 0 = off")
+    ap.add_argument("--lcp-idx", default="", help='LCP over only these state inputs, "lo:hi" (3:6 = the gyro); "" = all sensors')
     a = ap.parse_args()
 
     out = ROOT / "runs" / a.name
@@ -451,7 +456,7 @@ def main():
             restore = widen(pickle.load(f), env)
 
     if a.lcp > 0:
-        install_lcp(a.lcp, 6 + 3 * env.nj)
+        install_lcp(a.lcp, 6 + 3 * env.nj, a.lcp_idx)
 
     net = functools.partial(ppo_networks.make_ppo_networks, policy_hidden_layer_sizes=(128, 128, 128, 128),
                             value_hidden_layer_sizes=(256, 256, 256, 256, 256),

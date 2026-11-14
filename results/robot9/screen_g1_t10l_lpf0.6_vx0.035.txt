@@ -1,0 +1,4 @@
+g1_t10l                  [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -1.4 walk -2.1 |roll|p95  7.1 >4deg  24% reach L/R 15.4/11.1 fwd 44.1cm shake  7.9 cmd4-8 0.7%
+g1_t10l                  [r7 com_dx=0.015] falls  3/6 T 18.8s back:1 fwd:1 left:1 pitch0 -3.0 walk -3.1 |roll|p95  9.6 >4deg  36% reach L/R 12.3/12.1 fwd 22.8cm shake 10.6 cmd4-8 0.9%
+g1_t10l                  [r7hard] falls  6/6 T  3.1s back:6         pitch0 +5.0 walk -2.4 |roll|p95 10.6 >4deg  33% reach L/R 12.2/29.7 fwd -16.9cm shake 19.2 cmd4-8 3.1%
+g1_t10l          per deg of back tilt: hip pitch +0.172 knee -0.397 (knee-hip -0.570) deg/deg | pitch-rate gain rms hip 0.043 knee 0.102 deg per deg/s

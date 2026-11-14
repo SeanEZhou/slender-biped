@@ -1,0 +1,4 @@
+d4_ring15                [fitted com_dx=0.015] falls  3/6 T 18.2s fwd:3          pitch0 -2.9 walk -6.4 |roll|p95  4.4 >4deg  10% reach L/R  3.6/ 3.8 fwd 12.5cm shake 32.5 cmd4-8 3.4%
+d4_ring15                [r7 com_dx=0.015] falls  5/6 T  8.8s fwd:5          pitch0 -3.8 walk -7.3 |roll|p95  4.5 >4deg   9% reach L/R  4.8/ 9.3 fwd 21.4cm shake  8.3 cmd4-8 1.9%
+d4_ring15                [r7hard] falls  4/6 T 13.2s back:3 right:1 pitch0 +5.6 walk -4.1 |roll|p95  6.7 >4deg  21% reach L/R  5.6/ 8.6 fwd -1.1cm shake 14.9 cmd4-8 2.2%
+d4_ring15        per deg of back tilt: hip pitch +0.245 knee -0.201 (knee-hip -0.446) deg/deg | pitch-rate gain rms hip 0.032 knee 0.058 deg per deg/s
