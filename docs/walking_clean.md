@@ -22,15 +22,16 @@ cables hang slack above and slightly behind the robot instead of pulling, §18):
 | **`s10_robust`** | s7 + give k 2-6 + IMU offsets | **4 trials: 19-28 s (mean 24), 18-24 steps: the steadiest of round 4**; one earlier walk of 93 s (95 steps) | §15, §16 |
 | `b6_mid` | s10 + back lean + pull, shorter steps | 66 s, stopped; stable but mostly steps in place (11-14 mm), toes catch the rug | §17, §18 |
 | **`b7_seed2`** | s10 + back lean + pull | **122 s and 99 s, 45 s**: the best leg policy so far, smooth on a flat rug; the longest steps (L 22-33, R 14-21 mm), fewest servo reversals. Toes catch on rougher rug; heels close (one fall with the heels together) | §17, §18 |
-| `fb2_lean`, `fb4_soft` | full body, back lean + pull | step forward (c3f marches in place), but 5-24 s, every trial falls sideways; a 4.5-5 Hz shake on most steps | §17, §18 |
+| **`h4_t05` + `--act-lpf 0.6`** | full body, round 6 (§19); action low-pass at run time | **the best full-body walker: 188 s (299 steps, stopped standing), 74 s (115, fell left), 76 s (109, ended at 7° roll)** on 2026-11-13 evening; pitched 4.5° forward. It sometimes starts fighting the 5 Hz ring and twitches when there's no need. `python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` | §20, §22 |
 
 All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
-Tried on the robot and failed: `c6_T15` (stepped on its own foot), `c5i_big` (tipped every other step) (§11);
+Tried on the robot and failed (the bar for this table: 10+ steps in every trial): `fb2_lean`, `fb4_soft` (full body: step, but
+5-24 s, every trial falls sideways, a 4.5-5 Hz shake on most steps, §18); `c6_T15` (stepped on its own foot), `c5i_big` (tipped every other step) (§11);
 `h9_w6kl_L`, `h4_w6k_L`, `h13_kl_L`, `h3_k_L` (fell sideways in the first steps, §14). Every walker before the ankle
 roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13, §15 and §17
 runs. With the cables no longer pulling (§18), all of round 5's leg policies and the s policies walk for a minute or
 more; `c3m` still falls sideways within 10-20 s. The legs are now steadier than the full body, which is the gap to close
-next (§18.4).
+next (§18.4). Round 6 (§19-20): `h2_old`, `h5_h2hard`, `h4_t05` all fell in 5-24 s on the robot, shaken over by a gyro feedback loop at 4.5 Hz. Round 7 (§21-22): the policies trained with the action filter stopped fighting the ring but walk 7-12° forward and fall on their faces; **`h4_t05 --act-lpf 0.6` is the current best full-body walker.**
 
 ## 1. What the open-source biped trainers do
 
@@ -1049,6 +1050,15 @@ They step forward, which `c3f` never really did, but they are far less stable th
 
 ### 18.4 Next: measure the full body
 
+First results, 2026-11-12 night ([measuring.md E7](measuring.md#e7-tap-test-how-the-body-rings-full-body-2026-11-12-night)).
+Tapped while holding its stance, the full body:
+- rings at 4.8-6.0 Hz in roll and pitch, with a damping ratio of about 0.15. That is the walking shake's frequency,
+  and the simulator has no such mode. The joint encoders barely move (0.2-0.6°).
+- turns 3-4° in yaw on a twist, which dies out quickly (ζ 0.2-0.4).
+- stands 6-7.5° back at rest, against 2.5-3.7° for the legs alone, so a tap from the front rocks it onto its heels.
+
+By hand, the hip-pitch and hip-yaw servos give too (about 1° at hip pitch). The encoders see half of that or less.
+
 The goal is walking with the full body, and it is the full body that the simulator misses now. As in round 4, the
 plan is to measure first, fit the model, then train:
 
@@ -1070,3 +1080,255 @@ In the model and training, once measured:
 - for the legs, starting from `b7`:
   - a swing-clearance term on the board's front tip (toe-down near the floor);
   - the stance-width penalty applied to the heel corners as well as to the board centres.
+
+## 19. Round 6: the full body on measured masses (2026-11-13 night, simulation)
+
+Trained overnight on §18's measurements (measuring.md E0-E2, E6, E7). Notes and raw results: `results/robot6/`; queues
+`scripts/robot6_queue{1..8}.sh`; screen `scripts/eval6.py`.
+
+### 19.1 What changed in the simulator
+
+- **Masses** (`scripts/make_mass_model.py`): `hw_ank3_b150_m2_10dof`, the legs, pelvis and hip plates at 0.9 kg (model
+  was 1.205) and the torso and head at 0.3 kg (was 0.243), now 154 mm above the hips. `hw_ank3_b150_legs_pelvis_m2_10dof`
+  is the legs alone at 0.9 kg.
+- **The give as a spring behind the servo** (`flex_series`, both environments). The servo damps its own shaft, so the
+  body can now ring on the give. The give can also be stiff at small loads and soft past a torque (`hidden_flex`
+  entries `(joint, k, tau0, k2)`), at any joint.
+  - A first version was numerically unstable, and the old policies fell within 0.5 s. Now the shaft is solved
+    implicitly (`series_give`).
+  - Setting used: hip roll and ankle roll k 10 (2.5 past 0.15 N·m), knee and hip pitch 15, hip yaw 10, randomized
+    ×0.5-1.5, time constant 3-8 ms.
+  - Hip-roll give alone barely lets the pelvis roll with both feet flat: the legs and pelvis lock as a four-bar.
+    The robot's roll needs give at the ankles and knees too.
+- **No cable pull**; knee offset to -0.09 rad (-0.13 in the hard runs) for the full body's deeper back lean.
+- **`tilt_lim` reward:** a penalty on roll and backward pitch (forward counts half) past a threshold. Leaning back and
+  sideways tips the robot over a board corner.
+- **Screen:**
+  - fitted: the series give above, knee -0.06;
+  - hard: give ×0.6, knee -0.09, slower give;
+  - old: round 5's give.
+
+  fb2_lean, which fell on the robot, passes fitted (0/9) and fails hard (8/9, 6 s). The simulator still shakes less than
+  the robot (4-8 Hz 9-13°/s against 24-31) and does not tip at E6's 3-5° of shift.
+
+### 19.2 Results (9 × 30 s at 0.015 m/s)
+
+| run | from, change | fitted: falls, cm / 30 s, step L / R mm, \|roll\| p95 | hard: falls | 4-8 Hz commands |
+|---|---|---|---|---|
+| `fb2_lean` | round 5 | 0/9, 43, 14 / 16, 7.4° | 8/9 | 3.3% |
+| `g1_mass` - `g6_step` | tilt past 3.4°, -1 | 0-3/9, -15 to +8 cm: standing, shuffling | 0-4/9 | 5-11% |
+| **`h2_old`** | fb2 → masses, round-5 give, tilt past 4.6°, -0.2 | **0/9, 32, 12 / 12, 5.5°** | 7/9 | 4.6% |
+| `h3_notilt` | series give, no tilt penalty | 3/9 (left), 38, 17 / 17, 6.9° | 9/9 | 2.5% |
+| `h4_t05` | series give, tilt -0.05 | 0/9, 32, 10 / 15, 5.9° | 8/9 | 2.3% |
+| **`h5_h2hard`** | h2 + knee to -0.13, give ×0.4-1.5 | 1/9, 15, 10 / 10, 5.3° | **3/9** | 4.8% |
+| `h6_h2s1` | h2's recipe, seed 1 | 0/9, 23, 12 / 9, 5.8° | 6/9 | 4.4% |
+| `h7_h5step` | h5 + forward pay | 0/9, 11, 6 / 10, 5.4° | 2/9 | 6.6% |
+| `b7_seed2` (legs, 0.9 kg model) | round 5 | 0/9, 63, 25 / 24, 7.2° | 4/9 | 3.0% |
+| `l1_mass` (legs) | b7 + series give, tilt -0.2 | 0/9, -6, standing | 1/9 | 3.2% |
+
+At 0.02 m/s: `h2_old` 0/9, 30 cm; `h4_t05` 0/9, 27 cm; `fb2_lean` 2/9.
+
+### 19.3 Learnings
+
+1. **A tilt penalty strong enough to matter stops the stepping.** Past 3.4° at -1, it cost ~1600 per episode against
+   ~200 for progress, and every policy learned to stand and shuffle (`g1`-`g6`). Past 4.6° at -0.2 it keeps fb2's
+   steps and cuts the roll (p95 7.4 → 5.5°). Without it (`h3`), the steps get longer and the robot falls sideways.
+2. **With the series give, policies drift toward 4-8 Hz chatter** (5-11% of command power) unless the tilt penalty is
+   light (`h4`: 2.3%).
+3. **Harder training margins (`h5`) buy robustness and cost progress:** 3/9 on the hard sim against 7-8, at half the
+   distance. More forward pay on top (`h7`) didn't bring the steps back.
+4. **The recipe repeats** (`h6`, seed 1: 0/9, 23 cm, hard 6/9), unlike round 5's 2-of-3 seeds.
+
+### 19.4 What to try on the robot
+
+Full body, `--vx 0.015`, cables slack. Watch three things: whether it still falls sideways at the step, the shake,
+and whether it stops leaning back.
+1. **`h2_old`**: fb2's steps on the right masses, rocking less.
+2. **`h5_h2hard`**: if h2 still tips; shorter steps, the most margin.
+3. `h4_t05`: the smoothest commands, if the shake is what tips it.
+
+If they all still fall within a few steps, the simulator's missing piece is the E6 tip at 3-5° of shift. The
+next model step is then softer give at the ankles under load, fitted to E6 directly with `scripts/tap_sim.py`.
+
+## 20. Round 6 on the robot: the shake is a feedback loop (2026-11-13 morning)
+
+Seven full-body trials at `--vx 0.015`, cables slack (10:08-10:12, logs `stand_h*_20261113_10*.csv`). None walked.
+Times include the 2 s blend into the ready pose; the policy engages at 2.0 s.
+
+| policy | trials (s) | fell |
+|---|---|---|
+| `h2_old` | 13.6, 23.9, 5.7 | left, right, left; the only one to take a few (dangerous) steps |
+| `h5_h2hard` | 7.2, 5.1 | right, back |
+| `h4_t05` | 12.1, 7.8 | forward, forward |
+
+The user's observation: the swaying now catches the robot well; what kills it is the shake, which starts the moment
+the policy engages, before the first step.
+
+What the logs show:
+
+1. **The shake starts on the first tick.** The policy engages with a 0.5-0.7 jump in action (6° at a hip pitch, the
+   same jump the simulator starts with). Within 0.2 s the yaw rate swings ±60-90°/s, roll and pitch ±30-75°/s, at
+   4.3-5 Hz, the frame's tap-test ring (measuring.md E7). It doesn't build up over steps; it is there at full size
+   from the first half second.
+2. **It is the same shake as fb2 / fb4 (§18), not worse in the gyro:** 3.5-8 Hz gyro 17-30°/s against fb2's 24-31;
+   the policies put 7-19% of their command power at 4-8 Hz (simulator: 2-5%). b7 on the legs-only robot: 5-7°/s, 1%.
+3. **The policies feed the gyro straight back into the knees.** Replaying each log's observations through its policy
+   reproduces the logged actions (to 4e-4). Low-passing one input at 2.5 Hz removes the shake's share of the actions
+   by: gyro 34-41%, joint speeds 8-16%, gravity, positions or last action ≤ 4%; all inputs together 83-88%. For b7
+   the gyro removes 5% (the joint speeds 47%).
+4. **The full-body policies' gyro gain is 4-5× the legs policies' in pitch.** Commanded joint angle per pitch rate,
+   rms over the walk, all joints (deg per deg/s): `h2` / `h4` / `h5` 0.14, `fb2` 0.10, `fb4` 0.11, `b7` 0.03,
+   `s8` 0.03; in roll 0.17 against 0.11-0.15. Mostly the knees (0.07-0.10 each). The round-6 policies have the most,
+   which fits them shaking at least as much as fb2.
+5. **The robot's body answers each degree of command 2-2.5× more than the simulator's at 4.5 Hz:** roll rate per
+   degree at the roll joints 10-13 on the robot against 4-5 in the fitted simulator, 3.6 for the legs-only robot;
+   pitch rate per degree at the knees 6-9 against 3-4.5. Policy gain × body gain round the loop: about 2 on the
+   robot, 0.8 in the simulator, 0.4 for b7 on the legs. Above 1 the loop rings by itself, and that is the shake:
+   the frame rings at 5 Hz (ζ 0.15), the gyro sees it, the policy answers it at the knees and hip rolls, a fraction of
+   a ring late, and the servos ring it again. Every full-body policy so far learned that gain in a simulator where
+   the body barely rings, so nothing taught them not to.
+6. The 1-in-4 clean steps (§18) are moments when the loop happened to be quiet; the falls come when it ran into a
+   step.
+
+### 20.1 Next
+
+1. **Robot-side, no training:** `policy_stand.py run ... --gyro-lpf 2.5` (new, default off) low-passes the gyro the
+   policy sees, which cuts the loop gain at 4.5 Hz to ~0.5; `--act-lpf 0.6` on top cuts it further. In the
+   simulator, `h4_t05` keeps walking with a 2-3 Hz gyro low-pass (0/6 falls, 38-40 cm) or `act_lpf` 0.4 (0/6, 44 cm);
+   `h2_old` gets shakier (2-3/6 falls), so try it on `h4_t05` first. The simulator can't show whether it stops the
+   real shake, since it doesn't ring.
+2. **Make the simulator ring**, then retrain: a give at the hip pitch, knee and hip roll soft and lightly damped
+   enough to ring at 4.5-5 Hz with ζ ~0.15 when tapped (E7), checked by running h2 / fb2 until they shake as on the
+   robot. Train from fb2 with the gyro low-pass in the observation (as on the robot), the gyro gain randomised, and
+   no hard jump at engage (blend the first action in over ~0.3 s).
+
+### 20.2 The filters on the robot (11:03-11:06)
+
+`h4_t05` four more times, two with `--gyro-lpf 2.5` (11:03, 11:05) and two with `--act-lpf 0.6` on top (11:04, 11:06),
+going by the shake numbers. Each walked 3-4 steps before falling.
+
+| trials | lasted (s) | 3.5-8 Hz gyro, roll / pitch (°/s) | commands at 4-8 Hz | fell |
+|---|---|---|---|---|
+| no filter (10:10) | 12.1, 7.8 | 18-23 / 25-29 | 7% | forward, forward |
+| gyro low-pass 2.5 Hz | 26.7, 23.5 | 15-17 / 10-15 | 1.3-2.4% | left, left |
+| + action low-pass 0.6 | 30.3, 28.2 | 9-10 / 7 | 0.4-0.5% | left, left |
+
+The loop is broken: the shake is down 3-4× and the walks last 2-3× longer. What is left is a slow forward-back rock at
+0.8-1.2 Hz, about once per step, between 13° forward and level (std 3-4°), and every trial now falls to the left.
+The knees swing as far as before (23° p5-p95). Both filters add lag (~60 ms at 1 Hz for the gyro filter) the policy
+never trained with, which fits the user's "stepping a bit compromised".
+
+## 21. Round 7: a simulator that rings, and policies that stop feeding the ring (2026-11-13 afternoon, simulation)
+
+§20 found the shake to be a loop: the frame rings at 4-5 Hz, the gyro sees it, the policy answers at the knees and hip
+pitches, and the robot's body answers each degree at 4-5 Hz 8-10× harder than the simulator's (measuring.md E8). This
+round puts that response into the simulator and trains in it. Everything here is simulation; nothing is tested on the
+robot yet.
+
+### 21.1 The simulator
+
+- **The frame mode** (`ring` in `EnvConfig` / `EvalConfig`): per axis a damped oscillator driven by the servo targets
+  along the pattern that excites it (pitch: both hip pitches; roll: the sideways shift), high-passed, delayed 20 ms,
+  its acceleration × 0.02 kg·m² applied to the pelvis. Fitted to the E8 wiggles: pitch 4.2 Hz, ζ 0.2, gain 1.0; roll
+  5.3 Hz, ζ 0.25, gain 0.7; with 60 ms of command dead time (the robot's hip pitch follows ~80 ms late) it matches the
+  pitch response in size and phase. Randomized per walk in training (frequency ±15%, ζ ×0.6-1.6, gain ×0.6-1.5).
+  Tried first and dropped: a softer hip-pitch give (no resonance; the body sags back and falls), the torso on spring
+  hinges (`hw_ank3_b150_m2uf_10dof`: the pelvis IMU barely sees it), the give outside the servo's damping.
+- **The standing lean as measured:** knee offset 0 to -0.05 rad (the robot stands +5° back at the stance pose; round
+  6's -0.09 put the simulated stance past its backward tip point, so the policy had to snap it forward).
+- **Two screens:** `eval6.py --sim r7` (the fit) and `--sim r7hard` (stronger, less damped ring, 3 steps of delay,
+  deeper lean). On `r7hard` the round-6 policies do what they did on the robot: h4 / h2 / fb2 shake 18-24°/s with
+  5-7.5% of their commands at 4-8 Hz and fall in 5 of 6 walks within 7-9 s.
+- New options: `gyro_lpf` (gyro low-pass in the observation), `obs_hist` (already there) works with the robot runner.
+
+### 21.2 Results (9 × 30 s at 0.015 m/s; shake = 4-8 Hz gyro, °/s; lifts = foot lifts > 5 mm in 30 s)
+
+| run | from | what's new | r7 falls | forward | shake | commands at 4-8 Hz | r7hard falls | lifts |
+|---|---|---|---|---|---|---|---|---|
+| `h4_t05` (round 6) | | | 0/6 | 31 cm | 10.1 | 2.0% | 5/6 | 17-18 |
+| `h4_t05` + `--act-lpf 0.6` at run time | | as on the robot | 3/9 | 28 cm | 9.4 | 0.9% | 7/9 | |
+| `r1_raw` | b7_seed2 | ringing sim | 5/9 | 17 cm | 12.4 | 2.3% | 7/9 | |
+| `r1b_raw` | r1 + 40M | | 4/9 | 4 cm | 13.1 | 5.0% | 5/9 | |
+| `r3_hist` | c0_hist (b7 + 5-frame history) | ringing sim, history | 4/9 | 13 cm | 12.4 | 4.6% | 6/9 | |
+| `r5_histlpf` | c0_hist | history + gyro low-pass 2.5 Hz | 3/9 | 3 cm | 12.1 | 3.6% | 7/9 | |
+| `r7_h4` | h4_t05 | ringing sim | 2/9 | 10 cm | 11.5 | 2.5% | 6/9 | |
+| `r8_alpf_h4` | h4_t05 | action low-pass 0.6 in training | **0/9** | 3 cm | 7.6 | 0.9% | 3/9 | 3-5 |
+| `r9_alpf_hist` | r3_hist | action low-pass + history | 2/9 | 7 cm | 8.9 | 1.9% | 5/9 | |
+| **`r10_lcp_h4`** | h4_t05 | Lipschitz penalty 0.0005 | 2/9 | **20 cm** | 9.9 | 1.7% | 5/9 | 19 |
+| `r11_alpf_fwd` | r8 | 2× forward pay | **0/9** | 6 cm | **6.4** | 1.1% | **2/9** | 2-9 |
+| `r12_alpf5_h4` | h4_t05 | action low-pass 0.5 | **0/9** | 1 cm | 7.7 | 1.2% | **2/9** | 4-6 |
+| **`r13_alpf_b7`** | b7_seed2 | action low-pass 0.6 | **0/9** | **17 cm** | 6.9 | **0.7%** | 4/9 | 8-16 |
+
+### 21.3 Learnings
+
+1. **The ring makes the simulator hard in the way the robot is.** The pitch ring plus 60 ms of delay is what tips the
+   round-6 policies over in `r7hard` (no ring: 2/6 falls; pitch ring alone: 5/6, all backward).
+2. **Reinforcement learning alone doesn't learn to stop feeding the ring.** Fine-tuning in the ringing simulator for
+   30-70M steps (`r1`, `r1b`, `r3`, `r5`, `r7`) left the chatter at 2.3-5% and the falls at 2-5 of 9. Neither the
+   history (`r3`) nor the gyro low-pass (`r5`) changed that.
+3. **What works is lowering the policy's gain round the loop by construction:** the action low-pass in training
+   (`r8`, `r11`-`r13`: no falls on `r7`, shake 6.4-7.7, commands at 4-8 Hz ≤ 1.2%) or the Lipschitz penalty (`r10`).
+   The filter also makes the ringing simulator learnable from the legs policy (`r13` reached episodes of 708 control
+   steps; `r1`, same start without it, 337).
+4. **But the filtered policies from h4 learned to stand:** `r8`, `r11`, `r12` lift a foot 2-9 times in 30 s and move
+   1-6 cm; twice the forward pay (`r11`) didn't bring the steps back. From the legs policy (`r13`) the steps stay:
+   8-16 lifts, 17 cm.
+5. The simulator's shake is still milder than the robot's at the `r7` fit (h4: 10 against 20-30°/s on the robot);
+   `r7hard` is closer. The robot will tell which is right.
+
+### 21.4 What to try on the robot
+
+Full body, `--vx 0.015`, cables slack. The runner applies each run's trained filter (`act_lpf`) by itself.
+1. **`r13_alpf_b7`**: the steadiest that still steps (b7's gait, action low-pass 0.6).
+2. **`r10_lcp_h4`**: h4's steps with less chatter (no filter).
+3. `r11_alpf_fwd`: the calmest, mostly stands: tells whether the twitch is gone.
+New runner option for each: `--ready-act` blends into the pose the policy holds standing (gait start pose + its action)
+so it doesn't snap the body forward at engage; worth one trial with and one without (untested on the hardware).
+Watch: the 4-5 Hz shake (does it start at engage?), whether it steps, and the fall direction.
+
+## 22. Round 7 on the robot: the ring is tamed, the steps tip forward (2026-11-13 evening)
+
+Full body, `--vx 0.015`, cables slack, 19:01-19:14 (logs `stand_*_20261113_19*.csv`). The flags of each trial are
+confirmed from the logs where they leave a trace (the action low-pass: replaying the policy reproduces the logged
+actions with k = 0.60 exactly) and otherwise from the user.
+
+| policy | trials (s) | steps (lifts > 5 mm) | walking pitch (+ = back) | 4-8 Hz gyro roll / pitch (°/s) | fell |
+|---|---|---|---|---|---|
+| `r13_alpf_b7` | 6.0, 9.0, 9.2, 8.6 | 5-10 | -7.8 to -8.8 | 7-8 / 8-9 | forward, every trial |
+| `r10_lcp_h4` | 14.9, 5.0, 9.7, 6.6, 38.3 | 6-71 | -9.4 to -12.3 | 9-10 / 4-6 | forward, every trial |
+| `r11_alpf_fwd` | 30.8 | 47 | -7.4 | 9 / 7 | forward |
+| `h2_old` (filtered) | 13.1 | 15 | -6.3 | 13 / 12 | forward |
+| **`h4_t05 --act-lpf 0.6`** | **188.1, 74.3, 75.6** | **299, 115, 109** | **-4.4 to -4.7** | 15-16 / 12 | ended upright; fell left; ended at 7° roll |
+| `h4_t05 --gyro-scale 0.75` | 3.1, 3.8 | 1-3 | -14 to -16 | (too short) | forward, within 2 s |
+
+For comparison, the morning's unfiltered h4: 18-23 / 25-29°/s of shake, 8-12 s.
+
+The story:
+
+1. **The action filter in training did what it was for.** The round-7 policies let the 5 Hz ring die down instead of
+   answering it: 4-8 Hz gyro 7-10 / 4-9°/s, half of h4 with the run-time filter and a third of unfiltered h4. The user
+   saw the same: no fighting the vibration.
+2. **But every one of them leans forward and catches its toes.** Every policy, old or new, snaps the body from its
+   standing +5° back to about -3° in the first second after engaging (the snap of §20). h4 then settles at -5°; `r10`
+   and `r13` keep going to -9° within 2-4 s and stay there, the boards tip onto their toes, the toes kick the rug,
+   and all 10 trials of the round-7 policies ended face down.
+3. **The simulator doesn't see the lean.** On the robot their hip pitch and knee angles match the simulator's to a
+   degree (hip ~19-21°, knee ~29-31°, like h4's), and in the simulator they walk at -4.5° like h4. The extra 3-5°
+   forward on the robot is the boards rolling onto their toes, not a different leg posture: a dynamic effect of their
+   gait that the round-7 simulator (frame ring, 60 ms dead time, standing lean 0 to -0.05 rad at the knees instead of
+   round 6's 0 to -0.09) doesn't reproduce. Which of the three is to blame is untested.
+4. **The run-time filter on a policy trained without it is the best combination so far.** `h4_t05 --act-lpf 0.6`
+   walked 188 s (299 steps), 74 s and 76 s: the first full-body walks of minutes. h4 keeps the steps and the 4.5°
+   lean it learned in round 6; the filter takes enough of the 5 Hz loop gain away. Its remaining fault is the
+   occasional bout of twitching against the ring (gyro 15-16°/s).
+5. **Turning the gyro down instead (`--gyro-scale 0.75`) failed twice in 3-4 s,** both pitching 14-16° forward right
+   after the engage snap (earlier the same flag gave 16 and 42 s).
+
+### 22.1 Next
+
+1. Keep `h4_t05 --act-lpf 0.6` as the base. Fine-tune it with the filter in training on the round-6 simulator (whose
+   lean it walks well with) plus the ring, then on the round-7 stance, one change at a time, to find what tips the
+   round-7 policies forward.
+2. Penalize forward pitch past ~6° in training (the toe catch), and soften the engage snap (`--ready-act` on the
+   robot, untested).
+3. A twitch measure: 4-8 Hz command share while standing between steps, to compare h4+filter and its fine-tunes.

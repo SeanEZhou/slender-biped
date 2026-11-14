@@ -2,17 +2,38 @@
 
 What this project has learned, in one place, for whoever picks it up next: me later, or an agent. Each lesson is a
 short statement plus a link to where it was learned, with the data. The detail docs keep the full record; this file
-keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-11, after robot round 3
-(knee twitch, feet together, weight shift).
+keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-13, after robot round 7 (the
+full body's 5 Hz shake).
 
 Status in one line: the robot (10 STS3215 servos, ankle roll, 150 × 50 mm snowboard pads, IMU on the pelvis) walks
-with the legs alone (`c3m_T12`, 10+ steps in most trials) and marches mostly in place with the torso and head on
-(`c3f_T12`, servo buzz). See [walking_clean.md §11](walking_clean.md#11-on-the-robot-the-first-walks-2026-11-10-night).
-Two retraining rounds since: §12's filtered policies and round 3's (§13) all failed on the robot, falling sideways
-over the standing leg. Why ([walking_clean.md §14](walking_clean.md#14-why-13s-policies-fell-sideways-the-legs-give-where-the-encoders-cant-see-2026-11-11-evening)):
-the real hips give sideways under load where the encoders can't see it; with that in the simulator only `c3m`
-survives, as on the robot. `c3m` walks at `--vx 0.015`, not 0.02.
-Next: measure the robot against the simulator ([measuring.md](measuring.md)) before more training.
+with the legs alone for minutes (`b7_seed2`: 122 s, 99 s) and, since 2026-11-13, with the torso and head on:
+`python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` walked 188 s (299 steps), 74 s and 76 s.
+Its remaining faults: bouts of twitching against the frame's 5 Hz ring, and falls after a minute or so. The full
+detail: [walking_clean.md §18-22](walking_clean.md#22-round-7-on-the-robot-the-ring-is-tamed-the-steps-tip-forward-2026-11-13-evening).
+Next: fine-tune h4 with the action filter in training, one simulator change at a time (§22.1).
+
+## Full body: what rounds 5-7 taught (2026-11-12 / 13)
+
+- **The full body's shake was a feedback loop, not a mechanical fault.** The hollow frame rings at 4-5 Hz (tap test,
+  ζ ~0.15), the pelvis gyro sees it, the policy answers it at the hip pitches and knees, ~80 ms late, and the servos
+  ring the frame again. Replaying the logged sensor readings through the policy reproduced its commands exactly;
+  smoothing the gyro alone removed ~40% of the shaking commands. The legs-only robot doesn't ring, so the leg policies
+  never started the loop. ([walking_clean.md §20](walking_clean.md#20-round-6-on-the-robot-the-shake-is-a-feedback-loop-2026-11-13-morning))
+- **Measure the body's response to small commands, not only taps.** A wiggle exercise (small sines at 1-7 Hz,
+  `exercises.py wiggle`) showed the real body pitching 8-10× more per degree of hip-pitch command at 4-5 Hz than the
+  simulator's; taps had shown the ring but not that. ([measuring.md E8](measuring.md))
+- **Gain round the loop decides the shake.** Policy gain (commanded degrees per °/s of gyro) × body gain: ~2 on the
+  robot, ~0.8 in the simulator. Full-body policies had learned 4-5× the leg policies' pitch-rate gain in a simulator
+  where it cost nothing.
+- **Training in a simulator that rings is not enough on its own.** With the ring fitted in (a damped oscillator driven
+  by the servo targets, torque on the pelvis), 30-70M steps of fine-tuning, observation history or a gyro low-pass did
+  not lower the chatter. An action low-pass (0.6) did, by construction, in training and at run time.
+- **A run-time action filter on a policy trained without it beat the policies trained with it.** The round-7
+  filtered policies tamed the ring on the robot but leaned 7-12° forward and caught their toes, a lean their
+  simulator didn't show; h4 + `--act-lpf 0.6` kept its round-6 steps and lean. Change one thing at a time when a
+  policy already walks.
+- **The robot stands at its backward tip limit** (+5 to +7° back with the boards flat, back tip at 7.5°), so every
+  policy snaps the body forward when it engages; under load the knees don't move for ±1° commands.
 
 ## 1. The central lesson: design for margin, not precision
 
@@ -255,9 +276,9 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 - The full-body robot marches in place on the robot but walks 36–38 cm / 30 s in simulation. Round 3's guess: the
   model's soft hip rolls did part of the weight shift (with the robot's stiffness, `c3f` takes 24-26 mm steps in
   simulation too). Untested on the robot.
-- The shake: the robot logs show a 4.8 Hz roll loop through the policy; whether the action filter, `--accel-match`
-  or both fix it on the robot is untested. The simulator, even with faster servos, doesn't lock into the oscillation
-  the way the robot does (missing frame flex or backlash?).
+- The shake (answered 2026-11-13): a loop through the frame's 5 Hz ring and the policy's gyro gain; the action
+  low-pass breaks it ([walking_clean.md §20-22](walking_clean.md)). Open: why the round-7 policies lean 7-12° forward
+  on the robot but not in the simulator (the ring, the 60 ms dead time or the shallower standing lean in training).
 - Why §12's policies leaned over the standing leg on the robot. The stiffer-hip model doesn't reproduce it (it makes
   every policy lean less), so the cause is still unknown.
 - Every policy falls on the softest simulated rug (~6 mm sink).

@@ -48,6 +48,24 @@ class NumpyPolicy:
 
 
 # ---------------------------------------------------------------- env (numpy mirror)
+def flex_target(tau, kinv, tau0, kinv2, xp):
+    """Give at torque tau: tau / k up to |tau| = tau0, then (|tau| - tau0) / k2 more (soft under large loads)."""
+    a = xp.abs(tau)
+    return xp.sign(tau) * (xp.minimum(a, tau0) * kinv + xp.maximum(a - tau0, 0.0) * kinv2)
+
+
+def series_give(tau0, damp, f, kinv, tau0_lim, kinv2, tc, ts, xp):
+    """The give as a spring + damper behind the servo (2026-11-13). tau0: servo torque with the shaft moving as the
+    link; damp: its slope in shaft velocity; f: the give. Returns the transmitted torque and the give's rate."""
+    a = xp.abs(f); f1 = tau0_lim * kinv                       # give where the soft range starts
+    soft = a > f1
+    k_loc = xp.where(kinv > 0, 1.0 / xp.where(soft, kinv2, kinv).clip(1e-9), 0.0)
+    t_spring = xp.sign(f) * xp.where(soft, tau0_lim + (a - f1) * k_loc, a * k_loc)
+    cdamp = k_loc * tc
+    fd = xp.where(kinv > 0, (tau0 - t_spring) / (cdamp + damp), 0.0)
+    return xp.clip(tau0 - damp * fd, -ts, ts), fd
+
+
 def target_update(q_tgt, v_tgt, cmd, a_prof, slew, dt):
     """Servo internal target (mirror of mjx_env): slew-limited, or the firmware motion profile where a_prof > 0."""
     slewed = q_tgt + np.clip(cmd - q_tgt, -slew * dt, slew * dt)
@@ -138,6 +156,17 @@ class EvalConfig:
     # 2026-11-11 (docs/walking_clean.md §14): give the servo encoders can't see. ((joint suffix, k N*m/rad), ...): the
     # servo loop and the observation read q + f, the physics moves q, f -> tau / k with a 10 ms lag. Empty = rigid.
     hidden_flex: tuple = ()
+    # 2026-11-13 (measuring.md E7, full body): entries may be (suffix, k, tau0, k2): stiffness k up to |tau| = tau0, k2
+    # beyond (soft under large loads). flex_series: the give sits between the servo and the link, so the servo's damping
+    # acts on the shaft (link + give) velocity and a body on the give can ring; flex_tc is the give's time constant
+    # (structural damping c = k * flex_tc). False = the 10 ms quasi-static give of rounds 4-5.
+    flex_series: bool = False
+    flex_tc: float = 0.01
+    ring: tuple = ()                   # round 7 frame mode: ((axis, f_hz, zeta, gain, inertia), ...), axis pitch / roll / yaw (mjx_env.EnvConfig)
+    ring_hp: float = 0.3
+    gyro_lpf: float = 0.0              # Hz, low-pass on the policy's gyro (mjx_env.EnvConfig)
+    ring_delay: float = 0.0            # s: dead time of the frame mode's drive
+    flex_dscale: float = 1.0          # share of the servo's damping that acts on the give (1 = give inside the servo; small = structural flex outside it)
     # 2026-11-12 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, rad), ...): the servo
     # loop and the observation read q + off (so the servo holds the physical joint off away from its target); a suffix
     # like "knee" matches both legs, "R_knee" one. The robot stands 3.7 deg further back than the model, boards flat.
@@ -153,7 +182,7 @@ class EvalConfig:
         for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias"):
             if k in keep:
                 keep[k] = tuple(keep[k])
-        for k in ("hidden_flex", "hidden_off"):
+        for k in ("hidden_flex", "hidden_off", "ring"):
             if k in keep:
                 keep[k] = tuple(tuple(x) for x in keep[k])
         return cls(**keep)
@@ -285,10 +314,13 @@ class CpuBiped:
             m.body_mass[:] *= c.mass_scale
             m.body_inertia[:] *= c.mass_scale
         mujoco.mj_resetDataKeyframe(m, d, self.kid)
-        kf = dict(c.hidden_flex)
-        self.flex_kinv = np.array([1.0 / kf[s] if (s := next((x for x in kf if j.endswith(x)), None)) else 0.0
-                                   for j in self.joints])
+        kf = {e[0]: e[1:] for e in c.hidden_flex}
+        sel = [next((x for x in kf if j.endswith(x)), None) for j in self.joints]
+        self.flex_kinv = np.array([1.0 / kf[x][0] if x else 0.0 for x in sel])
+        self.flex_tau0 = np.array([kf[x][1] if x and len(kf[x]) > 2 else 1e9 for x in sel])
+        self.flex_kinv2 = np.array([1.0 / kf[x][2] if x and len(kf[x]) > 2 else (1.0 / kf[x][0] if x else 0.0) for x in sel])
         self.flex = np.zeros(self.nj)
+        self.flex_v = np.zeros(self.nj)
         self.q_off = np.zeros(self.nj)
         for e in c.hidden_off:                 # (suffix, rad), or a training range (suffix, lo, hi, spread): its middle
             v = e[1] if len(e) == 2 else 0.5 * (e[1] + e[2])
@@ -307,12 +339,13 @@ class CpuBiped:
                 self._reset_pitch = level_pitch(m, self.joints, q0)
             qa = np.zeros(4); mujoco.mju_axisAngle2Quat(qa, np.array([0.0, 1.0, 0.0]), self._reset_pitch)
             qn = np.zeros(4); mujoco.mju_mulQuat(qn, d.qpos[3:7].copy(), qa); d.qpos[3:7] = qn
-        d.qpos[7:] = qj
+        d.qpos[7:7 + self.nj] = qj
         d.qvel[:] = 0
         mujoco.mj_kinematics(m, d)
         low, _ = self.tip_low()
         d.qpos[2] += -low.min() + 0.0005
         mujoco.mj_forward(m, d)
+        self.ring_init()
         self.prev_cmd = qj.copy()
         self.q_tgt = qj.copy()
         self.v_tgt = np.zeros(self.nj)
@@ -340,6 +373,7 @@ class CpuBiped:
         self.acc_bias_v = er.uniform(-c.acc_bias, c.acc_bias, 3)
         self.acc, self.v_prev = np.array([0.0, 0.0, 1.0]), np.zeros(3)
         self.sync_imu()
+        self.w_f = np.zeros(3)
         self.hist = np.zeros((c.obs_hist, 3 + 3 + 3 * self.nj))
         if not c.obs_hist:
             return self.obs()
@@ -367,8 +401,10 @@ class CpuBiped:
         w = d.qvel[3:6].copy()
         if c.gyro_range > 0:
             w = np.clip(w, -c.gyro_range, c.gyro_range)
-        q = d.qpos[7:] + self.flex + self.q_off - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
-        qd = d.qvel[6:].copy()
+        if c.gyro_lpf > 0:
+            w = self.w_f.copy()
+        q = d.qpos[7:7 + self.nj] + self.flex + self.q_off - self.q_nom      # encoder reading (hidden_flex: + the give it can't see)
+        qd = d.qvel[6:6 + self.nj].copy()
         n = c.obs_noise
         r = self.rng
         g = g + n * 0.03 * r.normal(size=3)
@@ -431,6 +467,53 @@ class CpuBiped:
             g_n = (1 - al) * g_p + al * (-self.acc / max(fn, 1e-3))
             self.g_est = g_n / np.linalg.norm(g_n)
 
+    RING_AXES = {"pitch": 1, "roll": 0, "yaw": 2}
+
+    def ring_weights(self):
+        """Drive of each frame-mode axis: the servo shafts' angle along the pattern that excites it (exercises.py
+        wiggle): pitch = both hip pitches, roll = the sideways shift (hip rolls), yaw = both hip yaws."""
+        W = np.zeros((3, self.nj))
+        for i, j in enumerate(self.joints):
+            sg = 1.0 if j.startswith("L") else -1.0
+            if j.endswith("hip_pitch"): W[1, i] = 0.5
+            if j.endswith("hip_roll"): W[0, i] = -0.5 * sg
+            if j.endswith("hip_yaw"): W[2, i] = 0.5
+        return W
+
+    def ring_init(self):
+        c = self.cfg
+        self.ring_W = self.ring_weights()
+        self.ring_p = np.zeros((3, 4))           # per body axis: omega, zeta, gain, inertia (0 = off)
+        for e in c.ring:
+            ax = self.RING_AXES[e[0]]
+            self.ring_p[ax] = [2 * np.pi * e[1], e[2], e[3], e[4]]
+        if c.dr and c.ring:
+            r = self.rng
+            self.ring_p[:, 0] *= r.uniform(0.85, 1.15, 3); self.ring_p[:, 1] *= r.uniform(0.6, 1.6, 3)
+            self.ring_p[:, 2] *= r.uniform(0.6, 1.5, 3)
+        self.ring_r = np.zeros(3); self.ring_rd = np.zeros(3); self.ring_us = None
+        dl = c.ring_delay * (self.rng.uniform(0.7, 1.3) if c.dr else 1.0)
+        self.ring_buf = [None] * max(1, int(round(dl / c.sim_dt)) + 1); self.ring_i = 0
+
+    def ring_step(self, qs, dt):
+        """Frame mode (round 7): a lightly damped oscillator per body axis, driven by the servo shafts' motion (high-
+        passed servo targets, the firmware profile's output), whose acceleration times the inertia acts on the pelvis as a torque: the robot's measured response of
+        the pelvis to small commands at 1-7 Hz (measuring.md E8) that the rigid model lacks."""
+        u_now = self.ring_W @ qs
+        if self.ring_buf[0] is None:
+            self.ring_buf = [u_now.copy() for _ in self.ring_buf]
+        self.ring_buf[self.ring_i] = u_now; self.ring_i = (self.ring_i + 1) % len(self.ring_buf)
+        u = self.ring_buf[self.ring_i]                  # oldest entry: the drive ring_delay ago
+        if self.ring_us is None:
+            self.ring_us = u.copy()
+        self.ring_us = self.ring_us + (u - self.ring_us) * min(1.0, dt / self.cfg.ring_hp)
+        w, z, g, inertia = self.ring_p.T
+        rdd = w ** 2 * (g * (u - self.ring_us) - self.ring_r) - 2 * z * w * self.ring_rd
+        self.ring_rd = self.ring_rd + rdd * dt
+        self.ring_r = self.ring_r + self.ring_rd * dt
+        R = np.zeros(9); mujoco.mju_quat2Mat(R, self.d.qpos[3:7])
+        return R.reshape(3, 3) @ (inertia * rdd)
+
     def step(self, action):
         c, m, d, s_ = self.cfg, self.m, self.d, self.servo
         action = np.clip(action, -1, 1)
@@ -461,18 +544,26 @@ class CpuBiped:
         for i in range(n_sub):
             cmd = cmd_prev if i < s_["latency"] else cmd_now
             self.q_tgt, self.v_tgt = target_update(self.q_tgt, self.v_tgt, cmd, a_prof, c.slew, c.sim_dt)
-            q, qd = d.qpos[7:] + self.flex + self.q_off, d.qvel[6:]
+            q, qd = d.qpos[7:7 + self.nj] + self.flex + self.q_off, d.qvel[6:6 + self.nj]
             e = self.q_tgt - q
             e = np.sign(e) * np.maximum(np.abs(e) - s_["deadzone"], 0)
             u_req = kp * e - c.kd * qd
             u = np.clip(u_req, -1, 1)
             tau = np.clip(ts * (u - qd / w0), -ts, ts)
+            if c.hidden_flex and c.flex_series:
+                # massless shaft between the servo and the give: servo torque (damping on the shaft velocity qd + fd)
+                # = spring k f + structural damping c fd, solved for fd implicitly (stable for any time constant)
+                tau, fd = series_give(tau, ts * (c.kd + 1.0 / w0) * c.flex_dscale, self.flex, self.flex_kinv, self.flex_tau0,
+                                      self.flex_kinv2, c.flex_tc, ts, np)
+                self.flex = self.flex + fd * c.sim_dt
             d.ctrl[:] = tau
+            if c.ring:
+                d.xfrc_applied[1, 3:6] = self.ring_step(self.q_tgt, c.sim_dt)
             mujoco.mj_step(m, d)
-            if c.hidden_flex:
+            if c.hidden_flex and not c.flex_series:
                 self.flex += (tau * self.flex_kinv - self.flex) * min(1.0, c.sim_dt / 0.01)
             log["tau"].append(tau.copy())
-            log["qd"].append(d.qvel[6:].copy())
+            log["qd"].append(d.qvel[6:6 + self.nj].copy())
             log["u_req"].append(u_req.copy())
         self.tau = tau
         self.prev_cmd = q_cmd
@@ -502,6 +593,9 @@ class CpuBiped:
         if c.cmd_vx_slew > 0:
             ds = c.cmd_vx_slew * c.ctrl_dt
             self._cmd[0] += np.clip(self._cmd_goal[0] - self._cmd[0], -ds, ds)
+        if c.gyro_lpf > 0:
+            w_m = d.qvel[3:6] if c.gyro_range <= 0 else np.clip(d.qvel[3:6], -c.gyro_range, c.gyro_range)
+            self.w_f = self.w_f + (1.0 - np.exp(-2 * np.pi * c.gyro_lpf * c.ctrl_dt)) * (w_m - self.w_f)
         obs = self.obs()
         if c.obs_hist:
             self.hist = np.concatenate([self.hist[1:], self._frame[None]], 0)

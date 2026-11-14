@@ -206,3 +206,25 @@ personal-notes/
 !runs/fb3_c3f/params_0030M.pkl
 !runs/fb4_soft/params_0030M.pkl
 !runs/fb5_seed1/params_0030M.pkl
+# robot round 6 (2026-11-13 night): re-massed full body, series give, tilt penalty (docs/walking_clean.md §19-20)
+!runs/h1_ser/params_0030M.pkl
+!runs/h2_old/params_0030M.pkl
+!runs/h3_notilt/params_0030M.pkl
+!runs/h4_t05/params_0030M.pkl
+!runs/h5_h2hard/params_0030M.pkl
+!runs/h6_h2s1/params_0030M.pkl
+!runs/h7_h5step/params_0030M.pkl
+!runs/l1_mass/params_0030M.pkl
+# robot round 7 (2026-11-13 afternoon): the ringing simulator, action filter, history, LCP (docs/walking_clean.md §21-22)
+!runs/c0_hist/params_0030M.pkl
+!runs/r1_raw/params_0030M.pkl
+!runs/r1b_raw/params_0040M.pkl
+!runs/r3_hist/params_0030M.pkl
+!runs/r5_histlpf/params_0030M.pkl
+!runs/r7_h4/params_0030M.pkl
+!runs/r8_alpf_h4/params_0030M.pkl
+!runs/r9_alpf_hist/params_0030M.pkl
+!runs/r10_lcp_h4/params_0030M.pkl
+!runs/r11_alpf_fwd/params_0030M.pkl
+!runs/r12_alpf5_h4/params_0030M.pkl
+!runs/r13_alpf_b7/params_0030M.pkl

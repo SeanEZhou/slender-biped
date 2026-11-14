@@ -1,0 +1,6 @@
+g2_series                [fitted] falls  3/9 T 26.7s fwd:3          pitch0 -2.4 walk -2.8 |roll|p95  4.4 >4deg   7% reach L/R  2.8/ 5.1 fwd -0.3cm shake 13.4 cmd4-8 7.6%
+g1_mass                  [fitted] falls  0/9 T 30.0s                pitch0 -2.4 walk -2.6 |roll|p95  5.3 >4deg  12% reach L/R  5.7/ 6.3 fwd  7.7cm shake 12.4 cmd4-8 4.8%
+fb2_lean                 [fitted] falls  0/9 T 30.0s                pitch0 -0.2 walk -0.2 |roll|p95  7.4 >4deg  26% reach L/R 13.6/16.4 fwd 42.8cm shake  9.6 cmd4-8 3.3%
+g2_series                [hard] falls  3/9 T 23.3s back:2 right:1 pitch0 -0.5 walk -1.1 |roll|p95  4.1 >4deg   6% reach L/R  4.3/ 5.4 fwd -9.3cm shake 10.9 cmd4-8 6.4%
+g1_mass                  [hard] falls  3/9 T 24.6s right:3        pitch0 -0.3 walk -0.9 |roll|p95  5.1 >4deg  11% reach L/R  7.8/10.4 fwd  4.8cm shake  9.2 cmd4-8 4.4%
+fb2_lean                 [hard] falls  8/9 T  5.8s back:7 left:1  pitch0 +3.3 walk +3.7 |roll|p95 11.1 >4deg  44% reach L/R 11.2/18.6 fwd -11.1cm shake  9.5 cmd4-8 4.9%

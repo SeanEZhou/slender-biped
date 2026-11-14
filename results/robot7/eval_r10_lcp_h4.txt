@@ -1,0 +1,2 @@
+r10_lcp_h4               [r7] falls  2/9 T 23.5s left:2         pitch0 -2.1 walk -4.5 |roll|p95 12.2 >4deg  27% reach L/R  0.7/14.1 fwd 20.0cm shake  9.9 cmd4-8 1.7%
+r10_lcp_h4               [r7hard] falls  5/9 T 16.9s back:1 left:3 right:1 pitch0 +0.9 walk -1.8 |roll|p95 14.7 >4deg  35% reach L/R  1.3/13.0 fwd 14.9cm shake 16.4 cmd4-8 1.9%

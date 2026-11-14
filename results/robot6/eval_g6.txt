@@ -1,0 +1,3 @@
+g6_step                  [fitted] falls  2/9 T 27.7s fwd:2          pitch0 -2.7 walk -3.7 |roll|p95  4.5 >4deg   7% reach L/R  0.0/ 2.0 fwd -5.3cm shake 14.5 cmd4-8 6.7%
+g6_step                  [hard] falls  0/9 T 30.0s                pitch0 -1.5 walk -1.9 |roll|p95  4.0 >4deg   5% reach L/R -0.3/ 3.9 fwd -14.8cm shake 10.3 cmd4-8 4.9%
+g6_step                  [old] falls  0/9 T 30.0s                pitch0 -3.6 walk -4.3 |roll|p95  2.9 >4deg   1% reach L/R -0.3/ 1.8 fwd -11.2cm shake  8.2 cmd4-8 4.0%

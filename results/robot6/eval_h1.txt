@@ -1,0 +1,2 @@
+h1_ser                   [fitted] falls  0/9 T 30.0s                pitch0 -2.4 walk -2.7 |roll|p95  4.9 >4deg  11% reach L/R  4.4/ 6.1 fwd  0.5cm shake  8.5 cmd4-8 3.3%
+h1_ser                   [hard] falls  1/9 T 26.8s left:1         pitch0 -0.7 walk -0.4 |roll|p95  8.2 >4deg  20% reach L/R  7.9/ 8.3 fwd -0.3cm shake  8.7 cmd4-8 3.5%

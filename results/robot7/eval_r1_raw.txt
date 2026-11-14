@@ -1,0 +1,2 @@
+r1_raw                   [r7] falls  5/9 T 17.9s fwd:1 left:4   pitch0 -2.6 walk -4.7 |roll|p95 11.8 >4deg  32% reach L/R 10.7/10.4 fwd 16.7cm shake 12.4 cmd4-8 2.3%
+r1_raw                   [r7hard] falls  7/9 T 12.5s back:2 fwd:1 left:3 right:1 pitch0 +0.4 walk -2.5 |roll|p95 15.7 >4deg  39% reach L/R 11.3/12.7 fwd  6.1cm shake 17.9 cmd4-8 4.0%

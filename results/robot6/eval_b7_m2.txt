@@ -1,0 +1,1 @@
+b7_seed2                 [fitted] falls  0/9 T 30.0s                pitch0 +1.0 walk -0.6 |roll|p95  7.2 >4deg  31% reach L/R 25.3/23.9 fwd 62.8cm shake 15.6 cmd4-8 3.0%

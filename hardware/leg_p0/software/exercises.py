@@ -5,6 +5,7 @@
     python exercises.py lift  --enable --side R --lifts 2 4 6 8 12 --lower 0.5   # E4 minimum clearance
     python exercises.py lift  --enable --side R --lifts 10 --hold 60      # E3 one-foot tip-over angles by hand
     python exercises.py lift  --enable --side R --lifts 15 --lower 0.6 0.3 0.15 0.08 0.04   # E5 landing
+    python exercises.py wiggle --enable --pattern roll  # E8 body response: 1.5 deg sines at 1-7 Hz (roll/pitch/knees/yaw)
 
 Each writes ex_<name>_<time>.csv (the runner's columns plus stage, rep and mark) and a .json beside it with the
 exercise's settings. Analyse on the PC: .venv/bin/python scripts/exercises_sim.py compare <csv>.
@@ -202,6 +203,45 @@ def cmd_lift(a):
     run(a, f"lift{a.side}", tr, tr.duration, "\nq", "", info)
 
 
+WIGGLE = {   # joint pattern per unit angle (stance pose, both boards flat)
+    "roll": lambda u: ep.shift_pose(u) - ep.Q_NOM,                  # sideways weight shift (hip + ankle rolls)
+    "pitch": lambda u: u * np.array([0, 0, 1, 0, 0, 0, 0, 1, 0, 0.0]),   # both hip pitches: the upper body pitches
+    "knees": lambda u: u * np.array([0, 0, 0, 1, 0, 0, 0, 0, 1, 0.0]),   # both knees alone: also pitches the body back
+    "squat": lambda u: u * np.array([0, 0, 1, 1, 0, 0, 0, 1, 1, 0.0]),   # knees + hip pitches: the body keeps its angle
+    "yaw": lambda u: u * np.array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0.0]),     # both hip yaws: the body twists
+}
+
+
+class Wiggle:
+    """Small sine on one joint pattern, stepping through frequencies (each `on` s, then `off` s still)."""
+
+    def __init__(self, pattern, amp_deg, freqs, on=3.0, off=1.5, settle=3.0, lean_deg=0.0):
+        self.f, self.amp, self.freqs = WIGGLE[pattern], math.radians(amp_deg), list(freqs)
+        self.lean = math.radians(lean_deg) * np.array([0, 0, 1, 0, 0, 0, 0, 1, 0, 0.0])   # + hip pitch = forward
+        self.on, self.off, self.settle = on, off, settle
+        self.duration = settle + len(self.freqs) * (on + off)
+
+    def __call__(self, t):
+        base = ep.Q_NOM + ep.ease(min(1.0, t / 1.5)) * self.lean        # lean in over the first 1.5 s
+        if t < self.settle:
+            return base, "settle", -1
+        i, tt = divmod(t - self.settle, self.on + self.off)
+        i = int(i)
+        if i >= len(self.freqs) or tt >= self.on:
+            return base, "still", i
+        env = min(1.0, tt / 0.3, (self.on - tt) / 0.3)      # 0.3 s fade in / out
+        return base + self.f(env * self.amp * math.sin(2 * math.pi * self.freqs[i] * tt)), f"{self.freqs[i]:g}Hz", i
+
+
+def cmd_wiggle(a):
+    tr = Wiggle(a.pattern, a.amp, a.freqs, a.on, a.off, lean_deg=a.lean)
+    info = dict(pattern=a.pattern, amp_deg=a.amp, freqs=a.freqs, on_s=a.on, off_s=a.off, lean_deg=a.lean, instructions=(
+        f"WIGGLE: a {a.amp} deg sine on the {a.pattern} pattern at {a.freqs} Hz, {a.on} s each with {a.off} s still\n"
+        f"  between ({tr.duration:.0f} s). Boards flat, hands off; it measures how the body answers small commands at\n"
+        f"  each frequency. Stop (q) if it rocks hard."))
+    run(a, f"wiggle_{a.pattern}", tr, tr.duration, "\nq", "", info)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--servo-port")
@@ -226,8 +266,17 @@ def main():
     sp.add_argument("--lifts", type=float, nargs="+", default=[2, 4, 6, 8, 12], help="mm (rigid-leg value)")
     sp.add_argument("--lower", type=float, nargs="+", default=[0.5], help="s to lower the board")
     sp.add_argument("--hold", type=float, default=2.5, help="s on one foot")
+    sp = sub.add_parser("wiggle", parents=[common], help="E8: small sine commands, frequency sweep (body response)")
+    sp.add_argument("--pattern", choices=list(WIGGLE), default="roll")
+    sp.add_argument("--amp", type=float, default=1.5, help="deg")
+    sp.add_argument("--freqs", type=float, nargs="+", default=[1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 7])
+    sp.add_argument("--on", type=float, default=3.0, help="s at each frequency")
+    sp.add_argument("--off", type=float, default=1.5, help="s still between frequencies")
+    sp.add_argument("--lean", type=float, default=0.0,
+                    help="deg added to both hip pitches first (+ = upper body forward; the full body stands 6-7.5 deg "
+                         "back, at its backward tip limit: 2 brings it to ~3 back)")
     a = ap.parse_args()
-    {"hold": cmd_hold, "shift": cmd_shift, "lift": cmd_lift}[a.cmd](a)
+    {"hold": cmd_hold, "shift": cmd_shift, "lift": cmd_lift, "wiggle": cmd_wiggle}[a.cmd](a)
 
 
 if __name__ == "__main__":

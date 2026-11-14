@@ -1,0 +1,2 @@
+r8_alpf_h4               [r7] falls  0/9 T 30.0s                pitch0 -2.3 walk -4.4 |roll|p95  5.5 >4deg  16% reach L/R -0.7/ 3.9 fwd  3.1cm shake  7.6 cmd4-8 0.9%
+r8_alpf_h4               [r7hard] falls  3/9 T 20.6s back:3         pitch0 +1.3 walk -3.3 |roll|p95  8.0 >4deg  25% reach L/R  2.9/ 3.7 fwd -3.3cm shake 13.9 cmd4-8 1.5%

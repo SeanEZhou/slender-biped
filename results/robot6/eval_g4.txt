@@ -1,0 +1,2 @@
+g4_lean                  [fitted] falls  3/9 T 21.5s back:1 fwd:2   pitch0 -2.5 walk -3.7 |roll|p95  5.9 >4deg  15% reach L/R -0.3/ 6.9 fwd -4.0cm shake 14.2 cmd4-8 10.5%
+g4_lean                  [hard] falls  4/9 T 17.8s back:3 fwd:1   pitch0 +0.2 walk -2.5 |roll|p95  4.3 >4deg   7% reach L/R -2.1/ 5.5 fwd -10.2cm shake 16.4 cmd4-8 7.3%

@@ -1,0 +1,2 @@
+r12_alpf5_h4             [r7] falls  0/9 T 30.0s                pitch0 -2.5 walk -5.2 |roll|p95  5.4 >4deg  16% reach L/R  2.1/ 2.4 fwd  1.0cm shake  7.7 cmd4-8 1.2%
+r12_alpf5_h4             [r7hard] falls  2/9 T 23.5s back:2         pitch0 +1.2 walk -3.9 |roll|p95  6.3 >4deg  20% reach L/R  2.1/ 2.8 fwd -3.1cm shake 13.4 cmd4-8 1.9%

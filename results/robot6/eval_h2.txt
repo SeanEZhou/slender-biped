@@ -1,0 +1,3 @@
+h2_old                   [fitted] falls  0/9 T 30.0s                pitch0 -0.5 walk -2.5 |roll|p95  5.5 >4deg  16% reach L/R 11.7/11.6 fwd 32.3cm shake 11.1 cmd4-8 4.6%
+h2_old                   [hard] falls  7/9 T 13.5s back:4 left:1 right:2 pitch0 +2.7 walk -0.8 |roll|p95  9.8 >4deg  25% reach L/R  9.6/ 8.8 fwd  7.5cm shake 11.1 cmd4-8 4.7%
+h2_old                   [old] falls  0/9 T 30.0s                pitch0 -2.1 walk -3.5 |roll|p95  4.6 >4deg   9% reach L/R 11.5/11.0 fwd 37.1cm shake  7.3 cmd4-8 3.0%

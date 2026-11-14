@@ -1,0 +1,4 @@
+g1_mass                  [fitted] falls  0/9 T 30.0s                pitch0 -2.4 walk -2.6 |roll|p95  5.3 >4deg  12% reach L/R  5.7/ 6.3 fwd  7.7cm shake 12.4 cmd4-8 4.8%
+fb2_lean                 [fitted] falls  0/9 T 30.0s                pitch0 -0.2 walk -0.2 |roll|p95  7.4 >4deg  26% reach L/R 13.6/16.4 fwd 42.8cm shake  9.6 cmd4-8 3.3%
+g1_mass                  [old] falls  0/9 T 30.0s                pitch0 -3.3 walk -3.5 |roll|p95  4.1 >4deg   5% reach L/R  4.1/ 5.3 fwd  5.1cm shake  8.1 cmd4-8 3.0%
+fb2_lean                 [old] falls  0/9 T 30.0s                pitch0 -2.1 walk -2.7 |roll|p95  5.3 >4deg  11% reach L/R  8.1/11.5 fwd 28.5cm shake  6.7 cmd4-8 2.0%

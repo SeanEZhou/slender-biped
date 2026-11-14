@@ -1,0 +1,2 @@
+g3_tilt                  [fitted] falls  3/9 T 22.4s fwd:3          pitch0 -3.1 walk -3.6 |roll|p95  4.6 >4deg  11% reach L/R -0.7/ 2.2 fwd -2.2cm shake 15.8 cmd4-8 9.6%
+g3_tilt                  [hard] falls  2/9 T 24.4s back:1 left:1  pitch0 -1.1 walk -2.0 |roll|p95  4.4 >4deg   7% reach L/R -0.6/ 0.2 fwd -12.9cm shake 11.3 cmd4-8 6.8%

@@ -1,0 +1,2 @@
+r3_hist                  [r7] falls  4/9 T 18.5s left:3 right:1 pitch0 -1.5 walk -2.1 |roll|p95 14.9 >4deg  38% reach L/R  7.4/12.1 fwd 13.4cm shake 12.4 cmd4-8 4.6%
+r3_hist                  [r7hard] falls  6/9 T 13.6s back:5 left:1  pitch0 +2.2 walk -0.8 |roll|p95 10.1 >4deg  27% reach L/R 10.0/12.6 fwd  1.0cm shake 19.5 cmd4-8 7.1%

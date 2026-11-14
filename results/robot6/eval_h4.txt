@@ -1,0 +1,3 @@
+h4_t05                   [fitted] falls  0/9 T 30.0s                pitch0 -1.7 walk -2.2 |roll|p95  5.9 >4deg  15% reach L/R 10.0/14.8 fwd 31.7cm shake  8.7 cmd4-8 2.3%
+h4_t05                   [hard] falls  8/9 T 14.6s left:3 right:5 pitch0 +0.4 walk +0.5 |roll|p95  8.4 >4deg  14% reach L/R 11.0/15.4 fwd 10.9cm shake  8.0 cmd4-8 2.5%
+h4_t05                   [old] falls  0/9 T 30.0s                pitch0 -3.3 walk -3.6 |roll|p95  5.6 >4deg  14% reach L/R  8.9/14.7 fwd 35.1cm shake  7.2 cmd4-8 1.8%

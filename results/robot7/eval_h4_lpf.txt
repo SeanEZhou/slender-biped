@@ -1,0 +1,2 @@
+h4+lpf0.6                 [r7] falls  3/9 T 23.5s back:1 fwd:2   pitch0 -2.6 walk -3.4 |roll|p95  7.4 >4deg  30% reach L/R  5.6/14.2 fwd 28.3cm shake  9.4 cmd4-8 0.9%
+h4+lpf0.6                 [r7hard] falls  7/9 T  9.5s back:6 right:1 pitch0 +1.9 walk -1.7 |roll|p95  8.4 >4deg  29% reach L/R 12.0/18.1 fwd -4.2cm shake 17.8 cmd4-8 2.3%

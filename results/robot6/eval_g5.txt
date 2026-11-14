@@ -1,0 +1,2 @@
+g5_seed1                 [fitted] falls  0/9 T 30.0s                pitch0 -2.5 walk -3.4 |roll|p95  3.5 >4deg   3% reach L/R  0.5/ 2.4 fwd -15.3cm shake 13.2 cmd4-8 7.5%
+g5_seed1                 [hard] falls  0/9 T 30.0s                pitch0 -1.2 walk -1.8 |roll|p95  3.7 >4deg   4% reach L/R  2.0/ 3.9 fwd -15.0cm shake  9.4 cmd4-8 6.1%

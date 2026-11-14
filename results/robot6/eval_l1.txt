@@ -1,0 +1,4 @@
+l1_mass                  [fitted] falls  0/9 T 30.0s                pitch0 -1.9 walk -3.8 |roll|p95  5.5 >4deg  15% reach L/R -0.2/-1.1 fwd -6.2cm shake 11.6 cmd4-8 3.2%
+b7_seed2                 [fitted] falls  0/9 T 30.0s                pitch0 +1.0 walk -0.6 |roll|p95  7.2 >4deg  31% reach L/R 25.3/23.9 fwd 62.8cm shake 15.6 cmd4-8 3.0%
+l1_mass                  [hard] falls  1/9 T 26.7s left:1         pitch0 -0.3 walk -2.1 |roll|p95  9.9 >4deg  26% reach L/R  2.2/-0.1 fwd -2.2cm shake 14.4 cmd4-8 4.3%
+b7_seed2                 [hard] falls  4/9 T 19.4s back:1 left:1 right:2 pitch0 +3.8 walk +2.2 |roll|p95 11.3 >4deg  52% reach L/R 22.9/21.9 fwd 27.0cm shake 15.9 cmd4-8 3.7%

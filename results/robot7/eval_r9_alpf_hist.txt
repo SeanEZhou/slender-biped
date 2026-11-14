@@ -1,0 +1,2 @@
+r9_alpf_hist             [r7] falls  2/9 T 23.6s fwd:1 left:1   pitch0 -1.4 walk -3.9 |roll|p95 10.2 >4deg  34% reach L/R  3.9/ 7.4 fwd  7.1cm shake  8.9 cmd4-8 1.9%
+r9_alpf_hist             [r7hard] falls  5/9 T 14.0s back:3 fwd:1 left:1 pitch0 +3.2 walk -2.1 |roll|p95 11.7 >4deg  42% reach L/R -4.9/ 3.8 fwd  2.8cm shake 14.1 cmd4-8 3.1%

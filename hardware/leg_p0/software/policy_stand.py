@@ -722,9 +722,12 @@ def cmd_run(a):
     if meta["joints"] not in (legs8, legs10):
         sys.exit(f"unexpected joint order in {env['model']}: {meta['joints']}")
     nj = len(meta["joints"])
-    if isinstance(pol, Policy) and pol.n_in != 6 + 3 * nj + 5:
-        sys.exit(f"{a.run}: policy takes {pol.n_in} inputs; this runner builds the {6 + 3 * nj + 5}-input observation "
-                 f"for {nj} joints only (no history / velocity inputs)")
+    n_hist = int(env.get("obs_hist", 0) or 0)            # round 7: past frames [g, gyro, q, 0.1 qd, action] in front
+    if isinstance(pol, Policy) and pol.n_in != (6 + 3 * nj) * (n_hist + 1) + 5:
+        sys.exit(f"{a.run}: policy takes {pol.n_in} inputs; this runner builds the {(6 + 3 * nj) * (n_hist + 1) + 5}-input "
+                 f"observation for {nj} joints and {n_hist} history frames only (no velocity / line inputs)")
+    if n_hist:
+        print(f"observation history: {n_hist} past frames ({n_hist * dt * 1000:.0f} ms)")
     R = load_mount()
     if a.pitch_trim:              # rotate the pelvis frame about y so the reported pitch drops by pitch_trim
         c, s = math.cos(math.radians(a.pitch_trim)), math.sin(math.radians(a.pitch_trim))
@@ -779,6 +782,16 @@ def cmd_run(a):
     if a.ramp is None:
         a.ramp = 0.0 if ready > 0 else 1.0
     print(f"policy blend-in {a.ramp:.1f} s" + (" (gait clock held until it ends)" if a.ramp > 0 else ""))
+    if a.gyro_lpf is None:
+        a.gyro_lpf = float(env.get("gyro_lpf", 0.0) or 0.0)
+        if a.gyro_lpf > 0:
+            print(f"gyro low-pass {a.gyro_lpf:.1f} Hz on the policy's input (as trained)")
+    elif a.gyro_lpf > 0:
+        print(f"gyro low-pass {a.gyro_lpf:.1f} Hz on the policy's input (override)")
+    if a.ready_act and ready > 0:
+        print("ready blend goes to the pose the policy holds standing (gait start pose + its action, clock at 0)")
+    if a.gyro_scale != 1.0:
+        print(f"gyro x {a.gyro_scale:.2f} on the policy's input (not as trained)")
     lpf = a.act_lpf if a.act_lpf is not None else float(env.get("act_lpf", 0.0))   # action low-pass, as trained
     if lpf > 0:
         print(f"action low-pass {lpf:.2f}" + (" (override)" if a.act_lpf is not None else " (from the run's config)"))
@@ -839,6 +852,10 @@ def cmd_run(a):
 
         print("ENGAGED. Enter / q / space = stop.\n" if a.enable else "")
         last_a = np.zeros(nj)
+        w_al = 1.0 - math.exp(-2 * math.pi * a.gyro_lpf * dt) if a.gyro_lpf > 0 else 1.0
+        w_f = None                                      # the gyro the policy sees (--gyro-lpf)
+        hist = None                                     # past observation frames (n_hist)
+        a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
         yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
         stop_reason, overruns, k, stale = "user", 0, 0, 0
@@ -880,14 +897,31 @@ def cmd_run(a):
                 if t_run < ready:                       # blend into the ready pose, nothing else
                     r = 0.5 - 0.5 * math.cos(math.pi * t_run / ready)
                     act = np.zeros(nj)
-                    q_cmd = np.clip(q_nom + r * (q_ready - q_nom), lo, hi)
+                    q_goal = q_ready
+                    if a.ready_act and isinstance(pol, Policy):    # ... plus the action the policy holds there
+                        w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
+                        frame = np.concatenate([g, a.gyro_scale * w_f, q - q_nom, 0.1 * qd, a_est])
+                        if n_hist and hist is None:
+                            hist = np.tile(frame, (n_hist, 1))
+                        obs = np.concatenate(([hist.ravel()] if n_hist else []) + [frame, [0.0, 0.0, 0.0], [0.0, 1.0]])
+                        if n_hist:
+                            hist = np.vstack([hist[1:], frame])
+                        a_est = a_est + 0.1 * (np.clip(pol(obs), -1.0, 1.0) - a_est)
+                        act = a_est.copy()
+                        q_goal = q_ready + r * scale * a_est
+                    q_cmd = np.clip(q_nom + r * (q_goal - q_nom), lo, hi)
                 else:
                     if slew > 0:
                         cmd_v[0] += float(np.clip(a.vx - cmd_v[0], -slew * dt, slew * dt))
                     if a.vx:
                         cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
-                    obs = np.concatenate([g, wv, q - q_nom, 0.1 * qd, last_a, cmd_v,
-                                          [math.sin(phase), math.cos(phase)]])
+                    w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
+                    frame = np.concatenate([g, a.gyro_scale * w_f, q - q_nom, 0.1 * qd, last_a])
+                    if n_hist and hist is None:
+                        hist = np.tile(frame, (n_hist, 1))
+                    obs = np.concatenate(([hist.ravel()] if n_hist else []) + [frame, cmd_v, [math.sin(phase), math.cos(phase)]])
+                    if n_hist:
+                        hist = np.vstack([hist[1:], frame])
                     act = np.clip(pol(obs), -1.0, 1.0)
                     if lpf > 0:
                         act = lpf * last_a + (1.0 - lpf) * act
@@ -1034,6 +1068,15 @@ def main():
                     help="set each servo's acceleration register to the run's training model (prof_acc: hip yaw / "
                          "roll / ankle ~46 = 400 deg/s^2, hip pitch and knee ~228) instead of --accel for all; the old "
                          "hip servos ignore it, the newer ones (ankles, knees) follow it")
+    sp.add_argument("--ready-act", action="store_true",
+                    help="during the --ready blend, run the policy with the clock at 0 and blend to the gait start pose plus "
+                         "its (smoothed) action, so it doesn't snap the body forward when it engages (2026-11-13)")
+    sp.add_argument("--gyro-lpf", type=float, default=None,
+                    help="Hz: first-order low-pass on the gyro the policy sees (default: the run's gyro_lpf, else off). 2026-11-13: the "
+                         "full-body shake is a loop: the frame rings at 4.5-5 Hz, the gyro sees it and the policy "
+                         "answers it at the knees and hip rolls. 2-3 Hz cuts that loop's gain at 4.5 Hz to 0.4-0.55")
+    sp.add_argument("--gyro-scale", type=float, default=1.0,
+                    help="multiply the gyro the policy sees (1 = as trained); <1 lowers its gain round the shake loop")
     sp.add_argument("--act-lpf", type=float, default=None,
                     help="action low-pass a = k * a_prev + (1 - k) * a_policy (default: the run's act_lpf, else 0 = off)")
     sp.add_argument("--ready", type=float, help="s to blend into the gait's start pose before the policy engages "
