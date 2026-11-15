@@ -2,8 +2,8 @@
 
 What this project has learned, in one place, for whoever picks it up next: me later, or an agent. Each lesson is a
 short statement plus a link to where it was learned, with the data. The detail docs keep the full record; this file
-keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-14, after robot round 9 (a faster
-gait, and a breadth-first search on the shake loop).
+keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-14, after robot round 10 (higher
+steps and open loop within a step).
 
 Status in one line: the robot (10 STS3215 servos, ankle roll, 150 × 50 mm snowboard pads, IMU on the pelvis) walks
 with the legs alone for minutes (`b7_seed2`: 122 s, 99 s) and, since 2026-11-13, with the torso and head on:
@@ -12,8 +12,36 @@ Its remaining faults: bouts of twitching against the frame's 5 Hz ring, and fall
 detail: [walking_clean.md §18-22](walking_clean.md#22-round-7-on-the-robot-the-ring-is-tamed-the-steps-tip-forward-2026-11-13-evening).
 Rounds 8-9 tried to make it faster and calmer; nothing beat it on the robot yet, but they showed why it works
 ([walking_clean.md §26](walking_clean.md#26-round-9-on-the-robot-the-new-gait-tips-sideways-the-gyro-penalty-transfers-and-why-h4-works-2026-11-14-1104-1132)).
-Next: single changes from h4 (speed, a gyro-only gradient penalty, centre of mass, higher steps) and an
-open-loop-within-a-step policy (round 10).
+Round 10 on the robot ([§28](walking_clean.md#28-round-10-on-the-robot-high-steps-transfer-open-loop-removes-the-twitch-and-why-the-steps-tip-2026-11-14-1643-1820)):
+`k5_high2` (h4 on a reference that lifts 2.1x higher) takes the large, clean steps the next milestone needs but tips
+sideways; the open-loop policies have practically no twitch. Next (round 11): k5's steps with the open-loop
+policies' indifference to the sideways sway, a live slow pitch channel, and lift-off timed to the roll.
+
+## Full body: what round 10 taught on the robot (2026-11-14)
+
+- **High steps are the direction for mobility.** A higher reference gait transfers (k5 lifts ~2x h4 on the robot):
+  more progress per step, no non-steps, no toes caught in the rug. Their cost is sideways risk, below.
+- **A sideways fall is a lift-off taken while the body still rolls outward.** All 22 sideways falls came mid-swing,
+  over the stance foot; each of those steps lifted at +5-7° toward the stance side, still rolling there at
+  14-28°/s. Normal h4 steps lift at +0.5°; k5 lifts at +4.6° and 21°/s every step, near the edge, and stands on one
+  leg longer. Fix the timing of the lift, not the height. ([§28.1](walking_clean.md))
+- **The sideways sway is safe; fighting it is not.** The open-loop policies lift mid-sway (0° roll), let the
+  momentum carry ~2° over the stance foot and back (the "strafe"), and never fell sideways. The closed-loop policies
+  fight the sway, which is the twitch, and lift late.
+- **Open loop within a step removes the twitch** (swing gyro RMS 12-16°/s against 20-25), **but the fore-aft balance
+  must stay closed loop.** Holding the pitch rate up to 1.2 s, even with gravity live (o3), lets a fore-aft rock grow
+  (10 → 16-22° peak-to-peak per 2 s) until it falls. Hold the sideways and joint inputs; keep pitch live and
+  low-passed below the ring.
+- **Held inputs need a clean start.** Frozen at the engage frame, with the settle gate holding the clock off the
+  first sample, the o policies were blind through the engage lurch and fell on their faces.
+- **Engage into the policy's own pose.** Every policy lurched -5 → +10-12° forward within 0.75 s of engaging from the
+  reference's ready pose. `--ready-act` (blend into the pose the policy holds, clock at 0) removes it; it is the
+  runner's default since 2026-11-14.
+- **No gyro gradient penalty.** It cuts the twitch by cutting all gyro gain, the pitch damping included: k2, k6 (round
+  10) and d6 (round 9) fell forward, d6b tipped sideways. Cut the ring with the run-time filter or by not showing it
+  to the policy.
+- **Check the settle gate.** Lift-offs passed at 21-28°/s through a 17°/s gate; either it hit its 1 s cap or the
+  policy lifts ahead of the clock.
 
 ## Full body: what rounds 8-9 taught (2026-11-13 / 14)
 
@@ -24,10 +52,10 @@ open-loop-within-a-step policy (round 10).
 - **Train without the action filter, and apply it at run time.** With the filter in training the smoothness penalties
   only see the filtered action, so the policy pushes harder behind it: the hip's gyro gain doubled every time (s1, s3,
   d5, d11), and those twitched worst on the robot.
-- **A gyro-only gradient penalty is the first training change that cut the twitch on the robot.** `--lcp 0.01
-  --lcp-idx 3:6` (the Lipschitz penalty of [Chen et al. 2024](https://arxiv.org/abs/2410.11825), on the gyro inputs
-  only) halved the 4-8 Hz commands against h4's and kept the pitch damping. 0.05, or no gyro at all, removed the fast
-  balance too: those fell forward or twisted within 3 s.
+- **A gyro-only gradient penalty cut the twitch on the robot, but not usefully.** `--lcp 0.01 --lcp-idx 3:6` (the
+  Lipschitz penalty of [Chen et al. 2024](https://arxiv.org/abs/2410.11825), on the gyro inputs only) halved the 4-8
+  Hz commands against h4's; 0.05, or no gyro at all, removed the fast balance too: those fell forward or twisted
+  within 3 s. Round 10 retired it (k2 and k6 fell forward; see above).
 - **More reward pressure means more twitch.** Doubling the progress and swing pay sped the policy up and made it shake
   ~30% more. h4's light weights are part of why it is calm.
 - **The gait must let the landing settle.** Cutting the double support (release 0.25 → 0.15 s, the settle gate's
@@ -39,6 +67,15 @@ open-loop-within-a-step policy (round 10).
 - **Make the step target follow the command.** h4 walks ~1.2 cm/s at any command because its fixed 5 cm step target
   paid standing about as well as walking; `stride_cmd` (target = speed command / step rate) fixed the speed in
   simulation.
+
+- **A higher reference gait teaches a higher step; a clearance penalty doesn't.** h4 lifts its feet a quarter of
+  its reference's height (6.7 mm median) with the clearance penalty on; references lifting 1.4× / 2.1× higher raised
+  the real lift 2.2× / 5×. ([walking_clean.md §27](walking_clean.md))
+- **Open loop within a step (sensors held between lift-off and touchdown) lowers the shake but costs the slow
+  balance**: the least shake on the hard ring, but half the posture answer and a forward lean. It needs a live slow
+  channel or longer training. (§27)
+- **The step target following the command doesn't buy speed by itself**; the centre of mass range and the higher
+  steps did. (§27)
 
 ### Why h4_t05 works, and what to improve
 
@@ -53,10 +90,10 @@ open-loop-within-a-step policy (round 10).
 | weakness | fix to try |
 |---|---|
 | ~1.2 cm/s at any command (fixed 5 cm step target) | `stride_cmd` at h4's pay level |
-| Twitch bouts (gyro gain 0.047 / 0.096) | gyro-only LCP 0.01 |
+| Twitch bouts (gyro gain 0.047 / 0.096) | gyro-only LCP 0.01 (round 10: cuts the pitch damping too; out) → hold the sideways inputs within a step |
 | Leans 4.5° forward (model's centre of mass 1-2 cm back) | `dr_com_x` [-0.005, 0.025] |
-| Toes catch | a reference gait that lifts higher (a clearance penalty alone doesn't teach lifting) |
-| Jolt at engage | blend the first actions in |
+| Toes catch | a reference gait that lifts higher (a clearance penalty alone doesn't teach lifting); round 10: works (k5) |
+| Jolt at engage | blend the first actions in; `--ready-act`, default since round 10 |
 | No memory to tell the ring from a real rotation | observation history (experimental) |
 
 ## Full body: what rounds 5-7 taught (2026-11-12 / 13)

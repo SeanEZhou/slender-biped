@@ -1,0 +1,4 @@
+k6_combo                 [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -2.1 walk -2.6 |roll|p95  6.5 >4deg  24% reach L/R 18.6/21.4 fwd 46.1cm shake  7.5 cmd4-8 0.4%
+k6_combo                 [r7 com_dx=0.015] falls  5/6 T 12.2s back:1 fwd:4   pitch0 -2.5 walk -3.9 |roll|p95  7.3 >4deg  28% reach L/R  3.6/19.7 fwd 23.7cm shake 11.2 cmd4-8 0.8%
+k6_combo                 [r7hard] falls  6/6 T  3.2s back:6         pitch0 +5.2 walk -0.8 |roll|p95  5.8 >4deg  25% reach L/R  6.2/16.3 fwd -16.1cm shake 16.9 cmd4-8 3.3%
+k6_combo         per deg of back tilt: hip pitch +0.195 knee -0.390 (knee-hip -0.585) deg/deg | pitch-rate gain rms hip 0.031 knee 0.055 deg per deg/s

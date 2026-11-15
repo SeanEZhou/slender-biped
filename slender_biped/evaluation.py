@@ -166,6 +166,8 @@ class EvalConfig:
     ring_hp: float = 0.3
     gyro_lpf: float = 0.0              # Hz, low-pass on the policy's gyro (mjx_env.EnvConfig)
     gyro_obs_scale: float = 1.0        # the gyro the policy sees x this (0 = a gyro-blind policy; mjx_env.EnvConfig)
+    obs_hold_u: tuple = ()             # open loop within a step: sensors sampled at these clock phases (mjx_env.EnvConfig)
+    obs_hold_keep_g: bool = False
     ring_delay: float = 0.0            # s: dead time of the frame mode's drive
     flex_dscale: float = 1.0          # share of the servo's damping that acts on the give (1 = give inside the servo; small = structural flex outside it)
     # 2026-11-12 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, rad), ...): the servo
@@ -182,7 +184,8 @@ class EvalConfig:
     def from_train(cls, env_cfg: dict, **over):
         keep = {k: env_cfg[k] for k in cls.__dataclass_fields__ if k in env_cfg}
         keep.update(over)
-        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias"):
+        for k in ("push_interval_s", "prof_acc", "dr_prof_acc", "dr_delay_steps", "dr_volt", "settle_gate_u", "imu_tilt_bias",
+                  "obs_hold_u"):
             if k in keep:
                 keep[k] = tuple(keep[k])
         for k in ("hidden_flex", "hidden_off", "ring"):
@@ -357,6 +360,7 @@ class CpuBiped:
         self.last_act = np.zeros(self.nj)
         self.phase = 0.0
         self.gate_held = 0
+        self.held, self.hold_upd = None, True
         self.imu_off = np.array(c.imu_tilt_bias, float) + (c.dr_imu_tilt * self.est_rng.uniform(-1, 1, 2) if c.dr_imu_tilt else 0.0)
         if hasattr(self, "_cmd"):
             del self._cmd
@@ -417,7 +421,14 @@ class CpuBiped:
         q = q + n * c.noise_q * r.normal(size=self.nj)
         qd = qd + n * c.noise_qd * r.normal(size=self.nj)
         clock = np.array([np.sin(self.phase), np.cos(self.phase)])
-        self._frame = np.concatenate([g, w, q, 0.1 * qd, self.last_act])
+        sens = np.concatenate([g, w, q, 0.1 * qd])
+        if c.obs_hold_u:
+            if self.held is None or self.hold_upd:
+                self.held = sens.copy()
+            g_live, sens = sens[:3], self.held.copy()
+            if c.obs_hold_keep_g:
+                sens[:3] = g_live
+        self._frame = np.concatenate([sens, self.last_act])
         extra = []
         if c.obs_vel == "oracle":
             yaw = yaw_of(quat)
@@ -584,6 +595,9 @@ class CpuBiped:
             self.gate_held = self.gate_held + 1 if hold else 0
             if hold:
                 ph_new = self.phase
+        if c.obs_hold_u:
+            u0, u1 = self.phase / (2 * np.pi), ph_new / (2 * np.pi)
+            self.hold_upd = np.linalg.norm(self.cmd) <= 1e-3 or any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.obs_hold_u)
         self.phase = ph_new
         if c.push_vel > 0:
             self.push_timer -= 1

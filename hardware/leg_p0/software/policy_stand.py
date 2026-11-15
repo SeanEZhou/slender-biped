@@ -807,6 +807,10 @@ def cmd_run(a):
     gate_u = tuple(env.get("settle_gate_u", ()))
     gate_w = float(env.get("settle_gate_w", 0.3))
     gate_n = int(float(env.get("settle_gate_max", 0.5)) / dt)
+    hold_u = tuple(env.get("obs_hold_u", ()) or ())      # 2026-11-14 round 10: open loop within a step (as trained):
+    hold_g = bool(env.get("obs_hold_keep_g", False))      # sensors sampled as the clock passes these phases, held between
+    if hold_u:
+        print(f"sensor inputs held between clock phases {hold_u}" + (" (gravity live)" if hold_g else ""))
     gate_held = 0
     if gate_u:
         print(f"settle gate: the next step waits until the body turns slower than {gate_w:.2f} rad/s "
@@ -861,6 +865,7 @@ def cmd_run(a):
         hist = None                                     # past observation frames (n_hist)
         a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
+        held, hold_upd = None, True                     # obs_hold_u: the held sensor inputs, sample on the next tick
         yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
         stop_reason, overruns, k, stale = "user", 0, 0, 0
         bad_reads, read_fails, q_last, qd_last = 0, 0, None, None
@@ -920,7 +925,14 @@ def cmd_run(a):
                     if a.vx:
                         cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
                     w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
-                    frame = np.concatenate([g, a.gyro_scale * w_f, q - q_nom, 0.1 * qd, last_a])
+                    sens = np.concatenate([g, a.gyro_scale * w_f, q - q_nom, 0.1 * qd])
+                    if hold_u:
+                        if held is None or hold_upd or not a.vx:
+                            held = sens.copy()
+                        g_live, sens = sens[:3], held.copy()
+                        if hold_g:
+                            sens[:3] = g_live
+                    frame = np.concatenate([sens, last_a])
                     if n_hist and hist is None:
                         hist = np.tile(frame, (n_hist, 1))
                     obs = np.concatenate(([hist.ravel()] if n_hist else []) + [frame, cmd_v, [math.sin(phase), math.cos(phase)]])
@@ -948,6 +960,9 @@ def cmd_run(a):
                         gate_held = gate_held + 1 if hold else 0
                         if hold:
                             ph_new = phase
+                    if hold_u:
+                        u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)
+                        hold_upd = any(((u0 - gu) % 1.0) > ((u1 - gu) % 1.0) for gu in hold_u)
                     phase = ph_new
                     yaw += float(-(wv @ g)) * dt              # yaw rate about the vertical (g points down)
                 el = (time.perf_counter() - t0) * 1000
@@ -1072,9 +1087,13 @@ def main():
                     help="set each servo's acceleration register to the run's training model (prof_acc: hip yaw / "
                          "roll / ankle ~46 = 400 deg/s^2, hip pitch and knee ~228) instead of --accel for all; the old "
                          "hip servos ignore it, the newer ones (ankles, knees) follow it")
-    sp.add_argument("--ready-act", action="store_true",
-                    help="during the --ready blend, run the policy with the clock at 0 and blend to the gait start pose plus "
-                         "its (smoothed) action, so it doesn't snap the body forward when it engages (2026-11-13)")
+    sp.add_argument("--ready-act", dest="ready_act", action="store_true", default=True,
+                    help="(default on since 2026-11-14) during the --ready blend, run the policy with the clock at 0 and "
+                         "blend to the gait start pose plus its (smoothed) action, so it doesn't snap the body forward when "
+                         "it engages (2026-11-13). Round-10 logs: without it every policy pitched -5 -> +10-12 deg in "
+                         "0.75 s after engaging; with it o3 no longer falls at the start")
+    sp.add_argument("--no-ready-act", dest="ready_act", action="store_false",
+                    help="blend into the plain gait start pose (the pre-2026-11-14 behaviour)")
     sp.add_argument("--gyro-lpf", type=float, default=None,
                     help="Hz: first-order low-pass on the gyro the policy sees (default: the run's gyro_lpf, else off). 2026-11-13: the "
                          "full-body shake is a loop: the frame rings at 4.5-5 Hz, the gyro sees it and the policy "

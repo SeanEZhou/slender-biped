@@ -1,0 +1,6 @@
+o2_hold2                 [fitted com_dx=0.015] falls  4/6 T 12.3s fwd:4          pitch0 -2.5 walk -7.9 |roll|p95  6.8 >4deg  21% reach L/R  6.2/ 7.3 fwd 16.1cm shake  9.3 cmd4-8 1.3%
+/home/sean/slender-biped/scripts/eval6.py:80: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+o2_hold2                 [r7 com_dx=0.015] falls  6/6 T  3.0s fwd:5 right:1  pitch0 -3.1 walk +nan |roll|p95 10.1 >4deg  24% reach L/R  5.1/ 6.7 fwd 12.8cm shake 10.5 cmd4-8 1.5%
+o2_hold2                 [r7hard] falls  5/6 T  9.2s back:3 fwd:1 right:1 pitch0 +3.5 walk -5.9 |roll|p95  7.5 >4deg  30% reach L/R  9.9/ 1.3 fwd -5.0cm shake 11.8 cmd4-8 2.2%
+o2_hold2         per deg of back tilt: hip pitch +0.137 knee -0.130 (knee-hip -0.267) deg/deg | pitch-rate gain rms hip 0.036 knee 0.039 deg per deg/s

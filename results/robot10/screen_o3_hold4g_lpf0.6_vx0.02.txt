@@ -1,0 +1,4 @@
+o3_hold4g                [fitted com_dx=0.015] falls  3/6 T 15.6s back:1 fwd:2   pitch0 -3.2 walk -5.2 |roll|p95  7.6 >4deg  29% reach L/R  5.7/ 6.5 fwd  1.4cm shake 11.7 cmd4-8 1.8%
+o3_hold4g                [r7 com_dx=0.015] falls  4/6 T 10.9s fwd:4          pitch0 -5.8 walk -6.3 |roll|p95  6.1 >4deg  20% reach L/R -7.9/ 9.2 fwd 14.8cm shake 11.5 cmd4-8 2.1%
+o3_hold4g                [r7hard] falls  5/6 T  6.8s back:4 fwd:1   pitch0 +1.7 walk -4.8 |roll|p95  6.8 >4deg  19% reach L/R -19.8/ 0.3 fwd -5.9cm shake 15.6 cmd4-8 2.2%
+o3_hold4g        per deg of back tilt: hip pitch +0.171 knee -0.258 (knee-hip -0.429) deg/deg | pitch-rate gain rms hip 0.032 knee 0.041 deg per deg/s

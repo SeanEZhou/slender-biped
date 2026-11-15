@@ -1,0 +1,4 @@
+k3_com                   [fitted com_dx=0.015] falls  0/6 T 30.0s                pitch0 -1.8 walk -2.5 |roll|p95  6.1 >4deg  18% reach L/R 14.8/16.8 fwd 42.0cm shake  7.5 cmd4-8 0.7%
+k3_com                   [r7 com_dx=0.015] falls  0/6 T 30.0s                pitch0 -2.5 walk -4.2 |roll|p95  6.9 >4deg  26% reach L/R 12.8/16.5 fwd 33.0cm shake  8.5 cmd4-8 0.8%
+k3_com                   [r7hard] falls  6/6 T  2.7s back:4 right:2 pitch0 +5.1 walk -1.1 |roll|p95 10.7 >4deg  31% reach L/R  6.1/28.8 fwd -12.0cm shake 16.5 cmd4-8 3.5%
+k3_com           per deg of back tilt: hip pitch +0.214 knee -0.405 (knee-hip -0.618) deg/deg | pitch-rate gain rms hip 0.051 knee 0.111 deg per deg/s

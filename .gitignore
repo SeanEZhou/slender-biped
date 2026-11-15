@@ -248,3 +248,13 @@ personal-notes/
 !runs/d9c_blind/params_0028M.pkl
 !runs/d10_land/params_0028M.pkl
 !runs/d11_combo/params_0028M.pkl
+# robot round 10 (2026-11-14 afternoon): single changes from h4, higher-stepping references, open loop within a step (docs/walking_clean.md §27)
+!runs/k1_speed/params_0016M.pkl
+!runs/k2_glcp/params_0016M.pkl
+!runs/k3_com/params_0016M.pkl
+!runs/k4_high/params_0016M.pkl
+!runs/k5_high2/params_0016M.pkl
+!runs/k6_combo/params_0016M.pkl
+!runs/o1_hold4/params_0024M.pkl
+!runs/o2_hold2/params_0020M.pkl
+!runs/o3_hold4g/params_0024M.pkl

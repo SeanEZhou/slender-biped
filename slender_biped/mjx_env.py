@@ -110,6 +110,11 @@ class EnvConfig:
                                        # per episode, in bursts; the body doesn't move, so answering it only costs (the critic sees the truth)
     act_hf_hz: float = 2.0             # act_hf: penalize the policy's raw output (before act_lpf) above this cutoff
     stride_cmd: bool = False           # stride pays up to the commanded step length (cmd vx * step time) instead of stride_target
+    # 2026-11-14 round 10: open loop within a step. The policy's sensor inputs (gravity, gyro, q, 0.1 qd) are sampled
+    # when the gait clock passes these cycle fractions (and every tick while standing) and held in between; the clock,
+    # command and last action stay live. The settle gate still reads the live gyro. Runner: policy_stand reads it.
+    obs_hold_u: tuple = ()
+    obs_hold_keep_g: bool = False      # gravity stays live (slow tilt feedback) while the rest is held
     flex_dscale: float = 1.0           # share of the servo's damping acting on the give (round 7: small = structural flex outside the servo, rings)
     dr_flex_tc: tuple = ()
     # 2026-11-12 round 5 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, lo, hi, spread),
@@ -534,12 +539,13 @@ class SlenderBipedEnv(Env):
             tug=jp.zeros(3), tug_goal=jp.zeros(3), tug_timer=self._steps(jax.random.fold_in(kb4, 3), c.tug_s),
             ring=dict(r=jp.zeros(3), rd=jp.zeros(3), us=self._ring_W @ qe, buf=jp.tile(self._ring_W @ qe, (self._ring_nbuf, 1)),
                       i=jp.array(0, jp.int32)),
-            w_f=jp.zeros(3), raw_lp=jp.zeros(self.nj),
+            w_f=jp.zeros(3), raw_lp=jp.zeros(self.nj), held=jp.zeros(6 + 2 * self.nj), hold_upd=jp.array(True),
             vib=self._vib_sample(jax.random.fold_in(kb4, 11)),
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
         obs, frame = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         info["hist"] = jp.tile(frame, (c.obs_hist, 1))
+        info["held"] = frame[:6 + 2 * self.nj]
         obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
 
@@ -711,6 +717,12 @@ class SlenderBipedEnv(Env):
                     & (info["gate_held"] < int(c.settle_gate_max / c.ctrl_dt)))
             info["gate_held"] = jp.where(hold, info["gate_held"] + 1, 0)
             phase_next = jp.where(hold, state.info["phase"], phase_next)
+        if c.obs_hold_u:                 # open loop within a step: sample the sensors as the clock passes these phases
+            hu0, hu1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
+            upd = jp.linalg.norm(info["cmd"]) <= 1e-3
+            for g in c.obs_hold_u:
+                upd = upd | (jp.mod(hu0 - g, 1.0) > jp.mod(hu1 - g, 1.0))
+            info["hold_upd"] = upd
         info["phase"] = phase_next
         # left stance when sin(phase) >= 0, right when < 0
         s = jp.sin(info["phase"])
@@ -902,6 +914,8 @@ class SlenderBipedEnv(Env):
                 w_m = jp.clip(w_m, -c.gyro_range, c.gyro_range)
             info["w_f"] = info["w_f"] + (1.0 - np.exp(-2 * np.pi * c.gyro_lpf * c.ctrl_dt)) * (w_m - info["w_f"])
         obs, frame = self._obs(data, info, action, acc["tau"], k_obs)
+        if c.obs_hold_u:
+            info["held"] = frame[:6 + 2 * self.nj]
         if c.obs_hist:
             info["hist"] = jp.concatenate([info["hist"][1:], frame[None]], 0)
         return state.replace(pipeline_state=data, obs=obs, reward=reward, done=done, metrics=metrics, info=info)
@@ -939,7 +953,11 @@ class SlenderBipedEnv(Env):
         clock = jp.where(mir, -clock, clock)                      # phase + pi: the other leg's half of the cycle
         cmd = info["cmd"] * fc
         g_n, w_n, q_n, qd_n = g_n * fy, w_n * fw, sw(q_n), sw(qd_n)
-        frame = jp.concatenate([g_n, w_n, q_n, 0.1 * qd_n, action])   # action is already in the policy's frame
+        sens = jp.concatenate([g_n, w_n, q_n, 0.1 * qd_n])
+        if c.obs_hold_u:
+            held = jp.where(info["hold_upd"], sens, info["held"])
+            sens = held.at[:3].set(sens[:3]) if c.obs_hold_keep_g else held
+        frame = jp.concatenate([sens, action])   # action is already in the policy's frame
         extra = []
         if c.obs_vel == "oracle":
             yaw = jp.arctan2(2 * (quat[0] * quat[3] + quat[1] * quat[2]), 1 - 2 * (quat[2] ** 2 + quat[3] ** 2))

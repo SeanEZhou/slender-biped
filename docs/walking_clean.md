@@ -31,7 +31,7 @@ Tried on the robot and failed (the bar for this table: 10+ steps in every trial)
 roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13, §15 and §17
 runs. With the cables no longer pulling (§18), all of round 5's leg policies and the s policies walk for a minute or
 more; `c3m` still falls sideways within 10-20 s. The legs are now steadier than the full body, which is the gap to close
-next (§18.4). Round 6 (§19-20): `h2_old`, `h5_h2hard`, `h4_t05` all fell in 5-24 s on the robot, shaken over by a gyro feedback loop at 4.5 Hz. Round 7 (§21-22): the policies trained with the action filter stopped fighting the ring but walk 7-12° forward and fall on their faces; **`h4_t05 --act-lpf 0.6` is the current best full-body walker.** Round 8 (§23, simulation): the round-7 lean matches a centre of mass 1-2 cm further forward than the model's; `s3_swing` (h4 + the filter trained in + the ring + more swing pay) is the next to try. Round 8 on the robot (§24): s3 twitched worst, s2 stepped in place, h4 + 0.7 as good as 0.6. Round 9 (§25, simulation): a 1.0 s continuous gait with 1.5x steps; `d1b_ignore` walks 4.7x h4's speed in simulation; training on a stronger ring makes policies shake a body that rings differently; the gyro-only gradient penalty halves the gyro gain (`d6b_glcp01`). Fourteen policies to test. Round 9 on the robot (§26): every c_T10L policy tips sideways at the third lift-off, because the gait no longer waits for the landing roll to die out; the gyro-only penalty (`d6b_glcp01`) is the first training change that cut the twitch on the robot; h4 + filter is still the best.
+next (§18.4). Round 6 (§19-20): `h2_old`, `h5_h2hard`, `h4_t05` all fell in 5-24 s on the robot, shaken over by a gyro feedback loop at 4.5 Hz. Round 7 (§21-22): the policies trained with the action filter stopped fighting the ring but walk 7-12° forward and fall on their faces; **`h4_t05 --act-lpf 0.6` is the current best full-body walker.** Round 8 (§23, simulation): the round-7 lean matches a centre of mass 1-2 cm further forward than the model's; `s3_swing` (h4 + the filter trained in + the ring + more swing pay) is the next to try. Round 8 on the robot (§24): s3 twitched worst, s2 stepped in place, h4 + 0.7 as good as 0.6. Round 9 (§25, simulation): a 1.0 s continuous gait with 1.5x steps; `d1b_ignore` walks 4.7x h4's speed in simulation; training on a stronger ring makes policies shake a body that rings differently; the gyro-only gradient penalty halves the gyro gain (`d6b_glcp01`). Fourteen policies to test. Round 9 on the robot (§26): every c_T10L policy tips sideways at the third lift-off, because the gait no longer waits for the landing roll to die out; the gyro-only penalty (`d6b_glcp01`) is the first training change that cut the twitch on the robot; h4 + filter is still the best. Round 10 (§27, simulation): single changes from h4; a higher reference gait doubles to quintuples the real foot lift, the centre of mass range gives the best ring screen, the gyro-only penalty halves the gain, and holding the sensors between steps lowers the shake but costs the slow balance. Round 10 on the robot (§28): `k5_high2` steps the way the next milestone needs but tips sideways, because it lifts off while still rolling outward; the open-loop policies have practically no twitch and never fall sideways, but blind pitch lets a fore-aft rock build; the gyro penalty is out; `--ready-act` (now default) removes the engage lurch.
 
 ## 1. What the open-source biped trainers do
 
@@ -1596,3 +1596,122 @@ round 9 can't separate the two.
 
 Next (round 10, §27): single changes from h4 (speed, gyro LCP, centre of mass, higher steps), their combination, and
 an open-loop-within-a-step policy.
+
+## 27. Round 10: single changes from h4, higher steps, and open loop within a step (2026-11-14 13:13-16:07, simulation)
+
+All from `h4_t05` at 30M on h4's own recipe (§26.2's "keep" list: c_T12 timing, the settle gate holding up to 1.0 s,
+no ring, no filter in training, the light tilt penalty, the loose pose kernel). Queue `scripts/robot10_queue.sh`,
+settings `scripts/robot10_common.sh`, per-run notes `results/robot10/NOTES.md`.
+
+New:
+- **Higher-stepping references** `c_T12H` / `c_T12HH`: c_T12's timing with `--lift-knee`/`--lift-hip` 0.60 / 0.75
+  (was 0.45). First-step foot clearance played open loop at 0.02 m/s: 27.5 / 39 / 59 mm. `ref_swing_h` raised to
+  18 / 25 mm with them.
+- **Open loop within a step** (`obs_hold_u`, in `mjx_env`, `evaluation` and `policy_stand`): the policy's sensor
+  inputs (gravity, gyro, q, 0.1 qd) are sampled when the gait clock passes the given cycle fractions and held in
+  between; the clock, command and last action stay live, and the settle gate still reads the live gyro.
+  `obs_hold_keep_g` keeps gravity live. While the speed command is zero the inputs are live.
+- `scripts/robot10_analysis/clear.py`: each swing's peak foot height in simulation.
+
+### 27.1 Results (6 × 30 s at 0.02 m/s, `act_lpf` 0.6 at run time; fitted / r7 with the pelvis mass 1.5 cm forward)
+
+| run | change from h4 | fitted: falls, cm, shake | r7: falls, cm | r7hard falls | gyro gain hip / knee | swing peak (median) |
+|---|---|---|---|---|---|---|
+| `h4_t05` | | 0/6, 16, 7.3 | 2/6, 25 | 4/6 | 0.047 / 0.096 | 6.7 mm |
+| `k1_speed` | step target from the command | 0/6, 14, 6.4 | 3/6, 20 | 4/6 | 0.046 / 0.100 | |
+| `k2_glcp` | gyro-only LCP 0.01 | 0/6, 14, **5.2** | 3/6, 19 | 5/6 | **0.025 / 0.051** | 5.9 |
+| `k3_com` | centre of mass -0.5..+2.5 cm | **0/6, 42**, 7.5 | **0/6, 33** | 6/6 | 0.051 / 0.111 | 9.8 |
+| `k4_high` | c_T12H | 1/6, 28, 8.8 | 4/6, 30 | 6/6 | 0.049 / 0.102 | **15.0** |
+| `k5_high2` | c_T12HH | 1/6, **49**, 7.8 | 6/6, 21 | 6/6 | 0.047 / 0.103 | **33.2** |
+| **`k6_combo`** | k1 + k2 + k3 + c_T12H | **0/6, 46**, 7.5 | 5/6, 24 | 6/6 | 0.031 / 0.055 | **16.3** |
+| `o1_hold4` | sensors held between lift-offs and touchdowns | 2/6, 11, 7.4 | 4/6, 7 | 4/6 (shake **10.7** vs 16.5) | (held) | 4.3 |
+| `o3_hold4g` | o1, gravity live | 3/6, 1, 11.7 | 4/6, 15 | 5/6 | (held) | |
+| `o2_hold2` | sensors held a whole step | 4/6, 16, 9.3 | 6/6, 13 | 5/6 | (held) | |
+
+### 27.2 Learnings
+
+1. **A higher reference teaches a higher step.** h4 lifts its feet a quarter of its reference's height (6.7 mm
+   median, 75% of swings under 10 mm), despite the clearance penalty in every run. Training on a reference that
+   lifts 1.4× / 2.1× higher raised the real lift 2.2× / 5× (15 / 33 mm) and lengthened the steps; they also roll
+   more and fall more on the ring screens, and were still adapting at 16M.
+2. **The step target following the command doesn't buy speed on its own** at h4's reward weights (k1: no faster at
+   0.02 or 0.03 m/s). Speed came from the centre of mass range (k3) and the higher steps (k4, k5).
+3. **The centre of mass range gave the best ring screen of any policy** (k3: 0/6 on r7 at 33 cm). Partly flattering:
+   the screens' 1.5 cm forward mass is inside its training range.
+4. **The gyro-only LCP halves h4's gyro gain again** (k2, as d6b did from g1) with the steps kept; it does not
+   lower the clearance problem, and combined with the rest (k6) the gain is still 35-43% below h4's.
+5. **Open loop within a step lowers the shake but costs the slow balance.** o1 shook least of all on the hard
+   ring (10.7 against h4's 16.5°/s, same falls), but its posture answer halved (knee - hip -0.30° per degree of
+   tilt against -0.57) and it walks 7° forward and shuffles (4 mm lift). Holding for a whole step (o2) is worse;
+   keeping gravity live (o3) didn't bring the posture answer back. All three were still learning (episodes
+   330-510 of 1000 in training); they need longer training or a live slow channel (gravity low-passed).
+
+### 27.3 For the robot (`--vx 0.02 --act-lpf 0.6` for all; cables slack)
+
+`python policy_stand.py run --run <run> --enable --vx 0.02 --act-lpf 0.6`
+
+1. `k6_combo`: the strongest simulated walker; lower gyro gain, 16 mm lift.
+2. `k3_com`: the best ring screen; h4 with the mass forward.
+3. `k2_glcp`: h4 with half the gyro gain (the twitch test).
+4. `k4_high`, then `k5_high2`: the higher-step test (toe catches); expect more roll.
+5. `o1_hold4`: open loop between steps. The runner prints "sensor inputs held between clock phases"; untested on
+   the robot. Then `o3_hold4g`, `o2_hold2`.
+6. `k1_speed`.
+
+## 28. Round 10 on the robot: high steps transfer, open loop removes the twitch, and why the steps tip (2026-11-14 16:43-18:20)
+
+All nine round-10 policies on the rug, cables slack, `--vx 0.015-0.02 --act-lpf 0.6-0.7`. Operator notes, the
+measured table and the method: `results/robot10/NOTES.md`; scripts `scripts/robot10_analysis/{engage,steps,liftoff,falls}.py`.
+
+| run | on the robot |
+|---|---|
+| **`k5_high2`** | **closest to the next milestone** (best at `--act-lpf 0.7 --vx 0.015`): consistent large steps (~2x h4's lift), limited shaking, until it tips sideways; every step risky. 12 trials, 4-20 s |
+| `k4_high` | the same kind of step, smaller; 7 falls, all sideways, 6 of them lifting the left foot |
+| `o1_hold4` | falls on its face at engage; held through that, **the twitch is practically gone**. Sways (strafes) sideways on the loose hips, marches mostly in place, never fell (130 s) |
+| `o3_hold4g` | no twitch, walks with h4-like steps, but a forward/back rock builds over ~6 steps and it falls |
+| `o2_hold2` | falls on its face at the first step |
+| `k3_com` | like h4, less stable; the right leg is passive (lifts half the left's height) and catches the rug |
+| `k1_speed` | like h4, slightly less stable |
+| `k2_glcp`, `k6_combo` (gyro LCP) | fall in 2-10 s, forward or in a growing fore-aft rock; k6's first step catches the rug |
+
+### 28.1 What the logs show
+
+1. **The engage lurch.** Without `--ready-act` every policy, h4 included, pitched from -5° (the ready pose) to +10-12°
+   forward within 0.75 s of engaging. The k policies without the gyro penalty recovered to +1..+6° by 1.5 s. The two
+   with it (k2, k6) turned fastest (56-85°/s against 21-69), overshot back and fell or rocked. The o policies were
+   blind through it: their inputs froze at the engage frame, and the settle gate held the clock short of the first
+   lift-off while the body pitched, so the first fresh sample came after the fall had started. **`--ready-act` (blend
+   into the pose the policy itself holds) removes it; o3 started cleanly with it. It is now the runner's default
+   (`--no-ready-act` for the old blend).**
+2. **Sideways falls are lift-offs taken while the body still rolls outward.** All 22 sideways falls came during a
+   swing, tipping over the stance foot. The steps that fell lifted off at +5-7° toward the stance side and still
+   rolling that way at 14-28°/s. h4's median step lifts at +0.5°; k5's at +4.6° and 21°/s (p75 35), near the edge
+   every step, and it then stands on one leg 0.53-0.72 s (h4 0.34-0.50). So the high step itself is not the problem;
+   lifting it at the end of the weight shift, with the shift still moving, is.
+3. **The o policies' "strafe" is the safe sideways rhythm.** o1 lifts at 0° roll, mid-sway: the shift's momentum
+   carries it ~2° over the stance foot during the swing and back, and it never tipped. The closed-loop policies
+   shift, then fight the sway (the twitch), then lift late.
+4. **The settle gate leaks.** It should hold a lift-off until the body turns slower than 0.3 rad/s (17°/s), yet
+   lift-offs went through at 21-28°/s: either it ran to its 1 s cap, or the policy lifts ahead of the clock. Worth
+   measuring in simulation before relying on it.
+5. **Open loop removes the twitch; freezing the pitch rate destabilises the slow pitch loop.** Gyro RMS during swing
+   12-16°/s for the o policies against 20-25 for the others. o3 kept gravity live but held the pitch rate for up to
+   1.2 s: its fore-aft swing grew from ~10° to 16-22° peak-to-peak per 2 s before each fall, where h4's stays at
+   8-10° for 100 s. Delayed rate feedback on a pendulum adds energy.
+6. **The gyro-only gradient penalty is out.** It halved the gyro gain and the shake, but the gain it removes includes
+   the pitch damping: k2 and k6 fell forward here, d6 (0.05) fell forward in round 9 and d6b (0.01) tipped sideways.
+   An input penalty can't separate the 5 Hz ring from a slow pitch; the run-time action filter, and not seeing the
+   ring at all (held or low-passed inputs), can.
+7. **The higher reference transfers**: k5 lifts ~2x h4's height on the robot, k4 1.25x; they shake a little more
+   (swing gyro RMS 24-25 against 21).
+
+### 28.2 Next: round 11
+
+The target, in the operator's words: **steps like k5, doesn't fight the safe sideways momentum like the o policies,
+keeps the fore-aft rock in check, and manages the sideways roll correctly.** From k5, so:
+- k5's reference and weights;
+- hold the roll inputs (and the joint speeds, which carry the ring) through a step, keep gravity's pitch part and a
+  low-passed (~1 Hz) pitch rate live, so the fore-aft balance stays closed loop without seeing the 5 Hz ring;
+- teach the lift-off timing: don't lift while still rolling outward (a tighter gate on the roll rate, or a cost on
+  outward roll speed at lift-off / in single support);
+- no gyro penalty; train longer than round 10's o runs (they were a third to half trained).
