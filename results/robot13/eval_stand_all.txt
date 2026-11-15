@@ -1,0 +1,77 @@
+(of those up: both pads down 100%, joints within 6 deg 99% (median worst 2.5 deg), tilt < 5 deg 100%, still 100%)
+stand test, r13a2_stand_step (runs/r13a2_stand_step/params_0024M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100% 100%   0.0 |   100% 100%   0.0 |    94%  94%   0.0 |   100% 100%   0.0 |  98% /  98%
+  0.15 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 | 100% / 100%
+  0.20 |    94%  88%   0.0 |    75%  75%   0.0 |   100% 100%   0.4 |   100% 100%   0.2 |  92% /  91%
+  0.25 |    88%  81%   0.0 |    25%  25%   0.0 |   100% 100%   0.7 |    88%  81%   0.6 |  75% /  72%
+  0.30 |    31%  31%   0.0 |     0%   0%   0.0 |    88%  88%   1.0 |    50%  44%   0.6 |  42% /  41%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 68%, home 67%
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 1.5 deg), tilt < 5 deg 100%, still 99%)
+stand test, r13f_capture (runs/r13f_capture/params_0030M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 | 100% / 100%
+  0.15 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100%  94%   0.1 | 100% /  98%
+  0.20 |   100%  94%   0.0 |    94%  94%   0.0 |   100% 100%   0.1 |   100% 100%   0.5 |  98% /  97%
+  0.25 |    81%  81%   0.0 |    25%  25%   0.0 |    94%  94%   0.6 |    94%  94%   0.8 |  73% /  73%
+  0.30 |    44%  44%   0.0 |     0%   0%   0.0 |    50%  50%   0.6 |    44%  44%   0.4 |  34% /  34%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 68%, home 67%
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 2.1 deg), tilt < 5 deg 98%, still 99%)
+stand test, r13f2_capture_a (runs/r13f2_capture_a/params_0030M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100%  94%   0.0 |   100%  94%   0.0 |   100%  94%   0.0 |   100%  94%   0.0 | 100% /  94%
+  0.15 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100%  94%   0.1 | 100% /  98%
+  0.20 |   100%  88%   0.0 |    62%  62%   0.0 |   100% 100%   0.3 |   100%  94%   0.3 |  91% /  86%
+  0.25 |    94%  88%   0.0 |    12%  12%   0.0 |    94%  94%   0.8 |    88%  88%   0.8 |  72% /  70%
+  0.30 |    50%  50%   0.0 |     0%   0%   0.0 |    44%  44%   0.4 |    44%  44%   0.4 |  34% /  34%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 66%, home 64%
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 2.0 deg), tilt < 5 deg 94%, still 100%)
+stand test, r13c_sup (runs/r13c_sup/params_0030M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100%  94%   0.0 |   100% 100%   0.0 |   100%  94%   0.0 |   100% 100%   0.0 | 100% /  97%
+  0.15 |   100%  94%   0.0 |   100%  88%   0.0 |   100%  94%   0.0 |   100%  94%   0.0 | 100% /  92%
+  0.20 |   100%  88%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100%  88%   0.0 | 100% /  94%
+  0.25 |    75%  75%   0.0 |    50%  50%   0.0 |   100% 100%   0.0 |    94%  81%   0.6 |  80% /  77%
+  0.30 |     6%   6%   0.0 |     0%   0%   0.0 |    88%  81%   0.5 |    50%  44%   0.6 |  36% /  33%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 69%, home 65%
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 1.6 deg), tilt < 5 deg 100%, still 57%)
+stand test, r13b_walkpush (runs/r13b_walkpush/params_0024M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100%  69%   0.1 |   100%  38%   0.1 |    88%  56%   0.0 |   100%  31%   0.3 |  97% /  48%
+  0.15 |   100%  56%   0.2 |    94%  44%   0.1 |   100%  62%   0.1 |   100%  44%   0.9 |  98% /  52%
+  0.20 |    94%  69%   0.1 |    31%  19%   0.1 |   100%  75%   0.1 |    88%  50%   1.0 |  78% /  53%
+  0.25 |    81%  50%   0.1 |    12%  12%   0.0 |    88%  44%   0.4 |    44%  19%   0.5 |  56% /  31%
+  0.30 |    25%  12%   0.1 |     0%   0%   0.0 |    44%  44%   0.3 |     0%   0%   0.0 |  17% /  14%
+  0.40 |     0%   0%   0.1 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 58%, home 33%
+(of those up: both pads down 100%, joints within 6 deg 99% (median worst 1.5 deg), tilt < 5 deg 99%, still 99%)
+stand test, r13c2_sup_early (runs/r13c2_sup_early/params_0024M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100% 100%   0.0 |   100%  94%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 | 100% /  98%
+  0.15 |   100%  94%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100%  94%   0.0 | 100% /  97%
+  0.20 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 | 100% / 100%
+  0.25 |    81%  81%   0.0 |    56%  50%   0.0 |    94%  94%   0.0 |   100%  88%   0.6 |  83% /  78%
+  0.30 |    12%  12%   0.0 |     0%   0%   0.0 |    81%  75%   0.5 |    50%  44%   0.6 |  36% /  33%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 70%, home 68%
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 1.9 deg), tilt < 5 deg 100%, still 87%)
+stand test, r13e_spec (runs/r13e_spec/params_0030M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100%  88%   0.0 |   100%  75%   0.0 |   100%  81%   0.0 |   100%  88%   0.0 | 100% /  83%
+  0.15 |   100%  94%   0.0 |   100%  81%   0.0 |   100% 100%   0.0 |   100%  69%   0.6 | 100% /  86%
+  0.20 |    81%  69%   0.0 |    81%  75%   0.1 |    94%  88%   0.3 |   100%  88%   0.9 |  89% /  80%
+  0.25 |    56%  56%   0.0 |    31%  31%   0.0 |   100%  94%   0.9 |    75%  69%   0.8 |  66% /  62%
+  0.30 |    31%  19%   0.0 |     0%   0%   0.1 |    31%  31%   0.3 |    12%  12%   0.1 |  19% /  16%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.1 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 62%, home 54%

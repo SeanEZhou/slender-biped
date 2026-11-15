@@ -62,6 +62,8 @@ def start_video(a, log_path):
         print(f"(no video: {e})")
         return None
 ROOT = HERE.parents[2]
+sys.path.insert(0, str(ROOT))
+from slender_biped.recovery import SupParams, Supervisor  # noqa: E402  (round 13: walk -> recover -> resume)
 MOUNT_FILE = HERE / "imu_mount.yaml"
 DEFAULT_RUN = "hw_stand_push2"
 VID_SERVO, VID_IMU = 0x1A86, 0x2E8A           # CH343 bus adapter, RP2040
@@ -845,6 +847,25 @@ def cmd_run(a):
                  + (" (--gate-roll, not as trained)" if a.gate_roll is not None and
                     abs(math.radians(a.gate_roll) - float(env.get("settle_gate_roll", 0.0) or 0.0)) > 1e-6 else "")
                  if gate_roll > 0 else ""))
+    # round 13 (2026-11-15): recovery supervisor. While walking, a predicted tip stops the walk: command 0 and the
+    # recovery controller (self = this policy at command 0, stance = the stance pose, or another run) until the body is
+    # quiet, then walking resumes from the clock's start (slender_biped/recovery.py; the training env runs the same rule)
+    sup, rec_pol = None, None
+    if a.recover:
+        sp = SupParams.from_env(env, roll=math.radians(a.sup_roll) if a.sup_roll else None,
+                                pitch=math.radians(a.sup_pitch) if a.sup_pitch else None, tau=a.sup_tau)
+        sup = Supervisor(sp, dt)
+        if a.recover not in ("self", "stance"):
+            rec_pol = Policy(a.recover)
+            if rec_pol.n_in != pol.n_in or rec_pol.env.get("ref_table") != env.get("ref_table"):
+                sys.exit(f"recovery policy {a.recover}: needs the walker's inputs ({pol.n_in}) and reference "
+                         f"({env.get('ref_table')}), has {rec_pol.n_in} / {rec_pol.env.get('ref_table')}")
+        print(f"recovery supervisor ON ({a.recover}): stop walking when roll + {sp.tau:.2f} s x rate > "
+              f"{math.degrees(sp.roll):.0f} deg or pitch likewise > {math.degrees(sp.pitch):.0f} deg; resume after "
+              f"{sp.quiet_s:.1f} s within {math.degrees(sp.quiet_tilt):.0f} deg and {math.degrees(sp.quiet_w):.0f} deg/s"
+              + (" (trained with it)" if env.get("sup") else " (not trained with it)"))
+        if not a.vx:
+            print("  (no --vx: the supervisor only acts while walking)")
     log_path = Path(a.log or f"stand_{a.run}_{time.strftime('%Y%m%d_%H%M%S')}.csv")
 
     with Keys() as keys:
@@ -914,7 +935,7 @@ def cmd_run(a):
                    + [f"q_{n}" for n in sv.names] + [f"qd_{n}" for n in sv.names]
                    + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
                    + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
-                   + ["phase", "gate_held", "roll_pred", "gate_guard"])
+                   + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch"])
         v_min, v_start = 99.0, None
         t_start = time.perf_counter()
         try:
@@ -962,6 +983,17 @@ def cmd_run(a):
                         cmd_v[0] += float(np.clip(a.vx - cmd_v[0], -slew * dt, slew * dt))
                     if a.vx:
                         cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
+                    if sup is not None and t_run >= ready + a.ramp:
+                        ev = sup.update(g, wv, walking=bool(a.vx))
+                        if ev == "trigger":
+                            phase = 0.0
+                            print(f"\n  RECOVER at {t_run:.2f} s (predicted roll {math.degrees(sup.pred[0]):+.0f}, "
+                                  f"pitch {math.degrees(sup.pred[1]):+.0f} deg)")
+                        elif ev == "resume":
+                            phase, cmd_v[0] = 0.0, 0.0 if slew > 0 else a.vx
+                            print(f"\n  RESUME walking at {t_run:.2f} s")
+                        if sup.on:
+                            cmd_v[:] = 0.0
                     w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
                     w_in = a.gyro_scale * w_f
                     if hold_p > 0:
@@ -982,7 +1014,10 @@ def cmd_run(a):
                     obs = np.concatenate(([hist.ravel()] if n_hist else []) + [frame, cmd_v, [math.sin(phase), math.cos(phase)]])
                     if n_hist:
                         hist = np.vstack([hist[1:], frame])
-                    act = np.clip(pol(obs), -1.0, 1.0)
+                    if sup is not None and sup.on and a.recover != "self":
+                        act = np.zeros(nj) if rec_pol is None else np.clip(rec_pol(obs), -1.0, 1.0)
+                    else:
+                        act = np.clip(pol(obs), -1.0, 1.0)
                     if lpf > 0:
                         act = lpf * last_a + (1.0 - lpf) * act
                     ramp = min(1.0, (t_run - ready) / a.ramp) if a.ramp > 0 else 1.0
@@ -1019,7 +1054,7 @@ def cmd_run(a):
                                 guard = 1                       # rolling away from centre: step now
                             elif abs(q[knee_idx[0]] - q[knee_idx[1]]) > math.radians(12.0):
                                 guard = 2                       # a foot is already up (knees differ > 12 deg)
-                        hold = (cross and a.vx and busy and not guard and gate_held < gate_n)
+                        hold = (cross and a.vx and not (sup is not None and sup.on) and busy and not guard and gate_held < gate_n)
                         gate_held = gate_held + 1 if hold else 0
                         if hold:
                             ph_new = phase
@@ -1035,7 +1070,9 @@ def cmd_run(a):
                 w.writerow([round(t0 - t_start, 4), round(el, 2)] + list(np.round(g, 4)) + list(np.round(wv, 4))
                            + list(np.round(q, 4)) + list(np.round(qd, 3)) + list(np.round(act, 4))
                            + list(np.round(q_cmd, 4)) + list(sv.volt) + list(sv.temp.astype(int))
-                           + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard])
+                           + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard]
+                           + ([int(sup.on), round(math.degrees(sup.pred[0]), 2), round(math.degrees(sup.pred[1]), 2)]
+                              if sup is not None else [0, 0.0, 0.0]))
                 v_min = min(v_min, float(sv.volt.min()))
                 if v_start is None:
                     v_start = float(np.median(sv.volt))
@@ -1101,6 +1138,8 @@ def cmd_run(a):
               f"(logged per servo with temperature and load)")
     if read_fails:
         print(f"bus: {read_fails} sync reads failed after retries (ran on the previous reading)")
+    if sup is not None:
+        print(f"recovery supervisor: {sup.n} stops" + (" (still recovering at the end)" if sup.on else ""))
     print(f"stopped by: {stop_reason}. {n} steps ({secs:.1f} s at 50 Hz), loop work median "
           f"{np.median(loop_ms) if n else 0:.1f} ms, {overruns} overruns, IMU gaps {imu.gaps}, stale IMU steps {stale}, "
           f"I2C retries {imu.i2c_errors}. Log: {log_path}")
@@ -1180,6 +1219,13 @@ def main():
                     help="deg: the roll gate (round 11): also hold each lift-off while |roll - its slow mean + 0.2 s x the roll "
                          "rate (2 Hz low-pass)| exceeds this (default: the run's settle_gate_roll, else off). Robot round 10: "
                          "the steps that tipped sideways lifted at a predicted ~11 deg, k5's normal steps ~9, h4's ~3.5")
+    sp.add_argument("--recover", nargs="?", const="self", default=None, metavar="self|stance|RUN",
+                    help="round 13: recovery supervisor while walking: a predicted tip stops the walk (command 0) and "
+                         "hands over to this policy at command 0 (self), the stance pose (stance) or another run, then "
+                         "walking resumes once the body is quiet")
+    sp.add_argument("--sup-roll", type=float, help="deg: supervisor roll threshold (default the run's sup_roll or 12)")
+    sp.add_argument("--sup-pitch", type=float, help="deg: supervisor pitch threshold (default the run's sup_pitch or 12)")
+    sp.add_argument("--sup-tau", type=float, help="s: supervisor prediction horizon (default the run's or 0.1)")
     sp.add_argument("--gyro-scale", type=float, default=None,
                     help="multiply the gyro the policy sees (default: the run's gyro_obs_scale, else 1); <1 lowers its gain round the shake loop")
     sp.add_argument("--act-lpf", type=float, default=None,

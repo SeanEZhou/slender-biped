@@ -1,0 +1,21 @@
+(of those up: both pads down 100%, joints within 6 deg 97% (median worst 2.0 deg), tilt < 5 deg 100%, still 99%)
+stand test, r13a_stand (runs/r13a_stand/params_0024M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 | 100% / 100%
+  0.15 |   100% 100%   0.0 |   100% 100%   0.0 |   100% 100%   0.0 |   100%  94%   0.1 | 100% /  98%
+  0.20 |    94%  81%   0.0 |    94%  94%   0.0 |   100% 100%   0.0 |   100% 100%   0.2 |  97% /  94%
+  0.25 |    69%  62%   0.0 |    69%  69%   0.0 |    94%  94%   0.1 |   100% 100%   0.9 |  83% /  81%
+  0.30 |    12%   0%   0.0 |     0%   0%   0.0 |    62%  56%   0.4 |    56%  44%   0.7 |  33% /  25%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 69%, home 66%
+(of those up: both pads down 49%, joints within 6 deg 10% (median worst 18.0 deg), tilt < 5 deg 64%, still 3%)
+walk test, k5_high2 (runs/k5_high2/params_0016M.pkl), recovery r13a_stand, supervisor on, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   88%  0.8  88% 13.4cm |  100%  0.3 100% 17.5cm |   94%  0.3  94% 14.7cm |   94%  0.4  94% 14.1cm |  94% /  94%
+  0.10 |   75%  0.7  75% 10.9cm |   81%  0.6  75% 11.9cm |   81%  0.3  81% 12.2cm |   94%  0.8  94% 13.6cm |  83% /  81%
+  0.15 |   56%  1.0  56%  7.2cm |   81%  0.9  81% 10.6cm |   44%  0.8  44%  7.4cm |   62%  0.9  62%  9.0cm |  61% /  61%
+  0.20 |   44%  1.2  44%  5.9cm |   56%  0.8  56%  9.5cm |   50%  1.0  50%  8.4cm |   50%  0.9  50%  6.9cm |  50% /  50%
+  0.25 |   31%  1.1  31%  4.0cm |    6%  1.1   6%  1.6cm |   31%  0.8  31%  5.0cm |   44%  1.1  44%  5.5cm |  28% /  28%
+overall up 63%, resumed 63%, supervisor triggers per run 0.79

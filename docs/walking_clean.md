@@ -32,7 +32,149 @@ Tried on the robot and failed (the bar for this table: 10+ steps in every trial)
 roll fell on the first or second step ([walking.md](walking.md)). Untested on the robot: the other §12-13, §15 and §17
 runs. With the cables no longer pulling (§18), all of round 5's leg policies and the s policies walk for a minute or
 more; `c3m` still falls sideways within 10-20 s. The legs are now steadier than the full body, which is the gap to close
-next (§18.4). Round 6 (§19-20): `h2_old`, `h5_h2hard`, `h4_t05` all fell in 5-24 s on the robot, shaken over by a gyro feedback loop at 4.5 Hz. Round 7 (§21-22): the policies trained with the action filter stopped fighting the ring but walk 7-12° forward and fall on their faces; **`h4_t05 --act-lpf 0.6` is the current best full-body walker.** Round 8 (§23, simulation): the round-7 lean matches a centre of mass 1-2 cm further forward than the model's; `s3_swing` (h4 + the filter trained in + the ring + more swing pay) is the next to try. Round 8 on the robot (§24): s3 twitched worst, s2 stepped in place, h4 + 0.7 as good as 0.6. Round 9 (§25, simulation): a 1.0 s continuous gait with 1.5x steps; `d1b_ignore` walks 4.7x h4's speed in simulation; training on a stronger ring makes policies shake a body that rings differently; the gyro-only gradient penalty halves the gyro gain (`d6b_glcp01`). Fourteen policies to test. Round 9 on the robot (§26): every c_T10L policy tips sideways at the third lift-off, because the gait no longer waits for the landing roll to die out; the gyro-only penalty (`d6b_glcp01`) is the first training change that cut the twitch on the robot; h4 + filter is still the best. Round 10 (§27, simulation): single changes from h4; a higher reference gait doubles to quintuples the real foot lift, the centre of mass range gives the best ring screen, the gyro-only penalty halves the gain, and holding the sensors between steps lowers the shake but costs the slow balance. Round 10 on the robot (§28): `k5_high2` steps the way the next milestone needs but tips sideways, because it lifts off while still rolling outward; the open-loop policies have practically no twitch and never fall sideways, but blind pitch lets a fore-aft rock build; the gyro penalty is out; `--ready-act` (now default) removes the engage lurch. Round 11 (§29, simulation): a hip roll with twice the fitted give reproduces k5's robot falls; a 1 Hz pitch-rate low-pass breaks the fore-aft balance; k5 + sideways open loop + roll gate + loose hips at once did not train in 20-24M. §30: a camera on the robot; the falls now all go left (a sideways bias in the robot); wide sideways mass ranges made k5 worse. §31: the hip-yaw screws tightened and the left hip pitch re-zeroed; **`k5_high2 --act-lpf 0.7` is the best full-body walker** (median 25.7 s, 30 steps).
+next (§18.4). Round 6 (§19-20): `h2_old`, `h5_h2hard`, `h4_t05` all fell in 5-24 s on the robot, shaken over by a gyro feedback loop at 4.5 Hz. Round 7 (§21-22): the policies trained with the action filter stopped fighting the ring but walk 7-12° forward and fall on their faces; **`h4_t05 --act-lpf 0.6` is the current best full-body walker.** Round 8 (§23, simulation): the round-7 lean matches a centre of mass 1-2 cm further forward than the model's; `s3_swing` (h4 + the filter trained in + the ring + more swing pay) is the next to try. Round 8 on the robot (§24): s3 twitched worst, s2 stepped in place, h4 + 0.7 as good as 0.6. Round 9 (§25, simulation): a 1.0 s continuous gait with 1.5x steps; `d1b_ignore` walks 4.7x h4's speed in simulation; training on a stronger ring makes policies shake a body that rings differently; the gyro-only gradient penalty halves the gyro gain (`d6b_glcp01`). Fourteen policies to test. Round 9 on the robot (§26): every c_T10L policy tips sideways at the third lift-off, because the gait no longer waits for the landing roll to die out; the gyro-only penalty (`d6b_glcp01`) is the first training change that cut the twitch on the robot; h4 + filter is still the best. Round 10 (§27, simulation): single changes from h4; a higher reference gait doubles to quintuples the real foot lift, the centre of mass range gives the best ring screen, the gyro-only penalty halves the gain, and holding the sensors between steps lowers the shake but costs the slow balance. Round 10 on the robot (§28): `k5_high2` steps the way the next milestone needs but tips sideways, because it lifts off while still rolling outward; the open-loop policies have practically no twitch and never fall sideways, but blind pitch lets a fore-aft rock build; the gyro penalty is out; `--ready-act` (now default) removes the engage lurch. Round 11 (§29, simulation): a hip roll with twice the fitted give reproduces k5's robot falls; a 1 Hz pitch-rate low-pass breaks the fore-aft balance; k5 + sideways open loop + roll gate + loose hips at once did not train in 20-24M. §30: a camera on the robot; the falls now all go left (a sideways bias in the robot); wide sideways mass ranges made k5 worse. §31: the hip-yaw screws tightened and the left hip pitch re-zeroed; **`k5_high2 --act-lpf 0.7` is the best full-body walker** (median 25.7 s, 30 steps). Round 13 (§32): shoves and penalties taught no recovery step (planted balance only, and on the robot the policies did almost nothing while falling); next, recovery-step references chosen by the capture point.
+
+## 0. How the walking policies work: a reference gait plus corrections, on a clock that can wait
+
+Every policy in the table above works the same way: `c3m_T12`, `c3f_T12`, the s and b leg policies, `h4_t05` and
+`k5_high2`. Their run configs all have `ref_residual` true, a c_T12-family table, `action_scale` 0.25, the settle gate
+at u = 0.2083 / 0.7083 holding up to 1.0 s, and `heading_cmd`.
+
+**The reference is the anchor; the policy only corrects it.** Each servo target is
+
+    q_target = reference(vx command, clock phase) + 0.25 rad x action,   action in [-1, 1]
+
+clipped to the joint limits. The policy never outputs raw servo positions: at most +-14 deg per joint around the
+reference's pose. The step the robot takes is mostly the reference's step, bent by the policy to keep balance.
+A policy is therefore meaningless without its table:
+- The table is committed in `models/ref/<ref_table>.npz` (k5: `c_T12HH`; the others: `c_T12`), built by
+  [ref_gait.py](../slender_biped/ref_gait.py) (§4: weight shift by the hip and ankle rolls, flat lift, settle).
+- The run's `config.json` names it, and `policy_stand.py` loads it from there.
+
+**Picking the reference frame: indexed by the clock, interpolated.** The table is 5 forward speeds (0-4 cm/s) x 256
+phases x 10 joints, plus which board is down at each phase (`stance`). Each 20 ms tick:
+1. The clock advances by 2 pi x 0.4167 Hz x 20 ms; one cycle is 2.4 s, a left and a right step.
+2. `ref_lookup` (policy_stand.py; `ref_gait.lookup` in training) blends linearly between the two nearest phase bins
+   and the two nearest speed rows.
+
+c_T12HH's schedule over one cycle (cycle fraction u):
+
+| u | both boards down | left board up (right stands) | both down | right board up |
+|---|---|---|---|---|
+| from | 0 | 0.208 (lift-off) | 0.396 (touchdown) | 0.708 (lift-off) |
+| to | 0.208 | 0.396 | 0.708 | 0.896, then both down to 1 |
+
+**The policy's inputs (k5: 51):**
+- gravity direction (3) and gyro (3) from the IMU;
+- 10 joint angles, 10 joint speeds x 0.1, and its previous action (10);
+- the command (3): forward speed vx, sideways vy (always 0 in training, so meaningless) and the turning rate wz;
+- the clock as sin / cos of the phase (2).
+
+The clock tells the policy which part of the reference it is correcting, so it doesn't have to work the timing out
+from the body's state. Stepping becomes "follow the schedule and fix it", not a reaction to be discovered.
+
+**The command:**
+- **vx** picks the stride row, and training pays progress relative to it.
+- **vx = 0 is standing:** at zero speed the reference is the static stance pose at every phase. The stepping
+  rewards (`ref_swing`, `stride`, `progress`) switch off, so a walker at zero command stands and does not step,
+  even though its clock keeps running. This is why k5 never steps when shoved standing (round 13).
+- **wz holds the heading:**
+  - The runner integrates the gyro's rate about the vertical (gravity from the IMU) since engage and commands
+    `wz = clip(-heading_gain x yaw, +-0.3 rad/s)`; `--heading-gain`, default 1, as in training.
+  - The reference leaves the hip yaw free (`ref_yaw_weight` 0), and training paid for matching wz and holding the
+    heading, so the policy steers with the hip yaws.
+  - Whether the robot's straight walking needs it is untested (`--heading-gain 0` would show it).
+
+**The settle gate: the clock waits for the body.**
+- At each lift-off phase (u = 0.2083 and 0.7083) the clock stops while the body still turns faster than 0.3 rad/s
+  (17 deg/s, roll and pitch gyro), for at most 1.0 s.
+- While it waits, the reference holds the pose just before the lift: the weight already shifted over the stance
+  board, both boards down. Not the neutral stance. The policy sees the clock stopped too, so it knows it is
+  waiting.
+- When the landing roll has died out (or after 1 s) the clock moves on, and the foot comes up.
+- Without the gate the clock runs at a fixed rate, and the reference lifts the foot on schedule whether the body has
+  settled or not. The policy can resist only within its +-14 deg.
+- Gate-aware policies were all trained with it, in simulation as on the robot (`settle_gate_u`, `settle_gate_w`,
+  `settle_gate_max` in the config). The runner reads the same settings.
+- Round 9 showed why the wait matters: shortening it made every policy lift while still rolling, and tip at the third
+  step (§26).
+
+**The gate guard (runner only, default on since 2026-11-14).** Waiting only helps while the body swings back toward
+centre. The runner skips the hold when:
+- the roll (from the engage attitude) is past 4 deg, still growing, and the roll rate is above 10 deg/s;
+- or a foot is already up (knees differ by more than 12 deg).
+
+Frozen in those states, the reference would leave the foot hanging while the robot tips toward it, which is what the
+2026-11-14 video showed (§30). `--no-gate-guard` runs the gate as trained. For k5 the two give similar results
+(§31): k5's landings usually settle within the hold anyway.
+
+**The engage.** The runner blends into the reference's zero-speed pose plus the action the policy holds there
+(`--ready-act`, default since round 10), with the clock at 0. Then the clock starts and vx ramps up at `cmd_vx_slew`.
+
+**Where it came from:** see the history section that follows.
+
+**What this means for new skills.** Rewards alone never taught stepping (§3: penalties without imitation made the
+policy step less and slide). Round 13's shove training without a reference produced no recovery step either. A new
+motion such as a recovery step should get the same structure: a reference table indexed by its own command (e.g. the
+step target) and a clock that starts when it is triggered, imitated with large `ref_q` / `ref_contact` weights, with
+the penalties shaping it.
+
+## History: how walking came to work (to 2026-11-15)
+
+Each stage kept what the one before it got right.
+
+1. **No reference: speed and contact rewards, and a skitter** (rounds 1-3, 2026-10-23 to 10-29,
+   [experiments.md](experiments.md) E9-E45; ball-tip and small-pad legs, no boards, no ankle).
+   - Actions around a fixed standing pose (stance + 0.35 x action).
+   - Rewards:
+     - speed and heading tracking, upright and height;
+     - a gait clock saying only which foot should be down (`contact_phase`, `swing_height`, `feet_air_time`);
+     - hardware penalties, and the fall penalty.
+   - Every walker skittered in simulation: 5-7 touchdowns a second, 45-60 ms in the air, 1-3 cm per step, ~5 mm of
+     clearance. Contact timing alone let the policy satisfy the clock with shuffles.
+2. **The reference-gait architecture, but too weak to carry a step to the robot** (round 4, 2026-10-29/30, E46-E54;
+   later the 150 mm boards).
+   - IK reference tables, actions as corrections around the reference (scale 0.25), and the imitation terms `ref_q`,
+     `ref_tip`, `ref_contact`.
+   - From scratch it took real steps at once (220 ms in the air, 22 mm clearance). But it marched in place, and
+     imitation couldn't reshape an already converged skitter.
+   - On the boards (task `shift_b150`, 2026-11-09): corrections on a shift-and-step reference and the first settle
+     gate, with weak imitation (`ref_q` 1, `ref_contact` 0) and the pay mostly for progress and lift.
+   - Without an ankle there was no one-foot stance at all: every walker fell on the first or second step on the
+     robot ([walking.md](walking.md)).
+3. **`c3m_T12`: the reward tuned, the ankle roll added: the legs walk** (2026-11-10, §3, §11).
+   - **The ankle roll servo:** a real one-foot stance. The same RL walker went from 6 steps in a quarter of the
+     walks to 16 of 16.
+   - **A continuous reference** `c_T12`: 1.2 s per step, weight shift and swing overlapping, boards lifted flat.
+   - **Imitation as the anchor:** `ref_q` 1 -> 3 and `ref_contact` 0 -> 3 (each board up or down when the reference
+     says).
+   - **Then the clean-step penalties** (scuff, board tilt, roll rate, jerk). The same penalties without the anchor
+     made the policy step half as often and slide (`c1_b150`).
+   - The first walk on the robot (legs and pelvis). Later leg policies (`s10_robust`, `b7_seed2`: 122 s) added the
+     measured hip give and the backward lean to the simulator.
+4. **`h4_t05`: the first full-body walker** (round 6, 2026-11-13, §19-22). Two breakthroughs.
+   - **Training on the measured body.** Re-weighed masses (torso and head 154 mm above the hips), the give as a spring
+     behind each servo (`flex_series`), no cable pull. Only a *light* tilt penalty (-0.05 past 4.6 deg), so that
+     stepping stayed cheap. h4 had the smoothest commands of the round.
+   - **The run-time action filter.** On the robot every full-body policy shook, and the shake turned out to be a
+     feedback loop: the hollow frame rings at 4-5 Hz, the pelvis gyro sees it, the policy answers it ~80 ms late,
+     and the servos ring the frame again (§20). `--act-lpf 0.6`, applied only at run time to a policy trained without
+     it, broke the loop: 188 s (299 steps), 74 s and 76 s (§22).
+   - Filtering in training instead made the policies lean forward and fall on their faces (round 7).
+5. **`k5_high2`: the faster full-body walker** (round 10, 2026-11-14, §27-28, §31).
+   - **The gait:** h4 fine-tuned 16M on its own recipe with the higher-stepping reference `c_T12HH` (lift knee =
+     hip 0.75 rad, against 0.45): ~2x h4's real lift. Far more progress per step, no toes caught in the rug.
+   - **Kept from h4:** no ring in training, no filter in training (`--act-lpf 0.7` at run time), light reward
+     pressure, the settle gate's 1 s wait. Round 10 also showed what to leave out: the gyro gradient penalty (k2, k6
+     fell forward).
+   - **Runner changes that made it usable:**
+     - `--ready-act` (engage into the pose the policy holds, default since round 10): removed the -5 -> +10 deg forward
+       lurch at engage;
+     - the settle gate guard (round 12): no clock hold with a foot up or a fall under way.
+   - **The hardware fixes:** the loose hip-yaw servo screws tightened (shake 17.7 -> 14.5 deg/s) and the left hip
+     pitch re-zeroed. Before them, k5 had a median 7.8 s and 4 steps with falls mostly to the left. After: a median
+     25.7 s and 30 steps (max 33 s / 42), falls split left / right (§31).
+   - No training change did as much for k5 as the screws and the zero.
 
 ## 1. What the open-source biped trainers do
 
@@ -1798,3 +1940,68 @@ forward reach.
 make far more progress per step. It replaces h4 as the base for the next rounds. Next: the left/right asymmetry of
 its step placement (measure on video with the coloured pads; a lateral foot-placement term or a step-width target
 per side), then the open-loop-sideways idea from k5 one change at a time (§29).
+
+## 32. Round 13: push resistance, first exploration (2026-11-15 night and morning)
+
+Goal (operator): a robot that resists a shove standing, stepping when it must, and returns to its standing pose. Then
+the same while walking: a predicted tip stops the walk, the robot recovers, stands, and resumes. Overnight, 8 runs from
+k5, all simulation-screened, then two standing ones tried on the robot. Full record: `results/robot13/NOTES.md`.
+
+**Tools added (kept):**
+- **Hand-like shoves in training** (`push_dv`, `push_dur`, `push_lat`, `push_walk`): a horizontal force on the pelvis
+  for 0.08-0.2 s, sized so the robot gains dv m/s. The old `push_vel` and Open Duck's kick change the whole robot's
+  speed, the planted feet included.
+- **A walk -> stand -> resume supervisor**, the same rule in training (`sup*`) and on the robot
+  (`policy_stand --recover self|stance|<run>`, `slender_biped/recovery.py`). It fires when roll or pitch relative to
+  the engage attitude, plus 0.1 s x the 3 Hz low-passed rate, passes 12 deg.
+- **A frozen walker in the env** (`sup_walker`): a recovery specialist trained on exactly the states k5 hands over.
+- **Stepping shaping** (`capture_v`, `capture`): stand terms off while the pelvis moves fast; touchdowns paid for
+  travel along the motion.
+- **MJX push tests** ([push_eval.py](../scripts/push_eval.py)): stand (one shove fwd / back / left / right at
+  0.1-0.4 m/s) and walk (one shove while walking, with or without the supervisor). They report the command motion
+  after the shove.
+- **Robot analysis:** `scripts/robot13_analysis/` (`detector.py`, `stand_push.py`, `recover_log.py`).
+
+**What the IMU can tell (k5 robot logs, 39 falls):**
+- k5's normal steps already reach 10-11 deg predicted roll (p99).
+- A 12 / 12 deg stop rule catches every fall, but only ~0.2 s before 18 deg, with ~2.4 needless stops a minute.
+- 10 / 10 deg gives 0.4 s more warning at ~14 needless stops a minute.
+
+**Simulation, standing, share up after one shove at 0.2 / 0.25 / 0.3 m/s:**
+- k5: 89 / 62 / 19 %.
+- Every shove-trained policy: 91-100 / 72-83 / 33-42 %.
+- **No policy ever stepped.** The capture reward was never paid in 30M steps.
+- The supervisor-trained walkers learned to trip the supervisor and stop walking (4-5 stops a run, ~1 cm walked): a
+  reward hack.
+- Recovery controllers under k5 added 1-5 points while walking.
+- Dropping to the stance pose was much worse than doing nothing (35 % against 62 %).
+- Shove training made the walker worse (`r13b`).
+
+**On the robot (11:19-11:26):**
+- k5, `r13a_stand` and `r13c2_sup_early` standing: 11 of 11 trials fell (7 right, 4 forward).
+- From the first visible tilt to 18 deg took 0.34-2.6 s (median ~0.55 s), enough time for a step (k5 swings in ~0.35 s).
+- Over that window no joint command moved more than 2-10 deg, and no foot lifted. The simulator shows the same: they
+  learned small planted corrections and nothing else.
+
+**Learnings:**
+1. **Pushes plus penalties (and a capture reward) don't teach a step** to a policy that never steps. The
+   overnight approach, like rounds 1-3 for walking, had no motion to imitate. The papers that recover with real
+   steps on hardware have a model-based step generator or a reference behind the steps; pure reward-shaping results
+   stay in simulation (`results/robot13/NOTES.md` has the rundown: Atalante, Capture Steps, Ferigo, Yang, Egle,
+   Pankert, Disney BD-X, Open Duck).
+2. **A walker at zero command stands, by construction:** k5's reference is static at vx 0 and its stepping rewards
+   are off, so it has no stepping to fall back on when shoved standing.
+3. **A stop that is safer than walking will be learned as a goal.** A supervisor in training needs a cost per stop.
+
+**Next (standing first):** recovery steps the way walking was taught (§0):
+1. A reference library of recovery steps indexed by the step target (dx, dy), with its own clock. A quick weight
+   shift, a k5-height swing, landing, then a step back to the stance. Sideways: both a weight-transfer step with the
+   loaded foot and a crossover with the free foot, compared in simulation.
+2. The capture point (from the IMU's tilt and rate, height 0.34 m) picks when, which foot and where, the same function
+   in simulation and in `policy_stand`.
+3. The step target goes in k5's command inputs, the recovery clock in its clock input, so training starts from k5.
+4. Large `ref_q` / `ref_contact` rewards, penalties on top.
+5. **Stage A:** step on command, no shoves: learn to take each step and settle. Robot check: a key in `policy_stand`
+   triggers a step.
+6. **Stage B:** shoves at full size from the start (Atalante: a ramp converged early), the capture point
+   triggering the steps.

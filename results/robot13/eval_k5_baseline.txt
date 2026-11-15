@@ -1,0 +1,42 @@
+(of those up: both pads down 38%, joints within 6 deg 7% (median worst 19.7 deg), tilt < 5 deg 66%, still 0%)
+walk test, k5_high2 (runs/k5_high2/params_0016M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   75%  0.0  75% 12.6cm |   94%  0.0  94% 14.9cm |  100%  0.0 100% 17.4cm |   81%  0.0  81% 13.6cm |  88% /  88%
+  0.10 |   75%  0.0  75% 13.0cm |   75%  0.0  75% 12.7cm |   81%  0.0  81% 14.0cm |   81%  0.0  81% 12.0cm |  78% /  78%
+  0.15 |   81%  0.0  81% 13.1cm |   88%  0.0  88% 14.3cm |   44%  0.0  44%  6.6cm |   50%  0.0  50%  6.9cm |  66% /  66%
+  0.20 |   69%  0.0  69% 11.8cm |   56%  0.0  56% 10.2cm |   25%  0.0  25%  4.6cm |   44%  0.0  44%  5.7cm |  48% /  48%
+  0.25 |   12%  0.0  12%  1.8cm |   25%  0.0  25%  6.2cm |   31%  0.0  31%  4.8cm |   56%  0.0  56%  8.3cm |  31% /  31%
+overall up 62%, resumed 62%, supervisor triggers per run 0.00
+W1115 03:13:10.864242 2241056 cuda_timer.cc:88] Delay kernel timed out: measured time has sub-optimal accuracy. There may be a missing warmup execution, please investigate in Nsight Systems.
+(of those up: both pads down 56%, joints within 6 deg 20% (median worst 17.1 deg), tilt < 5 deg 66%, still 2%)
+walk test, k5_high2 (runs/k5_high2/params_0016M.pkl), recovery self, supervisor on, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   88%  0.8  88% 14.2cm |   94%  0.3  94% 14.4cm |   88%  0.4  88% 13.4cm |   94%  0.3  94% 14.7cm |  91% /  91%
+  0.10 |   88%  0.8  88% 12.0cm |   75%  0.8  75% 12.0cm |   81%  0.3  81% 12.9cm |   88%  0.6  88% 13.0cm |  83% /  83%
+  0.15 |   75%  1.0  75%  9.0cm |   81%  0.8  75% 11.7cm |   50%  0.8  50%  7.7cm |   75%  0.8  75% 10.4cm |  70% /  69%
+  0.20 |   62%  0.9  56%  8.2cm |   50%  0.9  50%  8.4cm |   50%  1.1  50%  7.1cm |   38%  0.9  38%  4.4cm |  50% /  48%
+  0.25 |   31%  1.3  31%  3.7cm |   12%  1.2  12%  2.3cm |   38%  0.8  38%  5.8cm |   50%  1.3  44%  5.4cm |  33% /  31%
+overall up 65%, resumed 64%, supervisor triggers per run 0.81
+(of those up: both pads down 35%, joints within 6 deg 6% (median worst 21.0 deg), tilt < 5 deg 66%, still 0%)
+walk test, k5_high2 (runs/k5_high2/params_0016M.pkl), recovery stance, supervisor on, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   38%  0.6  38%  6.5cm |   56%  0.4  56%  9.3cm |   88%  0.1  88% 15.1cm |   75%  0.3  75% 12.6cm |  64% /  64%
+  0.10 |   31%  0.7  31%  5.2cm |   50%  0.5  50%  9.3cm |   69%  0.3  69% 12.1cm |   38%  0.6  38%  5.0cm |  47% /  47%
+  0.15 |   25%  0.8  25%  3.4cm |   44%  0.6  44%  7.3cm |   25%  0.8  25%  3.7cm |   44%  0.6  44%  6.4cm |  34% /  34%
+  0.20 |    6%  0.9   6%  0.8cm |   31%  0.7  31%  6.8cm |   19%  0.8  19%  3.5cm |   25%  0.8  25%  3.8cm |  20% /  20%
+  0.25 |    0%  1.0   0%  0.0cm |    0%  1.0   0%  0.0cm |   19%  0.8  19%  3.2cm |   25%  0.8  25%  3.1cm |  11% /  11%
+overall up 35%, resumed 35%, supervisor triggers per run 0.65
+(of those up: both pads down 100%, joints within 6 deg 100% (median worst 1.9 deg), tilt < 5 deg 100%, still 88%)
+stand test, k5_high2 (runs/k5_high2/params_0016M.pkl), sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.10 |   100%  88%   0.0 |   100%  81%   0.0 |   100%  94%   0.0 |   100%  94%   0.0 | 100% /  89%
+  0.15 |   100%  94%   0.0 |   100%  81%   0.0 |   100% 100%   0.0 |   100%  69%   0.6 | 100% /  86%
+  0.20 |    81%  69%   0.0 |    81%  69%   0.1 |    94%  88%   0.3 |   100%  88%   0.9 |  89% /  78%
+  0.25 |    44%  38%   0.1 |    31%  25%   0.0 |   100%  94%   0.9 |    75%  69%   0.8 |  62% /  56%
+  0.30 |    31%  19%   0.0 |     0%   0%   0.0 |    31%  31%   0.3 |    12%  12%   0.1 |  19% /  16%
+  0.40 |     0%   0%   0.0 |     0%   0%   0.1 |     0%   0%   0.0 |     0%   0%   0.0 |   0% /   0%
+overall up 62%, home 54%

@@ -22,6 +22,20 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Push resistance, round 13 (2026-11-15)
+
+- **Shoves and penalties don't teach a recovery step.** 8 runs from k5 (shoves of 0.05-0.45 m/s, a capture-step
+  reward, a walk-stop supervisor) learned only firmer planted balance in simulation. On the robot they did almost
+  nothing while falling: 2-10 deg of command over a 0.3-2.6 s fall, no foot lifted. As with walking before round
+  4, there was nothing to imitate. Next: a reference library of recovery steps, chosen by the capture point,
+  imitated with large rewards ([walking_clean.md §32](walking_clean.md)).
+- **A walker at zero command can't step:** its reference is the static stance and its stepping rewards are off.
+- **A safe stop will be learned as the goal.** Policies trained with the walk-stop supervisor tripped it 4-5 times a
+  run and stopped walking. Charge for each stop.
+- **k5's normal steps sit near a fall in the IMU:** a stop rule that rarely fires falsely (12 deg) fires only ~0.2 s
+  before 18 deg.
+- **Shove the pelvis with a force, not a velocity kick:** a kick also moves the planted feet.
+
 ## Hardware (2026-11-15)
 
 - **Check the screws when the shake comes back.** Loose hip-yaw servo screws: body shake 17.7 deg/s; tightened

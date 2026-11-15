@@ -43,6 +43,11 @@ def _roll_of(g):
 
 
 
+def _pitch_of(g):
+    """Pitch (rad) from the gravity direction, signed so that its rate is the body-y gyro (round 13)."""
+    return jp.arctan2(g[0], -g[2])
+
+
 def series_give(tau0, damp, f, kinv, tau0_lim, kinv2, tc, ts, xp):
     """The give as a spring + damper behind the servo (2026-11-13). tau0: servo torque with the shaft moving as the
     link; damp: its slope in shaft velocity; f: the give. Returns the transmitted torque and the give's rate."""
@@ -165,6 +170,40 @@ class EnvConfig:
     dr_com_y: tuple = (0.0, 0.0)       # 2026-11-14: sideways pelvis mass offset (m, + = left); robot leans and falls left
     push_interval_s: tuple = (2.0, 4.0)
     push_vel: float = 0.0              # m/s std of random base velocity kicks (0 = off)
+    # 2026-11-15 round 13 (fall recovery): hand-like shoves, a horizontal force on the pelvis for U(push_dur) s, sized so
+    # the whole robot gains U(push_dv) m/s (force = total mass x dv / duration), direction uniform in the horizontal
+    # plane (push_lat: share of the shoves pure sideways instead), every U(push_interval_s) s. () = off. The base
+    # velocity kick above also moves the planted feet, a hand on the pelvis doesn't.
+    push_dv: tuple = ()
+    push_dur: tuple = (0.08, 0.2)
+    push_lat: float = 0.0
+    push_walk: bool = True             # shoves while walking too (False: only at zero command)
+    # round 13 recovery supervisor (the runner's --recover, slender_biped/recovery.py, same rule): while walking, when
+    # the IMU predicts a tip (|angle - angle at the start + sup_tau x rate low-passed at sup_lpf Hz| > sup_roll /
+    # sup_pitch rad), the command drops to zero (stand and stabilize) for at least sup_min_s; once the body has been
+    # quiet (tilt within sup_quiet_tilt of the start, rates below sup_quiet_w) for sup_quiet_s, or after sup_max_s, the
+    # clock restarts at 0 and the forward command ramps up again (cmd_vx_slew). info["sup_on"]: recovering.
+    sup: bool = False
+    sup_roll: float = 0.21
+    sup_pitch: float = 0.21
+    sup_tau: float = 0.1
+    sup_lpf: float = 3.0
+    sup_quiet_tilt: float = 0.05
+    sup_quiet_w: float = 0.35
+    sup_quiet_s: float = 0.6
+    sup_min_s: float = 0.6
+    sup_max_s: float = 5.0
+    # recovery specialist training: a frozen walker (a params .pkl, same inputs) drives the robot while the supervisor
+    # is off, its actions low-passed by sup_walker_lpf as on the robot (policy_stand --act-lpf); the trained policy's
+    # actions only count while recovering. "" = the trained policy walks too.
+    sup_walker: str = ""
+    # round 13 stepping shaping (r13a learned to resist shoves with its feet planted and never stepped): at zero command,
+    # while the pelvis moves faster than capture_v m/s, the stand terms (ref_q, ref_contact, stop) pay nothing, and the
+    # `capture` term pays each touchdown for the foot's travel since its lift-off along the pelvis's direction of travel
+    # (up to capture_len m). 0 = off.
+    capture_v: float = 0.0
+    capture_len: float = 0.06
+    sup_walker_lpf: float = 0.7
     # commands
     cmd_vx: tuple = (0.0, 0.0)
     cmd_vy: tuple = (0.0, 0.0)
@@ -203,7 +242,7 @@ class EnvConfig:
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
         both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
         track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, scuff=0.0, foot_tilt=0.0, ang_acc=0.0, action_acc=0.0,
-        clear=0.0, roll_lim=0.0, tilt_lim=0.0, narrow=0.0, board_yaw=0.0, alive=0.5, act_hf=0.0,
+        clear=0.0, capture=0.0, roll_lim=0.0, tilt_lim=0.0, narrow=0.0, board_yaw=0.0, alive=0.5, act_hf=0.0,
         termination=-20.0))
     rated_frac: float = 0.33           # sustained-torque cap as a fraction of stall (vendor rated ~1/3)
     track_sigma: float = 0.01          # velocity-tracking kernel width (m/s)^2
@@ -360,6 +399,23 @@ class SlenderBipedEnv(Env):
             self.ref = load(cfg.ref_table, jp)
             self.ref_w = jp.array([cfg.ref_yaw_weight if j.endswith("hip_yaw") else 1.0 for j in self.joints])
             assert abs(self.ref["gait_hz"] - cfg.gait_hz) < 1e-6, (self.ref["gait_hz"], cfg.gait_hz)
+        self._walker = None
+        if cfg.sup_walker:
+            import pickle
+            with open(cfg.sup_walker, "rb") as f:
+                norm, pol = pickle.load(f)[:2]
+            wm, ws = jp.asarray(norm.mean["state"]), jp.asarray(norm.std["state"])
+            L = pol["params"]
+            Ws = [(jp.asarray(L[k]["kernel"]), jp.asarray(L[k]["bias"])) for k in sorted(L, key=lambda x: int(x.split("_")[-1]))]
+
+            def walker(obs):
+                x = (obs - wm) / ws
+                for i, (W, b) in enumerate(Ws):
+                    x = x @ W + b
+                    if i < len(Ws) - 1:
+                        x = jax.nn.swish(x)
+                return jp.tanh(x[..., : x.shape[-1] // 2])
+            self._walker = walker
         self._reset_pitch = 0.0
         if cfg.reset_ref_pose and self.ref is not None:
             from .ref_gait import level_pitch, lookup
@@ -536,7 +592,10 @@ class SlenderBipedEnv(Env):
         info = dict(
             g_est=g0,
             rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
-            push_timer=self._steps(k7, c.push_interval_s), last_act=jp.zeros(self.nj), last_act2=jp.zeros(self.nj),
+            push_timer=self._steps(k7, c.push_interval_s), push_left=jp.array(0, jp.int32), push_f=jp.zeros(3),
+            sup_on=jp.array(False), sup_t=jp.array(0, jp.int32), sup_q=jp.array(0, jp.int32), sup_wf=jp.zeros(2),
+            sup_ref=jp.zeros(2), sup_n=jp.array(0, jp.int32),
+            last_act=jp.zeros(self.nj), last_act2=jp.zeros(self.nj),
             w_prev=jp.zeros(2),
             flex=jp.zeros(self.nj), flex_v=jp.zeros(self.nj), prev_cmd=qe, q_tgt=qe, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qe, (self.max_delay + 1, 1)),
             q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
@@ -565,6 +624,8 @@ class SlenderBipedEnv(Env):
         info["held"] = frame[:6 + 2 * self.nj]
         info["gate_rs"] = _roll_of(_tilt_obs(info["g_est"] if c.imu_filter else
                                              _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0])), info["imu_off"]))
+        g_i = _tilt_obs(info["g_est"] if c.imu_filter else _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0])), info["imu_off"])
+        info["sup_ref"] = jp.array([_roll_of(g_i), _pitch_of(g_i)])
         obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
 
@@ -589,6 +650,11 @@ class SlenderBipedEnv(Env):
         raw_act = action
         if c.act_lpf > 0:
             action = c.act_lpf * state.info["last_act"] + (1.0 - c.act_lpf) * action
+        if self._walker is not None:            # round 13: the frozen walker walks, the trained policy recovers
+            wa = jp.clip(jax.lax.stop_gradient(self._walker(state.obs["state"])), -1, 1)
+            wa = c.sup_walker_lpf * state.info["last_act"] + (1.0 - c.sup_walker_lpf) * wa
+            action = jp.where(state.info["sup_on"], action, wa)
+            raw_act = jp.where(state.info["sup_on"], raw_act, wa)
         mir = state.info["mirror"]
         act_real = jp.where(mir, self._swap(action), action)
         phase_next = jp.mod(state.info["phase"] + 2 * jp.pi * c.gait_hz * c.ctrl_dt, 2 * jp.pi)
@@ -671,8 +737,10 @@ class SlenderBipedEnv(Env):
 
         acc0 = dict(tau2=0.0, over_rated=0.0, sat=0.0, over=0.0, peak=0.0, tau=jp.zeros(self.nj))
         data0 = state.pipeline_state
-        if c.tug_force > 0 or c.drag_back > 0:
+        if c.tug_force > 0 or c.drag_back > 0 or c.push_dv:
             f_ext = state.info["tug"] if c.tug_force > 0 else jp.zeros(3)
+            if c.push_dv:                       # round 13: a shove in progress
+                f_ext = f_ext + jp.where(state.info["push_left"] > 0, 1.0, 0.0) * state.info["push_f"]
             if c.drag_back > 0:                 # cable from above: pulls back harder the further the robot has walked
                 i_ = state.info
                 dist = jp.maximum((data0.qpos[0:2] - i_["drag_x0"]) @ i_["drag_dir"], 0.0)
@@ -708,6 +776,24 @@ class SlenderBipedEnv(Env):
         qvel = data.qvel.at[0:2].add(jp.where(do_push, kick, 0.0))
         data = data.replace(qvel=qvel)
         info["push_timer"] = jp.where(do_push, self._steps(k_pt, c.push_interval_s), info["push_timer"])
+        if c.push_dv:                           # round 13: hand-like shoves (force on the pelvis)
+            kp_ = jax.random.split(jax.random.fold_in(k_push, 21), 4)
+            info["push_left"] = jp.maximum(info["push_left"] - 1, 0)   # (push_timer already counted down above)
+            allowed = (jp.linalg.norm(info["cmd"]) <= 1e-3) | c.push_walk
+            go = (info["push_timer"] <= 0) & allowed
+            ang = jax.random.uniform(kp_[0], (), minval=-jp.pi, maxval=jp.pi)
+            if c.push_lat > 0:                  # pure sideways (heading frame) on a share of the shoves
+                q_ = data.qpos[3:7]
+                yaw_ = jp.arctan2(2 * (q_[0] * q_[3] + q_[1] * q_[2]), 1 - 2 * (q_[2] ** 2 + q_[3] ** 2))
+                lat = jax.random.uniform(jax.random.fold_in(kp_[0], 1)) < c.push_lat
+                ang = jp.where(lat, yaw_ + jp.where(ang > 0, 0.5, -0.5) * jp.pi, ang)
+            dv = jax.random.uniform(kp_[1], (), minval=c.push_dv[0], maxval=c.push_dv[1])
+            dur = jax.random.uniform(kp_[2], (), minval=c.push_dur[0], maxval=c.push_dur[1])
+            n_ = jp.maximum(jp.round(dur / c.ctrl_dt), 1.0)
+            fmag = jp.sum(self.sys.body_mass) * dv / (n_ * c.ctrl_dt)
+            info["push_f"] = jp.where(go, fmag * jp.array([jp.cos(ang), jp.sin(ang), 0.0]), info["push_f"])
+            info["push_left"] = jp.where(go, n_.astype(jp.int32), info["push_left"])
+            info["push_timer"] = jp.where(info["push_timer"] <= 0, self._steps(kp_[3], c.push_interval_s), info["push_timer"])
 
         # ---- kinematic quantities
         quat = data.qpos[3:7]
@@ -840,11 +926,21 @@ class SlenderBipedEnv(Env):
                 ref_swing=jp.where(moving, jp.sum(jp.where(st_ref, 0.0, jp.clip(low, 0.0, c.ref_swing_h) / c.ref_swing_h)), 0.0))
         else:
             ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0, settle=0.0, ref_swing=0.0)
+        capture, free = 0.0, jp.array(False)
+        if c.capture_v > 0:
+            vh = v_world[:2]
+            spd = jp.linalg.norm(vh)
+            free = (~moving) & (spd > c.capture_v)
+            vhat = vh / jp.maximum(spd, 1e-6)
+            trav = jp.clip((centre[:, :2] - lift_pos[:, :2]) @ vhat, 0.0, c.capture_len) / c.capture_len
+            capture = jp.where(free, jp.sum(jp.where(touchdown, trav, 0.0)), 0.0)
+            ref_terms = {k: (jp.where(free, 0.0, v) if k in ("ref_q", "ref_contact") else v) for k, v in ref_terms.items()}
         terms = dict(
             track_lin=jp.exp(-jp.sum((cmd[:2] - v_body[:2]) ** 2) / c.track_sigma),
             track_ang=jp.exp(-(cmd[2] - w_body[2]) ** 2 / c.track_ang_sigma),
             heading=jp.exp(-head_err ** 2 / c.heading_sigma),
-            stop=jp.where(moving, 0.0, jp.exp(-jp.sum(v_body[:2] ** 2) / c.stop_sigma)),
+            stop=jp.where(moving | free, 0.0, jp.exp(-jp.sum(v_body[:2] ** 2) / c.stop_sigma)),
+            capture=capture,
             upright=jp.exp(-tilt2 / c.upright_sigma),
             height=jp.exp(-((z - self.base_z) / c.height_sigma) ** 2),
             lin_vel_z=v_world[2] ** 2,
@@ -902,7 +998,7 @@ class SlenderBipedEnv(Env):
         nan = jp.any(jp.isnan(data.qpos)) | jp.any(jp.isnan(data.qvel))
         done = (fallen | nan).astype(float)
         terms["termination"] = done
-        reward = sum(rw[k] * v for k, v in terms.items())
+        reward = sum(rw.get(k, 0.0) * v for k, v in terms.items())   # (older runs' rw lack newer terms)
         reward = jp.where(nan, -rw["alive"], reward)
 
         # ---- commands
@@ -922,6 +1018,23 @@ class SlenderBipedEnv(Env):
             err = jp.mod(info["heading"] - yaw_now + jp.pi, 2 * jp.pi) - jp.pi
             info["cmd"] = info["cmd"].at[2].set(jp.clip(c.heading_gain * err, -0.3, 0.3))
         info["cmd_timer"] = jp.where(resample, self._steps(k_ct, c.cmd_resample_s), info["cmd_timer"])
+        if c.sup:                               # round 13: recovery supervisor (slender_biped/recovery.py)
+            g_s = _tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"])
+            ang = jp.array([_roll_of(g_s), _pitch_of(g_s)]) - info["sup_ref"]
+            info["sup_wf"] = info["sup_wf"] + (1.0 - np.exp(-2 * np.pi * c.sup_lpf * c.ctrl_dt)) * (data.qvel[3:5] - info["sup_wf"])
+            pred = ang + c.sup_tau * info["sup_wf"]
+            walking = jp.linalg.norm(info["cmd_goal"]) > 1e-3
+            trig = ((jp.abs(pred[0]) > c.sup_roll) | (jp.abs(pred[1]) > c.sup_pitch)) & walking & ~state.info["sup_on"]
+            quiet = jp.all(jp.abs(ang) < c.sup_quiet_tilt) & jp.all(jp.abs(info["sup_wf"]) < c.sup_quiet_w)
+            on = state.info["sup_on"]
+            t_ = jp.where(on, info["sup_t"] + 1, 0)
+            q_ = jp.where(on & quiet, info["sup_q"] + 1, 0)
+            leave = on & (((t_ >= int(c.sup_min_s / c.ctrl_dt)) & (q_ >= int(c.sup_quiet_s / c.ctrl_dt)))
+                          | (t_ >= int(c.sup_max_s / c.ctrl_dt)))
+            on_n = (on | trig) & ~leave
+            info.update(sup_on=on_n, sup_t=t_, sup_q=q_, sup_n=info["sup_n"] + trig.astype(jp.int32))
+            info["cmd"] = jp.where(on_n, jp.zeros(3), info["cmd"])
+            info["phase"] = jp.where(leave | trig, 0.0, info["phase"])   # walking restarts from the clock's start
         info["line_p0"] = jp.where(resample, data.qpos[0:2], info["line_p0"])
         info["line_yc"] = jp.where(resample, 0.0, info["line_yc"])
         info["y_est"] = jp.where(resample, 0.0, info["y_est"])
@@ -932,7 +1045,8 @@ class SlenderBipedEnv(Env):
                     raw_lp=info["raw_lp"] + (1.0 - np.exp(-2 * np.pi * c.act_hf_hz * c.ctrl_dt)) * (raw_act - info["raw_lp"]))
         metrics = dict(state.metrics)
         for k, v in terms.items():
-            metrics["r_" + k] = rw[k] * v
+            if k in rw:
+                metrics["r_" + k] = rw[k] * v
         metrics.update(sat_frac=acc["sat"], overspeed_frac=acc["over"], peak_tau_frac=acc["peak"],
                        touchdowns=jp.sum(touchdown).astype(float), both_contact=jp.all(contact).astype(float),
                        vx=v_body[0], height=z, vy_avg_abs=jp.abs(v_avg[1]),
