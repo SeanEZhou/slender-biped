@@ -1,0 +1,13 @@
+/home/sean/slender-biped/scripts/eval6.py:83: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+p2_side_gate             [fitted com_dx=0.015] falls  6/6 T  1.6s fwd:6          pitch0 -7.8 walk +nan |roll|p95  6.7 >4deg  27% reach L/R  0.6/15.7 fwd 16.1cm shake 11.6 cmd4-8 2.2%
+/home/sean/slender-biped/scripts/eval6.py:83: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+p2_side_gate             [loose com_dx=0.015] falls  6/6 T  1.5s fwd:6          pitch0 -7.3 walk +nan |roll|p95  7.3 >4deg  27% reach L/R -0.4/20.9 fwd 18.2cm shake 11.1 cmd4-8 2.0%
+/home/sean/slender-biped/scripts/eval6.py:83: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+p2_side_gate             [r7 com_dx=0.015] falls  6/6 T  1.2s fwd:6          pitch0 -7.5 walk +nan |roll|p95  6.1 >4deg  22% reach L/R -2.5/ nan fwd 13.6cm shake 11.0 cmd4-8 4.2%
+/home/sean/slender-biped/scripts/eval6.py:83: RuntimeWarning: Mean of empty slice
+  m = lambda k: float(np.nanmean([x[k] for x in R]))  # noqa: E731
+p2_side_gate             [r7hard] falls  6/6 T  1.5s back:3 fwd:3   pitch0 +1.4 walk +nan |roll|p95 10.7 >4deg  30% reach L/R  7.6/ 7.7 fwd  2.1cm shake 16.5 cmd4-8 2.5%
+p2_side_gate     per deg of back tilt: hip pitch -0.027 knee -0.118 (knee-hip -0.090) deg/deg | pitch-rate gain rms hip 0.031 knee 0.037 deg per deg/s

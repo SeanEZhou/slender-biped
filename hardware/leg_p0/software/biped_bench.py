@@ -15,6 +15,7 @@ Software stop is NOT an emergency stop: keep a hand on the power switch.
     python biped_bench.py march --enable --current      # ...and measure motor current: summary + CSV log
     python biped_bench.py walk --enable                 # shorthand: a routine name alone means `play <name>`
     python biped_bench.py off                           # torque off on all 8
+    python biped_bench.py trim --enable                 # stand, nudge the left hip pitch / knee, re-zero them
 
 Every target is checked against each joint's limits, and every pose AND the motion between poses against the
 pelvis collision rule (README "Two-leg bench"): both legs adducting together collide beyond ~5 deg.
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import feetech_bench as fb
@@ -169,6 +171,108 @@ def cmd_stand(bus, a):
     cmd_play(bus, a)
 
 
+TRIM_KEYS = {"a": ("L_hip_pitch", -0.5), "d": ("L_hip_pitch", +0.5), "A": ("L_hip_pitch", -0.1), "D": ("L_hip_pitch", +0.1),
+             "j": ("L_knee", -0.5), "l": ("L_knee", +0.5), "J": ("L_knee", -0.1), "L": ("L_knee", +0.1)}
+
+
+def cmd_trim(bus, a):
+    """2026-11-15: stand, nudge the LEFT hip pitch and knee until the robot stands evenly, then re-zero both so that
+    pose reads as the stance (hip 16, knee 32). The new zeros live in the servos (EEPROM) and apply to every tool."""
+    a.name, a.stay, a.hold, a.speed = "stance", True, False, 1.0
+    cmd_play(bus, a)                                     # both legs to the stance and hold
+    joints = bus.cfg["joints"]
+    tgt = {n: float(STANCE[n[2:]]) for n in ("L_hip_pitch", "L_knee")}
+    print("\nTRIM the left leg (robot standing; torque on everywhere)\n"
+          "  a / d   left THIGH back / forward 0.5 deg   (A / D: 0.1 deg)\n"
+          "  j / l   left SHIN forward / back 0.5 deg    (J / L: 0.1 deg)   [shin forward = knee straightens]\n"
+          "  z       re-zero both: this pose becomes hip 16 / knee 32   (you'll be asked to hold the robot)\n"
+          "  q       quit without re-zeroing (keeps holding; `off` releases)")
+    while True:
+        rd = {n: fb.counts_to_deg(joints[n], bus.r2(joints[n]["id"], fb.ADDR["PRESENT_POS"]))
+              for n in ("L_hip_pitch", "L_knee", "R_hip_pitch", "R_knee")}
+        print(f"\r  trim: thigh {tgt['L_hip_pitch'] - 16:+5.1f}  shin(knee) {tgt['L_knee'] - 32:+5.1f} deg   |  "
+              f"L hip {rd['L_hip_pitch']:5.1f} knee {rd['L_knee']:5.1f}   R hip {rd['R_hip_pitch']:5.1f} knee {rd['R_knee']:5.1f}   ",
+              end="", flush=True)
+        k = fb.getch()
+        if k in TRIM_KEYS:
+            n, dd = TRIM_KEYS[k]
+            new = tgt[n] + dd
+            if abs(new - STANCE[n[2:]]) > 8:
+                print("\n  trim limited to +-8 deg from the stance", end="")
+                continue
+            tgt[n] = new
+            fb.goto(bus, n, joints[n], new, speed=int(10 * fb.COUNTS_PER_DEG))
+        elif k == "z":
+            print("\n\nHOLD THE ROBOT UP by the pelvis, legs unloaded and still, then press y "
+                  "(the two left servos go limp for ~0.5 s while the zero is written). Any other key: back.")
+            if fb.getch() != "y":
+                continue
+            for n in ("L_hip_pitch", "L_knee"):
+                j = joints[n]
+                print(f"{n}: trimmed {tgt[n] - STANCE[n[2:]]:+.1f} deg")
+                try:
+                    fb.cmd_zero(bus, argparse.Namespace(id=j["id"], target=fb.deg_to_counts(j, STANCE[n[2:]]), reset=False))
+                except SystemExit as e:
+                    # 2026-11-15: a (false) failure here used to exit with this joint limp and the robot dropped.
+                    # Whatever happened, hold the joint where it is now, then stop.
+                    bus.flush()
+                    pos = bus.r2(j["id"], fb.ADDR["PRESENT_POS"])
+                    bus.w2(j["id"], fb.ADDR["GOAL_POS"], pos)
+                    bus.torque(j["id"], True)
+                    print(f"\n{n}: {e}\nHOLDING it where it is (torque ON). Run `python feetech_bench.py info` and check its "
+                          "offset before anything else moves; `off` releases.")
+                    return
+                fb.goto(bus, n, j, float(STANCE[n[2:]]), speed=int(10 * fb.COUNTS_PER_DEG))   # torque back on, same pose
+            print("re-zeroed: the trimmed pose now reads hip 16 / knee 32. Holding the stance; `off` releases.\n"
+                  "Note the new offsets above (also in the servos' EEPROM).")
+            return
+        elif k in ("q", "\x03"):
+            print("\nquit without re-zeroing; still holding (run `off` to release)")
+            return
+
+
+def cmd_shift_zero(bus, a):
+    """2026-11-15: apply a known trim to one joint's zero without needing the pose: after it, the angle that read
+    (stance + trim) reads the stance. offset += direction * trim (counts). Torque on that servo goes off (it's an EEPROM
+    write): have the robot lying down or held, not standing."""
+    if not a.enable:
+        sys.exit("REFUSED: needs --enable")
+    j = bus.cfg["joints"][a.joint]
+    sid = j["id"]
+    old = fb.decode_offset(bus.r2(sid, fb.ADDR["OFFSET"]))
+    new = old + int(round(j["direction"] * a.trim * fb.COUNTS_PER_DEG))
+    print(f"{a.joint} (id {sid}): trim {a.trim:+.2f} deg -> offset {old} -> {new}")
+    if not a.yes:
+        print("robot lying down or held up (this servo goes limp)? y = write, anything else = cancel")
+        if fb.getch() != "y":
+            sys.exit("cancelled")
+    bus.torque(sid, False)
+    try:
+        bus.w1(sid, fb.ADDR["LOCK"], 0)
+        try:
+            bus.w2(sid, fb.ADDR["OFFSET"], fb.encode_offset(new))
+        except IOError as e:
+            print(f"  ({e}; verifying by read-back)")
+        time.sleep(0.1)
+    finally:
+        try:
+            bus.w1(sid, fb.ADDR["LOCK"], 1)
+        except IOError as e:
+            print(f"  ({e})")
+    time.sleep(0.4)
+    bus.flush()
+    for _ in range(6):
+        try:
+            got, lock = fb.decode_offset(bus.r2(sid, fb.ADDR["OFFSET"])), bus.r1(sid, fb.ADDR["LOCK"])
+            if got == new and lock == 1:
+                print(f"OK: offset {got}, EEPROM locked; reads {fb.counts_to_deg(j, bus.r2(sid, fb.ADDR['PRESENT_POS'])):.1f} deg now (torque off)")
+                return
+        except IOError:
+            pass
+        time.sleep(0.15)
+    sys.exit(f"could not confirm: offset reads {got}, lock {lock}; run `feetech_bench.py info` before anything else")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -181,10 +285,17 @@ def main():
     sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
     sp.add_argument("--stay", action="store_true", help="skip the return to neutral and hold the last pose")
     sp.add_argument("--enable", action="store_true")
+    sp = sub.add_parser("trim", help="stand, nudge the left hip pitch / knee from the keyboard, re-zero them (2026-11-15)")
+    sp.add_argument("--enable", action="store_true")
+    sp = sub.add_parser("shift-zero", help="apply a known trim (deg) to one joint's zero, e.g. `shift-zero L_knee --trim -2.5`")
+    sp.add_argument("joint")
+    sp.add_argument("--trim", type=float, required=True, help="the trim you dialled in (as `trim` printed it)")
+    sp.add_argument("--yes", action="store_true")
+    sp.add_argument("--enable", action="store_true")
     sp = sub.add_parser("stand", help="both legs to the standing pose and hold (release with `off`)")
     sp.add_argument("--speed", type=float, default=1.0)
     sp.add_argument("--enable", action="store_true")
-    for sp in (sub.choices["play"], sub.choices["stand"]):
+    for sp in (sub.choices["play"], sub.choices["stand"], sub.choices["trim"]):
         sp.add_argument("--current", action="store_true",
                         help="measure motor current on all 8 servos during the motion (summary + CSV)")
         sp.add_argument("--current-log", help="CSV path for --current (default current_<routine>_<time>.csv)")
@@ -193,7 +304,7 @@ def main():
         argv = ["play"] + argv
     a = ap.parse_args(argv)
     bus = fb.Bus(merged_cfg())
-    {"list": cmd_list, "read": cmd_read, "off": cmd_off, "play": cmd_play, "stand": cmd_stand}[a.cmd](bus, a)
+    {"list": cmd_list, "read": cmd_read, "off": cmd_off, "play": cmd_play, "stand": cmd_stand, "trim": cmd_trim, "shift-zero": cmd_shift_zero}[a.cmd](bus, a)
 
 
 if __name__ == "__main__":

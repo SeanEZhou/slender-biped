@@ -100,6 +100,12 @@ class Bus:
         self._ok(res, err, what)
         return out
 
+    def flush(self):
+        """Drop any late status replies waiting on the port (2026-11-15: after an EEPROM save the servo's reply arrives
+        late; left in the buffer it shifted every later read by one reply, so a correct zero was reported FAILED)."""
+        time.sleep(0.05)
+        self.port.ser.reset_input_buffer()          # (PortHandler.clearPort only flushes the output side)
+
     def r1(self, sid, a):
         return self._txrx(lambda: self.pk.read1ByteTxRx(self.port, sid, a), f"read id {sid} @{a}")[0]
 
@@ -316,10 +322,22 @@ def cmd_zero(bus, a):
         except IOError as e:
             print(f"  ({e})")
         time.sleep(0.05)
-    if bus.r1(sid, ADDR["LOCK"]) != 1:
+    # 2026-11-15: the servo answers garbage for a moment after the EEPROM save (read offset -1, position = the new
+    # offset): a correct zero was reported FAILED and the run stopped. Wait, then read back until two reads agree.
+    time.sleep(0.4)
+    bus.flush()
+    reads = []
+    for _ in range(6):
+        try:
+            reads.append((bus.r1(sid, ADDR["LOCK"]), decode_offset(bus.r2(sid, ADDR["OFFSET"])), bus.r2(sid, ADDR["PRESENT_POS"])))
+        except IOError:
+            pass
+        if len(reads) >= 2 and reads[-1][:2] == reads[-2][:2]:
+            break
+        time.sleep(0.15)
+    lock, stored, after = reads[-1] if reads else (None, None, None)
+    if lock != 1:
         print("WARNING: EEPROM still unlocked; run this command again")
-    stored = decode_offset(bus.r2(sid, ADDR["OFFSET"]))
-    after = bus.r2(sid, ADDR["PRESENT_POS"])
     print(f"id {sid}: offset {old} -> {stored};  position {before} -> {after}"
           + ("" if a.reset else f"  (target {a.target})"))
     if stored != max(-2047, min(2047, new)):

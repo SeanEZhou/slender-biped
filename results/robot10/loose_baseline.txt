@@ -1,0 +1,2 @@
+k5_high2                 [loose] falls  6/6 T  3.8s left:5 right:1 pitch0 -3.7 walk -4.6 |roll|p95 16.9 >4deg  31% reach L/R 16.9/22.2 fwd  7.3cm shake 10.9 cmd4-8 0.9%
+h4_t05                   [loose] falls  4/6 T 16.4s right:4        pitch0 -3.0 walk -3.9 |roll|p95  5.5 >4deg  11% reach L/R  5.4/10.0 fwd  6.3cm shake  6.5 cmd4-8 1.0%

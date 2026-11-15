@@ -162,3 +162,26 @@ can adduct together by only ~2°, and the roll brackets hit when both legs yaw w
 At 80 mm the gap is 32.8 mm, the full yaw range is clear, and lateral sway (one leg abducts, the
 other adducts) is clear. **Both legs adducting together collide beyond ~5°** (7° hits at the shins):
 two-leg routines must not do that.
+
+## Maintenance and zeroing (2026-11-15)
+
+**Check the screws.** Loose hip-yaw servo screws let the legs wobble on the pelvis: the body shook more (gyro above
+3 Hz, k5 on the rug: 17.7 deg/s RMS loose, 14.3-14.8 tightened) and the policies fought it. After tightening all
+screws, k5 walks with little visible vibration (with `--act-lpf 0.7`). Re-check them when the shake comes back.
+
+**Check the zeros on the floor, standing.** A zero error of a few degrees is enough to tilt the stance: the left foot
+stood slightly forward and higher than the right, the robot leaned left standing, and every k5 fall went left. The
+left hip pitch was re-zeroed by +1.5 deg net (offset 993 -> 969) with the knee unchanged (-1974 -> -1949);
+afterwards k5's falls split 4 left / 3 right instead of all left.
+
+    python biped_bench.py trim --enable          # stand; a/d nudge the LEFT thigh back/forward, j/l the shin
+                                                 # (knee straighten/bend), 0.5 deg (A D J L: 0.1); z re-zeroes both
+                                                 # so this pose reads hip 16 / knee 32 (hold the robot up: each
+                                                 # servo goes limp ~0.5 s for the EEPROM write)
+    python biped_bench.py shift-zero L_knee --trim -2.5 --enable   # apply a known trim without the pose (robot lying
+                                                 # down or held: that servo goes limp)
+
+Zeros live in each servo's EEPROM, so every tool and policy uses them. Two bugs found doing this (fixed): the
+servo's late reply to the EEPROM write sat in the serial buffer and shifted every later read by one reply, so correct
+zeros were reported FAILED (`Bus.flush` now clears the input buffer after the save); and on that false failure
+`trim` exited with the joint limp, which nearly dropped the robot (it now re-enables torque holding the joint).

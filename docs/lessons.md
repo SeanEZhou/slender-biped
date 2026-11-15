@@ -2,8 +2,8 @@
 
 What this project has learned, in one place, for whoever picks it up next: me later, or an agent. Each lesson is a
 short statement plus a link to where it was learned, with the data. The detail docs keep the full record; this file
-keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-14, after robot round 10 (higher
-steps and open loop within a step).
+keeps the conclusions. **Add to it whenever a round ends.** Last updated 2026-11-15, after the hardware fixes that made
+k5 the best full-body walker.
 
 Status in one line: the robot (10 STS3215 servos, ankle roll, 150 × 50 mm snowboard pads, IMU on the pelvis) walks
 with the legs alone for minutes (`b7_seed2`: 122 s, 99 s) and, since 2026-11-13, with the torso and head on:
@@ -16,6 +16,42 @@ Round 10 on the robot ([§28](walking_clean.md#28-round-10-on-the-robot-high-ste
 `k5_high2` (h4 on a reference that lifts 2.1x higher) takes the large, clean steps the next milestone needs but tips
 sideways; the open-loop policies have practically no twitch. Next (round 11): k5's steps with the open-loop
 policies' indifference to the sideways sway, a live slow pitch channel, and lift-off timed to the roll.
+
+**Best full-body walker since 2026-11-15: `python policy_stand.py run --run k5_high2 --enable --vx 0.015 --act-lpf 0.7
+--video`**: median 25.7 s and 30 steps over 17 trials (max 32.9 s / 42 steps), large clean steps, much faster than
+h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
+left ([walking_clean.md §31](walking_clean.md)).
+
+## Hardware (2026-11-15)
+
+- **Check the screws when the shake comes back.** Loose hip-yaw servo screws: body shake 17.7 deg/s; tightened
+  14.5, and k5 stopped falling in the first steps. No training change did as much for the vibration.
+- **Check the zeros standing on the floor.** A few degrees of zero error on one leg tilted the stance and sent every
+  fall to that side; the policies can't learn their way out of it. `biped_bench.py trim` re-zeroes standing.
+- **Servo EEPROM writes: clear the serial input buffer afterwards, and never exit with a joint limp.** A late reply
+  shifted every later read, so correct zeros were reported FAILED, and the tool dropped the leg.
+
+## Video and round 12 (2026-11-14)
+
+- **Record the robot.** Encoder-based foot heights are wrong by several mm under load (invisible give); the video
+  showed the "early lift" was a lean and that the falls start in the weight shift. `--video`, `video_frames.py`.
+- **A gate that holds the clock must never hold with a foot up or a fall under way**: it freezes the reference with
+  the foot in the air. The runner's gate guard (default on) skips those holds.
+- **Check for a sideways bias in the robot before training robustness to it.** All falls went left; the IMU zero
+  was fine; the left hip carried twice the load. A wide symmetric mass range (+-2 cm) made k5 worse in 12-16M.
+- **Large new randomization ranges degrade a fine-tuned high-step policy** (round 11 hips, round 12 mass): widen
+  gradually, or measure and train around the real value.
+
+## Round 11 (2026-11-14, simulation)
+
+- **The fitted simulator is too stiff sideways for high steps.** A hip roll with twice the fitted give reproduces k5's
+  robot lift-offs (still rolling outward at ~20°/s) and its sideways falls, and ranks h4 / k5 as the robot does; screen
+  high-step policies on `eval6 --sim loose`. ([walking_clean.md §29](walking_clean.md))
+- **Never low-pass the pitch rate the policy sees below ~3 Hz**: 1 Hz alone made k5 fall forward 6/6. Delayed rate
+  feedback adds energy.
+- **One change at a time from a working policy.** Sideways open loop + high steps + loose hips together gave 2.5 s
+  episodes that didn't improve in 20-24M; loose hips alone needs well over 16M.
+- **The roll gate (`--gate-roll`) is harmless at run time**; the runner now logs `phase`, `gate_held`, `roll_pred`.
 
 ## Full body: what round 10 taught on the robot (2026-11-14)
 

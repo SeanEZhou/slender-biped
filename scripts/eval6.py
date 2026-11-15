@@ -21,6 +21,9 @@ SIMS = {
                ring=(("pitch", 4.2, 0.2, 1.0, 0.02), ("roll", 5.3, 0.25, 0.7, 0.02)), ring_delay=0.02, dr_delay_steps=(2, 3)),
     "r7hard": dict(hidden_flex=SER, flex_series=True, flex_tc=0.005, hidden_off=(("knee", -0.045),), prof_acc=(7.0, 35.0, 35.0),
                    ring=(("pitch", 4.2, 0.15, 1.4, 0.02), ("roll", 5.3, 0.18, 1.0, 0.02)), ring_delay=0.03, dr_delay_steps=(3, 3)),
+    # round 11: the fitted sim with the hip roll's give doubled (k 5, soft 1.25): reproduces k5's robot lift-offs
+    # (still rolling outward at ~20 deg/s) and its sideways falls, which the fitted sim doesn't (scripts/robot10_analysis/sim_liftoff.py)
+    "loose": dict(hidden_flex=(("hip_roll", 5.0, 0.15, 1.25),) + SER[1:], flex_series=True, flex_tc=0.005, hidden_off=(("knee", -0.06),)),
     "old": dict(hidden_flex=(("hip_roll", 3.5),), flex_series=False, flex_tc=0.01, hidden_off=(("knee", -0.045),)),
 }
 

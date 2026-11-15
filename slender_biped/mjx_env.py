@@ -37,6 +37,10 @@ def _tilt_obs(g, off):
     g = jp.array([g[0], cr * g[1] - sr * g[2], sr * g[1] + cr * g[2]])
     return jp.array([cp * g[0] + sp * g[2], g[1], -sp * g[0] + cp * g[2]])
 
+def _roll_of(g):
+    """Roll (rad) from the gravity direction in the body frame, signed so that its rate is the body-x gyro (round 11)."""
+    return jp.arctan2(-g[1], -g[2])
+
 
 
 def series_give(tau0, damp, f, kinv, tau0_lim, kinv2, tc, ts, xp):
@@ -115,6 +119,11 @@ class EnvConfig:
     # command and last action stay live. The settle gate still reads the live gyro. Runner: policy_stand reads it.
     obs_hold_u: tuple = ()
     obs_hold_keep_g: bool = False      # gravity stays live (slow tilt feedback) while the rest is held
+    # 2026-11-14 round 11: sideways open loop, fore-aft closed loop. > 0: while the rest is held, gravity's pitch part
+    # (x, z) stays live and the pitch rate input is the measured pitch rate low-passed at this many Hz (always, so the
+    # policy never sees the 5 Hz ring in it). Roll inputs and the joints stay held through the step.
+    obs_hold_pitch_lpf: float = 0.0
+    obs_hold_late: bool = False        # inputs stay live until the clock first passes a hold phase (clean engage)
     flex_dscale: float = 1.0           # share of the servo's damping acting on the give (round 7: small = structural flex outside the servo, rings)
     dr_flex_tc: tuple = ()
     # 2026-11-12 round 5 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, lo, hi, spread),
@@ -153,6 +162,7 @@ class EnvConfig:
     # 2026-11-13 round 8: extra forward shift (m) of the pelvis centre of mass, uniform per walk, on top of the +-5 mm
     # (the robot's round-7 policies walk as the simulator does with the mass 1-2 cm further forward)
     dr_com_x: tuple = (0.0, 0.0)
+    dr_com_y: tuple = (0.0, 0.0)       # 2026-11-14: sideways pelvis mass offset (m, + = left); robot leans and falls left
     push_interval_s: tuple = (2.0, 4.0)
     push_vel: float = 0.0              # m/s std of random base velocity kicks (0 = off)
     # commands
@@ -173,6 +183,12 @@ class EnvConfig:
     settle_gate_u: tuple = ()
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
+    # 2026-11-14 round 11 (robot round 10: every sideways fall lifted off while the body still rolled outward): also
+    # hold while the predicted roll |roll - its slow mean + settle_gate_tau * roll rate| exceeds this (rad; 0 = off).
+    # The roll rate is low-passed at settle_gate_lpf Hz (the robot's 5 Hz ring stays out), the mean at 0.1 Hz.
+    settle_gate_roll: float = 0.0
+    settle_gate_tau: float = 0.2
+    settle_gate_lpf: float = 2.0
     heading_cmd: bool = False          # yaw-rate command = clip(k * heading error) (legged-gym style)
     heading_gain: float = 1.0
     gait_hz: float = 1.6               # clock frequency (full gait cycle)
@@ -337,7 +353,7 @@ class SlenderBipedEnv(Env):
         # the area, so the time constant is scaled by sqrt(reference area / pad area) (reference: the 31 x 18 mm pad)
         tc_scale = float(np.sqrt(PAD_AREA_REF / self.meta["pad_area"])) if "pad_area" in self.meta else 1.0
         FLOOR_DR = dict(friction=tuple(cfg.dr_friction), tc=tuple(cfg.dr_floor_tc), damp=tuple(cfg.dr_floor_damp),
-                        tc_scale=tc_scale, com_x=tuple(cfg.dr_com_x))
+                        tc_scale=tc_scale, com_x=tuple(cfg.dr_com_x), com_y=tuple(cfg.dr_com_y))
         self.ref = None
         if cfg.ref_table:
             from .ref_gait import load
@@ -540,12 +556,15 @@ class SlenderBipedEnv(Env):
             ring=dict(r=jp.zeros(3), rd=jp.zeros(3), us=self._ring_W @ qe, buf=jp.tile(self._ring_W @ qe, (self._ring_nbuf, 1)),
                       i=jp.array(0, jp.int32)),
             w_f=jp.zeros(3), raw_lp=jp.zeros(self.nj), held=jp.zeros(6 + 2 * self.nj), hold_upd=jp.array(True),
+            hold_on=jp.array(False), wp_f=data.qvel[4], gate_wf=jp.array(0.0), gate_rs=jp.array(0.0),
             vib=self._vib_sample(jax.random.fold_in(kb4, 11)),
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
         obs, frame = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         info["hist"] = jp.tile(frame, (c.obs_hist, 1))
         info["held"] = frame[:6 + 2 * self.nj]
+        info["gate_rs"] = _roll_of(_tilt_obs(info["g_est"] if c.imu_filter else
+                                             _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0])), info["imu_off"]))
         obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
 
@@ -713,15 +732,25 @@ class SlenderBipedEnv(Env):
             for g in c.settle_gate_u:
                 cross = cross | (jp.mod(u0 - g, 1.0) > jp.mod(u1 - g, 1.0))
             moving_now = jp.linalg.norm(info["cmd"]) > 1e-3
-            hold = (cross & moving_now & (jp.sum(data.qvel[3:5] ** 2) > c.settle_gate_w ** 2)
-                    & (info["gate_held"] < int(c.settle_gate_max / c.ctrl_dt)))
+            busy = jp.sum(data.qvel[3:5] ** 2) > c.settle_gate_w ** 2
+            if c.settle_gate_roll > 0:
+                roll = _roll_of(_tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"]))
+                info["gate_wf"] = info["gate_wf"] + (1.0 - np.exp(-2 * np.pi * c.settle_gate_lpf * c.ctrl_dt)) * (data.qvel[3] - info["gate_wf"])
+                info["gate_rs"] = info["gate_rs"] + (1.0 - np.exp(-2 * np.pi * 0.1 * c.ctrl_dt)) * (roll - info["gate_rs"])
+                busy = busy | (jp.abs(roll - info["gate_rs"] + c.settle_gate_tau * info["gate_wf"]) > c.settle_gate_roll)
+            hold = (cross & moving_now & busy & (info["gate_held"] < int(c.settle_gate_max / c.ctrl_dt)))
             info["gate_held"] = jp.where(hold, info["gate_held"] + 1, 0)
             phase_next = jp.where(hold, state.info["phase"], phase_next)
         if c.obs_hold_u:                 # open loop within a step: sample the sensors as the clock passes these phases
             hu0, hu1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
             upd = jp.linalg.norm(info["cmd"]) <= 1e-3
+            hcross = jp.zeros((), bool)
             for g in c.obs_hold_u:
-                upd = upd | (jp.mod(hu0 - g, 1.0) > jp.mod(hu1 - g, 1.0))
+                hcross = hcross | (jp.mod(hu0 - g, 1.0) > jp.mod(hu1 - g, 1.0))
+            upd = upd | hcross
+            if c.obs_hold_late:
+                upd = upd | ~info["hold_on"]
+                info["hold_on"] = info["hold_on"] | (hcross & (jp.linalg.norm(info["cmd"]) > 1e-3))
             info["hold_upd"] = upd
         info["phase"] = phase_next
         # left stance when sin(phase) >= 0, right when < 0
@@ -913,6 +942,8 @@ class SlenderBipedEnv(Env):
             if c.gyro_range > 0:
                 w_m = jp.clip(w_m, -c.gyro_range, c.gyro_range)
             info["w_f"] = info["w_f"] + (1.0 - np.exp(-2 * np.pi * c.gyro_lpf * c.ctrl_dt)) * (w_m - info["w_f"])
+        if c.obs_hold_pitch_lpf > 0:
+            info["wp_f"] = info["wp_f"] + (1.0 - np.exp(-2 * np.pi * c.obs_hold_pitch_lpf * c.ctrl_dt)) * (data.qvel[4] - info["wp_f"])
         obs, frame = self._obs(data, info, action, acc["tau"], k_obs)
         if c.obs_hold_u:
             info["held"] = frame[:6 + 2 * self.nj]
@@ -953,10 +984,14 @@ class SlenderBipedEnv(Env):
         clock = jp.where(mir, -clock, clock)                      # phase + pi: the other leg's half of the cycle
         cmd = info["cmd"] * fc
         g_n, w_n, q_n, qd_n = g_n * fy, w_n * fw, sw(q_n), sw(qd_n)
+        if c.obs_hold_pitch_lpf > 0:   # pitch rate: low-passed (axial y: unchanged by the mirror)
+            w_n = w_n.at[1].set(c.gyro_obs_scale * info["wp_f"] + n * 0.05 * jax.random.normal(jax.random.fold_in(k[1], 5)))
         sens = jp.concatenate([g_n, w_n, q_n, 0.1 * qd_n])
         if c.obs_hold_u:
             held = jp.where(info["hold_upd"], sens, info["held"])
             sens = held.at[:3].set(sens[:3]) if c.obs_hold_keep_g else held
+            if c.obs_hold_pitch_lpf > 0:
+                sens = sens.at[0].set(g_n[0]).at[2].set(g_n[2]).at[4].set(w_n[1])
         frame = jp.concatenate([sens, action])   # action is already in the policy's frame
         extra = []
         if c.obs_vel == "oracle":
@@ -994,7 +1029,7 @@ class SlenderBipedEnv(Env):
 
 
 TIP_PAIRS = jp.array([0, 1])  # set by SlenderBipedEnv from pair names (tip-floor pairs)
-FLOOR_DR = dict(friction=(0.5, 1.2), tc=(0.004, 0.004), damp=(1.0, 1.0), tc_scale=1.0, com_x=(0.0, 0.0))  # set by SlenderBipedEnv
+FLOOR_DR = dict(friction=(0.5, 1.2), tc=(0.004, 0.004), damp=(1.0, 1.0), tc_scale=1.0, com_x=(0.0, 0.0), com_y=(0.0, 0.0))  # set by SlenderBipedEnv
 from .feet import PAD_AREA_REF  # noqa: E402  (rug softness reference area)
 
 
@@ -1015,6 +1050,8 @@ def randomization_fn(sys, rng, num_envs=None):
         pel_off = jax.random.uniform(k[2], (3,), minval=-0.005, maxval=0.005)
         if FLOOR_DR["com_x"] != (0.0, 0.0):
             pel_off = pel_off.at[0].add(jax.random.uniform(jax.random.fold_in(key, 7), minval=FLOOR_DR["com_x"][0], maxval=FLOOR_DR["com_x"][1]))
+        if FLOOR_DR.get("com_y", (0.0, 0.0)) != (0.0, 0.0):
+            pel_off = pel_off.at[1].add(jax.random.uniform(jax.random.fold_in(key, 8), minval=FLOOR_DR["com_y"][0], maxval=FLOOR_DR["com_y"][1]))
         body_ipos = sys.body_ipos.at[1].add(pel_off)
         arm = sys.dof_armature.at[6:].multiply(jax.random.uniform(k[3], (sys.nv - 6,), minval=0.6, maxval=1.6))
         fl = sys.dof_frictionloss.at[6:].multiply(jax.random.uniform(k[4], (sys.nv - 6,), minval=0.5, maxval=2.0))

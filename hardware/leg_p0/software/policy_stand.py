@@ -47,6 +47,20 @@ import feetech_bench as fb
 from scservo_sdk import COMM_SUCCESS, GroupSyncRead, GroupSyncWrite
 
 HERE = Path(__file__).resolve().parent
+
+
+def start_video(a, log_path):
+    """--video: start the camera recorder next to the log (None when off or the camera won't open)."""
+    if a.video is None:
+        return None
+    try:
+        from video_rec import VideoRecorder
+        rec = VideoRecorder(log_path.with_suffix(""), a.video)
+        print(f"recording video from {a.video} ({rec.size[0]}x{rec.size[1]})")
+        return rec
+    except Exception as e:                       # never let the camera stop a run
+        print(f"(no video: {e})")
+        return None
 ROOT = HERE.parents[2]
 MOUNT_FILE = HERE / "imu_mount.yaml"
 DEFAULT_RUN = "hw_stand_push2"
@@ -749,6 +763,7 @@ def cmd_run(a):
     imu = Imu(imu_port(a), R)
     lo, hi = sv.limits_rad()
     roll_idx = [sv.names.index("L_hip_roll"), sv.names.index("R_hip_roll")]
+    knee_idx = [sv.names.index("L_knee"), sv.names.index("R_knee")]
     both_in = math.radians(bb.BOTH_ADDUCT_LIMIT)
     if isinstance(pol, Balancer):
         print(f"non-learning balancer, gains {pol.gains}")
@@ -809,12 +824,27 @@ def cmd_run(a):
     gate_n = int(float(env.get("settle_gate_max", 0.5)) / dt)
     hold_u = tuple(env.get("obs_hold_u", ()) or ())      # 2026-11-14 round 10: open loop within a step (as trained):
     hold_g = bool(env.get("obs_hold_keep_g", False))      # sensors sampled as the clock passes these phases, held between
+    hold_p = float(env.get("obs_hold_pitch_lpf", 0.0) or 0.0)   # round 11: pitch part of gravity + low-passed pitch rate live
+    hold_late = bool(env.get("obs_hold_late", False))          # round 11: inputs live until the clock first passes a hold phase
     if hold_u:
-        print(f"sensor inputs held between clock phases {hold_u}" + (" (gravity live)" if hold_g else ""))
+        print(f"sensor inputs held between clock phases {hold_u}" + (" (gravity live)" if hold_g else "")
+              + (f" (pitch live: gravity x/z, pitch rate low-passed {hold_p:.1f} Hz)" if hold_p > 0 else "")
+              + (" (live until the first lift-off)" if hold_late else ""))
+    # round 11: roll gate (robot round 10: every sideways fall lifted off while the body still rolled outward). Also hold
+    # the clock at a lift-off while |roll - its 0.1 Hz mean + tau * roll rate low-passed| > gate_roll
+    gate_roll = math.radians(a.gate_roll) if a.gate_roll is not None else float(env.get("settle_gate_roll", 0.0) or 0.0)
+    gate_tau = float(env.get("settle_gate_tau", 0.2))
+    gate_lpf = float(env.get("settle_gate_lpf", 2.0))
     gate_held = 0
     if gate_u:
+        print("settle gate guard ON: no hold while the body rolls away from centre or a foot is up (--no-gate-guard: as trained)"
+              if a.gate_guard else "settle gate guard off (as trained)")
         print(f"settle gate: the next step waits until the body turns slower than {gate_w:.2f} rad/s "
-              f"(at most {gate_n * dt:.1f} s)")
+              f"(at most {gate_n * dt:.1f} s)"
+              + (f" and the predicted roll is inside {math.degrees(gate_roll):.1f} deg"
+                 + (" (--gate-roll, not as trained)" if a.gate_roll is not None and
+                    abs(math.radians(a.gate_roll) - float(env.get("settle_gate_roll", 0.0) or 0.0)) > 1e-6 else "")
+                 if gate_roll > 0 else ""))
     log_path = Path(a.log or f"stand_{a.run}_{time.strftime('%Y%m%d_%H%M%S')}.csv")
 
     with Keys() as keys:
@@ -848,13 +878,17 @@ def cmd_run(a):
             else:
                 sv.set_accel(a.accel)
             imu.rebias()                                # re-zero the gyro while it stands still
+            rec = start_video(a, log_path)
             print("\nRobot on its pads, standing? Keep a hand near it.\n"
                   "  Enter = ENGAGE the policy      q = abort (holds the stance pose)")
             if keys.wait("\nq") == "q":
+                if rec:
+                    rec.stop(time.perf_counter())
                 print("aborted: holding the stance pose (`python biped_bench.py home --enable` or `off` to release)")
                 return
         else:
             sv.torque(False)
+            rec = start_video(a, log_path)
             print("\nDRY RUN: servos limp, nothing is sent. Hold the robot, tilt it, move the legs by hand and watch\n"
                   "the policy's targets. Any key stops.")
 
@@ -866,6 +900,9 @@ def cmd_run(a):
         a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
         held, hold_upd = None, True                     # obs_hold_u: the held sensor inputs, sample on the next tick
+        hold_on, wp_f = False, None                     # obs_hold_late: hold started; obs_hold_pitch_lpf: the pitch rate
+        gate_wf, gate_rs, roll_pred = 0.0, None, 0.0    # roll gate: roll rate low-passed, the standing roll, prediction
+        guard = 0                                       # gate guard: 0 = none, 1 = roll diverging, 2 = a foot is up
         yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
         stop_reason, overruns, k, stale = "user", 0, 0, 0
         bad_reads, read_fails, q_last, qd_last = 0, 0, None, None
@@ -876,7 +913,8 @@ def cmd_run(a):
         w.writerow(["t", "loop_ms"] + [f"g{c}" for c in "xyz"] + [f"w{c}" for c in "xyz"]
                    + [f"q_{n}" for n in sv.names] + [f"qd_{n}" for n in sv.names]
                    + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
-                   + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names])
+                   + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
+                   + ["phase", "gate_held", "roll_pred", "gate_guard"])
         v_min, v_start = 99.0, None
         t_start = time.perf_counter()
         try:
@@ -925,13 +963,19 @@ def cmd_run(a):
                     if a.vx:
                         cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
                     w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
-                    sens = np.concatenate([g, a.gyro_scale * w_f, q - q_nom, 0.1 * qd])
+                    w_in = a.gyro_scale * w_f
+                    if hold_p > 0:
+                        wp_f = float(wv[1]) if wp_f is None else wp_f + (1.0 - math.exp(-2 * math.pi * hold_p * dt)) * (float(wv[1]) - wp_f)
+                        w_in = w_in.copy(); w_in[1] = a.gyro_scale * wp_f
+                    sens = np.concatenate([g, w_in, q - q_nom, 0.1 * qd])
                     if hold_u:
-                        if held is None or hold_upd or not a.vx:
+                        if held is None or hold_upd or not a.vx or (hold_late and not hold_on):
                             held = sens.copy()
-                        g_live, sens = sens[:3], held.copy()
+                        live, sens = sens, held.copy()
                         if hold_g:
-                            sens[:3] = g_live
+                            sens[:3] = live[:3]
+                        if hold_p > 0:
+                            sens[[0, 2, 4]] = live[[0, 2, 4]]
                     frame = np.concatenate([sens, last_a])
                     if n_hist and hist is None:
                         hist = np.tile(frame, (n_hist, 1))
@@ -956,13 +1000,34 @@ def cmd_run(a):
                     if gate_u:                          # settle gate (as trained): hold the clock at a lift-off
                         u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)   # while the body still rotates
                         cross = any(((u0 - gu) % 1.0) > ((u1 - gu) % 1.0) for gu in gate_u)
-                        hold = (cross and a.vx and float(wv[0] ** 2 + wv[1] ** 2) > gate_w ** 2 and gate_held < gate_n)
+                        busy = float(wv[0] ** 2 + wv[1] ** 2) > gate_w ** 2
+                        roll = math.atan2(-float(g[1]), -float(g[2]))           # rate = body-x gyro, as mjx_env._roll_of
+                        gate_wf += (1.0 - math.exp(-2 * math.pi * gate_lpf * dt)) * (float(wv[0]) - gate_wf)
+                        # 2026-11-14 video: measure roll from the standing pose when the clock starts (the slow mean the
+                        # trained gate uses drifted toward an 8 deg lean and hid it)
+                        gate_rs = roll if gate_rs is None else gate_rs
+                        roll_rel = roll - gate_rs
+                        if gate_roll > 0:
+                            roll_pred = roll_rel + gate_tau * gate_wf
+                            busy = busy or abs(roll_pred) > gate_roll
+                        # 2026-11-14 video (215251): the gate froze the clock at the lift-off while the body was already
+                        # rolling away and a foot was coming up; frozen, the reference never brings the foot down and the
+                        # robot fell toward it. Waiting only helps while the body swings back toward centre.
+                        guard = 0
+                        if a.gate_guard and cross and busy:
+                            if abs(roll_rel) > math.radians(4.0) and roll_rel * gate_wf > 0 and abs(gate_wf) > math.radians(10.0):
+                                guard = 1                       # rolling away from centre: step now
+                            elif abs(q[knee_idx[0]] - q[knee_idx[1]]) > math.radians(12.0):
+                                guard = 2                       # a foot is already up (knees differ > 12 deg)
+                        hold = (cross and a.vx and busy and not guard and gate_held < gate_n)
                         gate_held = gate_held + 1 if hold else 0
                         if hold:
                             ph_new = phase
                     if hold_u:
                         u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)
                         hold_upd = any(((u0 - gu) % 1.0) > ((u1 - gu) % 1.0) for gu in hold_u)
+                        if hold_late and hold_upd and a.vx:
+                            hold_on = True
                     phase = ph_new
                     yaw += float(-(wv @ g)) * dt              # yaw rate about the vertical (g points down)
                 el = (time.perf_counter() - t0) * 1000
@@ -970,7 +1035,7 @@ def cmd_run(a):
                 w.writerow([round(t0 - t_start, 4), round(el, 2)] + list(np.round(g, 4)) + list(np.round(wv, 4))
                            + list(np.round(q, 4)) + list(np.round(qd, 3)) + list(np.round(act, 4))
                            + list(np.round(q_cmd, 4)) + list(sv.volt) + list(sv.temp.astype(int))
-                           + list(sv.load.astype(int)))
+                           + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard])
                 v_min = min(v_min, float(sv.volt.min()))
                 if v_start is None:
                     v_start = float(np.median(sv.volt))
@@ -997,6 +1062,9 @@ def cmd_run(a):
         finally:
             f.close()
             print()
+            if rec:                                     # 1.5 s more, so the end of a fall is on the video
+                vf = rec.stop(t_start, tail=1.5)
+                print(f"video: {log_path.with_suffix('.mkv')} ({len(rec.stamps)} frames; times on the log's clock in {vf})")
             if a.enable:
                 if stop_reason in ("user", "Ctrl-C") or not a.limp_on_fault:
                     # 2026-11-11: faults (tilt, IMU silence, bus errors) also hold the stance pose with torque on, so
@@ -1098,6 +1166,20 @@ def main():
                     help="Hz: first-order low-pass on the gyro the policy sees (default: the run's gyro_lpf, else off). 2026-11-13: the "
                          "full-body shake is a loop: the frame rings at 4.5-5 Hz, the gyro sees it and the policy "
                          "answers it at the knees and hip rolls. 2-3 Hz cuts that loop's gain at 4.5 Hz to 0.4-0.55")
+    sp.add_argument("--video", nargs="?", const="W1", default=None, metavar="CAMERA",
+                    help="record the camera (Windows name, default W1; `python video_rec.py devices`) from the 'standing?' "
+                         "prompt to 1.5 s after the stop: <log>.mkv + <log>_frames.csv with each frame's time on the log's "
+                         "clock (video_rec.py: Windows ffmpeg, 1280x720 MJPEG 30 fps)")
+    sp.add_argument("--gate-guard", dest="gate_guard", action="store_true", default=True,
+                    help="(default on, 2026-11-14) the settle gate never holds the clock while the body rolls away from "
+                         "centre (> 4 deg from the standing roll and growing faster than 10 deg/s) or a foot is already up "
+                         "(knees differ > 12 deg): holding then freezes the reference with the foot in the air. Not in training")
+    sp.add_argument("--no-gate-guard", dest="gate_guard", action="store_false",
+                    help="the settle gate exactly as trained")
+    sp.add_argument("--gate-roll", type=float, default=None,
+                    help="deg: the roll gate (round 11): also hold each lift-off while |roll - its slow mean + 0.2 s x the roll "
+                         "rate (2 Hz low-pass)| exceeds this (default: the run's settle_gate_roll, else off). Robot round 10: "
+                         "the steps that tipped sideways lifted at a predicted ~11 deg, k5's normal steps ~9, h4's ~3.5")
     sp.add_argument("--gyro-scale", type=float, default=None,
                     help="multiply the gyro the policy sees (default: the run's gyro_obs_scale, else 1); <1 lowers its gain round the shake loop")
     sp.add_argument("--act-lpf", type=float, default=None,

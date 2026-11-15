@@ -80,6 +80,11 @@ def target_update(q_tgt, v_tgt, cmd, a_prof, slew, dt):
 
 
 
+def roll_of(g):
+    """Roll (rad) from the body-frame gravity direction, signed so its rate is the body-x gyro (mjx_env._roll_of)."""
+    return float(np.arctan2(-g[1], -g[2]))
+
+
 def quat_rot_t(q, v):
     w, x, y, z = q
     R = np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
@@ -115,6 +120,9 @@ class EvalConfig:
     settle_gate_u: tuple = ()
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
+    settle_gate_roll: float = 0.0      # round 11: also hold while the predicted roll is past this (mjx_env.EnvConfig)
+    settle_gate_tau: float = 0.2
+    settle_gate_lpf: float = 2.0
     obs_noise: float = 1.0
     noise_q: float = 0.005
     noise_qd: float = 0.3
@@ -168,6 +176,8 @@ class EvalConfig:
     gyro_obs_scale: float = 1.0        # the gyro the policy sees x this (0 = a gyro-blind policy; mjx_env.EnvConfig)
     obs_hold_u: tuple = ()             # open loop within a step: sensors sampled at these clock phases (mjx_env.EnvConfig)
     obs_hold_keep_g: bool = False
+    obs_hold_pitch_lpf: float = 0.0    # round 11: gravity x / z and a low-passed pitch rate stay live (mjx_env.EnvConfig)
+    obs_hold_late: bool = False
     ring_delay: float = 0.0            # s: dead time of the frame mode's drive
     flex_dscale: float = 1.0          # share of the servo's damping that acts on the give (1 = give inside the servo; small = structural flex outside it)
     # 2026-11-12 (walking_clean.md §17): encoder zero errors the servo can't see. ((joint suffix, rad), ...): the servo
@@ -177,6 +187,7 @@ class EvalConfig:
     # backward pull on the pelvis growing with forward distance walked (a cable from above): N per m, capped
     drag_back: float = 0.0
     drag_back_max: float = 0.0
+    com_dy: float = 0.0                # 2026-11-14: sideways shift of the pelvis centre of mass (m, + = left)
     com_dx: float = 0.0                # 2026-11-13 round 8: shift of the pelvis centre of mass forward (m), after randomization
     push_fwd: float = 0.0              # constant forward force on the pelvis (N), a probe
 
@@ -320,6 +331,7 @@ class CpuBiped:
             m.body_mass[:] *= c.mass_scale
             m.body_inertia[:] *= c.mass_scale
         m.body_ipos[1, 0] += c.com_dx
+        m.body_ipos[1, 1] += c.com_dy
         mujoco.mj_resetDataKeyframe(m, d, self.kid)
         kf = {e[0]: e[1:] for e in c.hidden_flex}
         sel = [next((x for x in kf if j.endswith(x)), None) for j in self.joints]
@@ -382,6 +394,8 @@ class CpuBiped:
         self.acc, self.v_prev = np.array([0.0, 0.0, 1.0]), np.zeros(3)
         self.sync_imu()
         self.w_f = np.zeros(3)
+        self.wp_f, self.hold_on, self.gate_wf = float(self.d.qvel[4]), False, 0.0
+        self.gate_rs = roll_of(self.g_obs())
         self.hist = np.zeros((c.obs_hist, 3 + 3 + 3 * self.nj))
         if not c.obs_hist:
             return self.obs()
@@ -397,15 +411,21 @@ class CpuBiped:
         self.v_prev = self.d.qvel[0:3].copy()
         self.g_est = quat_rot_t(self.d.qpos[3:7], np.array([0, 0, -1.0]))
 
-    def obs(self):
+    def g_obs(self):
+        """The gravity direction the policy reads (IMU filter, mounting error), before noise."""
         c, d = self.cfg, self.d
-        quat = d.qpos[3:7]
-        g = self.g_est.copy() if c.imu_filter else quat_rot_t(quat, np.array([0, 0, -1.0]))
+        g = self.g_est.copy() if c.imu_filter else quat_rot_t(d.qpos[3:7], np.array([0, 0, -1.0]))
         off = getattr(self, "imu_off", np.zeros(2))
         if off.any():                          # IMU mounting / calibration error (mjx_env._tilt_obs)
             cr, sr, cp, sp = np.cos(off[0]), np.sin(off[0]), np.cos(off[1]), np.sin(off[1])
             g = np.array([g[0], cr * g[1] - sr * g[2], sr * g[1] + cr * g[2]])
             g = np.array([cp * g[0] + sp * g[2], g[1], -sp * g[0] + cp * g[2]])
+        return g
+
+    def obs(self):
+        c, d = self.cfg, self.d
+        quat = d.qpos[3:7]
+        g = self.g_obs()
         w = d.qvel[3:6].copy()
         if c.gyro_range > 0:
             w = np.clip(w, -c.gyro_range, c.gyro_range)
@@ -421,13 +441,17 @@ class CpuBiped:
         q = q + n * c.noise_q * r.normal(size=self.nj)
         qd = qd + n * c.noise_qd * r.normal(size=self.nj)
         clock = np.array([np.sin(self.phase), np.cos(self.phase)])
+        if c.obs_hold_pitch_lpf > 0:
+            w[1] = c.gyro_obs_scale * self.wp_f + n * 0.05 * r.normal()
         sens = np.concatenate([g, w, q, 0.1 * qd])
         if c.obs_hold_u:
             if self.held is None or self.hold_upd:
                 self.held = sens.copy()
-            g_live, sens = sens[:3], self.held.copy()
+            live, sens = sens, self.held.copy()
             if c.obs_hold_keep_g:
-                sens[:3] = g_live
+                sens[:3] = live[:3]
+            if c.obs_hold_pitch_lpf > 0:
+                sens[[0, 2, 4]] = live[[0, 2, 4]]
         self._frame = np.concatenate([sens, self.last_act])
         extra = []
         if c.obs_vel == "oracle":
@@ -590,14 +614,24 @@ class CpuBiped:
         if c.settle_gate_u:                     # mjx_env settle gate: hold the clock at the lift-offs until still
             u0, u1 = self.phase / (2 * np.pi), ph_new / (2 * np.pi)
             cross = any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.settle_gate_u)
-            hold = (cross and np.linalg.norm(self.cmd) > 1e-3 and float(np.sum(d.qvel[3:5] ** 2)) > c.settle_gate_w ** 2
+            busy = float(np.sum(d.qvel[3:5] ** 2)) > c.settle_gate_w ** 2
+            if c.settle_gate_roll > 0:
+                roll = roll_of(self.g_obs())
+                self.gate_wf += (1.0 - np.exp(-2 * np.pi * c.settle_gate_lpf * c.ctrl_dt)) * (d.qvel[3] - self.gate_wf)
+                self.gate_rs += (1.0 - np.exp(-2 * np.pi * 0.1 * c.ctrl_dt)) * (roll - self.gate_rs)
+                self.roll_pred = roll - self.gate_rs + c.settle_gate_tau * self.gate_wf
+                busy = busy or abs(self.roll_pred) > c.settle_gate_roll
+            hold = (cross and np.linalg.norm(self.cmd) > 1e-3 and busy
                     and self.gate_held < int(c.settle_gate_max / c.ctrl_dt))
             self.gate_held = self.gate_held + 1 if hold else 0
             if hold:
                 ph_new = self.phase
         if c.obs_hold_u:
             u0, u1 = self.phase / (2 * np.pi), ph_new / (2 * np.pi)
-            self.hold_upd = np.linalg.norm(self.cmd) <= 1e-3 or any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.obs_hold_u)
+            hcross = any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.obs_hold_u)
+            self.hold_upd = np.linalg.norm(self.cmd) <= 1e-3 or hcross or (c.obs_hold_late and not self.hold_on)
+            if c.obs_hold_late and hcross and np.linalg.norm(self.cmd) > 1e-3:
+                self.hold_on = True
         self.phase = ph_new
         if c.push_vel > 0:
             self.push_timer -= 1
@@ -617,6 +651,8 @@ class CpuBiped:
         if c.gyro_lpf > 0:
             w_m = d.qvel[3:6] if c.gyro_range <= 0 else np.clip(d.qvel[3:6], -c.gyro_range, c.gyro_range)
             self.w_f = self.w_f + (1.0 - np.exp(-2 * np.pi * c.gyro_lpf * c.ctrl_dt)) * (w_m - self.w_f)
+        if c.obs_hold_pitch_lpf > 0:
+            self.wp_f += (1.0 - np.exp(-2 * np.pi * c.obs_hold_pitch_lpf * c.ctrl_dt)) * (d.qvel[4] - self.wp_f)
         obs = self.obs()
         if c.obs_hist:
             self.hist = np.concatenate([self.hist[1:], self._frame[None]], 0)
