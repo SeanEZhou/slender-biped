@@ -149,7 +149,7 @@ Standing, share up / home (k5 in brackets):
 ## Robot, 2026-11-15 11:19-11:26: standing shoves (`scripts/robot13_analysis/stand_push.py`)
 
 Standing at `--vx 0`, shoved by hand, no video. k5 ×3, r13a_stand ×4, r13c2_sup_early ×4 (plus 2 k5 walking runs
-of 25 s, stopped by the operator). **All 11 standing trials ended in a fall**: 7 to the right, 4 forward.
+of 25 s, stopped by the operator). **All 11 standing trials ended in a fall**: 7 to the left, 4 forward (corrected 2026-11-15 13:10: the first version of stand_push.py had the roll sign backwards).
 
 | | |
 |---|---|

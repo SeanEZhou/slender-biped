@@ -67,7 +67,7 @@ def load_policy(spec):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("test", choices=["stand", "walk"])
+    ap.add_argument("test", choices=["stand", "walk", "steps"])
     ap.add_argument("run")
     ap.add_argument("--rec", default="self")
     ap.add_argument("--no-sup", action="store_true")
@@ -80,13 +80,19 @@ def main():
     ap.add_argument("--set", nargs="*", default=[], help="EnvConfig overrides k=json")
     a = ap.parse_args()
     W, p, d = load_policy(a.run)
-    stand = a.test == "stand"
+    steps = a.test == "steps"           # round 14: recovery-step policies stepping on command (random targets), no shoves
+    stand = a.test in ("stand", "steps")
     dvs = a.dv or ([0.1, 0.15, 0.2, 0.25, 0.3, 0.4] if stand else [0.0, 0.1, 0.15, 0.2, 0.25])
     over = dict(push_dv=(0.0, 0.0), push_interval_s=(1000.0, 1000.0), push_vel=0.0, act_lpf=a.act_lpf,
                 cmd_resample_s=(1000.0, 1000.0), reset_hard_prob=0.0,
                 reset_joint_noise=0.02, reset_tilt=0.02)          # a hardware-like start (training: 0.08 / 0.04)
     if stand:
         over.update(cmd_zero_prob=1.0, sup=False)
+    import json as _j
+    if _j.loads((d / "config.json").read_text())["env"].get("rec_table"):   # round 14: recovery-step policies
+        over.update(rec_rand=1.5 if steps else 0.0, rec_rest_s=(0.6, 1.5), rec_cp=not steps)
+    if steps:
+        dvs = [0.0]
     else:
         over.update(cmd_vx=(0.015, 0.015), cmd_zero_prob=0.0, cmd_wz=(0.0, 0.0), sup=not a.no_sup)
     if a.sim in ("robot", "loose"):
@@ -110,7 +116,7 @@ def main():
     N = len(combos) * a.n
     ang = jp.array(np.repeat([DIRS[c[0]] for c in combos], a.n))
     dvv = jp.array(np.repeat([c[1] for c in combos], a.n))
-    T = 7.0 if stand else 14.0
+    T = 12.0 if steps else 7.0 if stand else 14.0
     nst = int(T / cfg.ctrl_dt)
     rng = np.random.default_rng(a.seed)
     t_push = (np.full(N, 2.0) if stand else rng.uniform(4.0, 6.0, N)) / cfg.ctrl_dt
@@ -215,6 +221,10 @@ def main():
                 if m.any():
                     print(f"  dv {dv:.2f} {lab:4s} (n {m.sum():3d}): command moved within 1 s (max |change| deg, mean over runs): "
                           + " ".join(f"{g_.split('_')[-1][:5]} {dq[m][:, ix].max(1).mean():4.1f}" for g_, ix in grp.items()))
+    if "rec_n" in st.info:
+        rn = np.asarray(st.info["rec_n"])
+        print(f"recovery steps started per run: {rn.mean():.2f} (up runs {rn[up].mean() if up.any() else 0:.2f}, "
+              f"fallen {rn[~up].mean() if (~up).any() else 0:.2f}); touchdowns after the shove {np.asarray(td).mean():.1f}")
     print(f"overall up {up.mean():.0%}" + (f", home {home.mean():.0%}" if stand else
           f", resumed {(up & (np.linalg.norm(xy[-1] - xy[-int(4.0 / cfg.ctrl_dt)], axis=1) > 0.02)).mean():.0%}, "
           f"supervisor triggers per run {nsup.mean():.2f}"))

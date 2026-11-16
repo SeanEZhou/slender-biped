@@ -1,0 +1,31 @@
+steps test, r14c2_slow (runs/r14c2_slow/params_0024M.pkl), sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s
+  0.00 |    88%   0%   4.2 |   100%  12%   5.9 |    75%  12%   5.1 |    75%  12%   5.8 |  84% /   9%
+recovery steps started per run: 2.91 (up runs 2.93, fallen 2.80); touchdowns after the shove 5.2
+overall up 84%, home 9%
+stand test, r14c2_slow (runs/r14c2_slow/params_0024M.pkl), sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s
+  0.15 |   100%  12%   0.1 |    62%  38%   1.2 |    88%  25%   0.2 |    75%   0%   0.8 |  81% /  19%
+  0.25 |    12%   0%   0.8 |    25%   0%   0.1 |    25%   0%   0.6 |    50%  12%   1.0 |  28% /   3%
+  0.35 |     0%   0%   0.5 |     0%   0%   0.0 |    12%   0%   0.4 |    25%   0%   0.2 |   9% /   0%
+  dv 0.15 up   (n  26): command moved within 1 s (max |change| deg, mean over runs): yaw  7.0 roll  7.9 pitch  6.4 knee 10.2 roll  5.7
+  dv 0.15 fell (n   6): command moved within 1 s (max |change| deg, mean over runs): yaw  5.3 roll  9.9 pitch 11.0 knee 16.8 roll  6.3
+  dv 0.25 up   (n   9): command moved within 1 s (max |change| deg, mean over runs): yaw  6.9 roll  9.4 pitch  6.5 knee  8.8 roll  6.6
+  dv 0.25 fell (n  23): command moved within 1 s (max |change| deg, mean over runs): yaw  7.2 roll 12.4 pitch 13.1 knee 16.0 roll  9.7
+  dv 0.35 up   (n   3): command moved within 1 s (max |change| deg, mean over runs): yaw  8.8 roll  9.7 pitch  7.7 knee 15.1 roll  7.7
+  dv 0.35 fell (n  29): command moved within 1 s (max |change| deg, mean over runs): yaw  9.1 roll 13.8 pitch 15.5 knee 18.7 roll  9.0
+recovery steps started per run: 2.12 (up runs 1.00, fallen 2.86); touchdowns after the shove 0.5
+overall up 40%, home 7%
+steps test, r14e_swing (runs/r14e_swing/params_0018M.pkl), sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s
+  0.00 |    38%   0%   4.5 |    50%  12%   4.4 |    75%  12%   5.6 |    50%  12%   3.8 |  53% /   9%
+recovery steps started per run: 2.91 (up runs 2.88, fallen 2.93); touchdowns after the shove 4.6
+overall up 53%, home 9%
+stand test, r14e_swing (runs/r14e_swing/params_0018M.pkl), sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s
+  0.15 |    88%   0%   0.9 |    38%   0%   0.9 |    62%   0%   1.1 |    50%   0%   0.5 |  59% /   0%
+  0.25 |    25%   0%   0.8 |    12%   0%   0.4 |    25%   0%   0.9 |    50%  12%   0.9 |  28% /   3%
+  0.35 |     0%   0%   0.5 |     0%   0%   0.2 |     0%   0%   0.5 |     0%   0%   0.2 |   0% /   0%
+  dv 0.15 up   (n  19): command moved within 1 s (max |change| deg, mean over runs): yaw  5.3 roll 10.4 pitch  5.8 knee  7.4 roll  6.1
+  dv 0.15 fell (n  13): command moved within 1 s (max |change| deg, mean over runs): yaw  9.5 roll 12.2 pitch 15.4 knee 16.8 roll  9.1
+  dv 0.25 up   (n   9): command moved within 1 s (max |change| deg, mean over runs): yaw  8.4 roll 12.8 pitch  7.2 knee 11.1 roll  7.2
+  dv 0.25 fell (n  23): command moved within 1 s (max |change| deg, mean over runs): yaw  7.1 roll 12.3 pitch 13.0 knee 17.1 roll  9.4
+  dv 0.35 fell (n  32): command moved within 1 s (max |change| deg, mean over runs): yaw  8.2 roll 12.2 pitch 16.1 knee 19.0 roll 10.3
+recovery steps started per run: 2.35 (up runs 1.11, fallen 2.87); touchdowns after the shove 0.6
+overall up 29%, home 1%

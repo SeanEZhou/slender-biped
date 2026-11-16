@@ -64,6 +64,7 @@ def start_video(a, log_path):
 ROOT = HERE.parents[2]
 sys.path.insert(0, str(ROOT))
 from slender_biped.recovery import SupParams, Supervisor  # noqa: E402  (round 13: walk -> recover -> resume)
+from slender_biped import rec_step  # noqa: E402  (round 14: recovery steps)
 MOUNT_FILE = HERE / "imu_mount.yaml"
 DEFAULT_RUN = "hw_stand_push2"
 VID_SERVO, VID_IMU = 0x1A86, 0x2E8A           # CH343 bus adapter, RP2040
@@ -719,6 +720,14 @@ def stance_rad(names=None):
     return np.radians([16.0 if n.endswith("hip_pitch") else 32.0 if n.endswith("knee") else 0.0 for n in names])
 
 
+def rec_step_roll(g):
+    return math.atan2(-float(g[1]), -float(g[2]))
+
+
+def rec_step_pitch(g):
+    return math.atan2(float(g[0]), -float(g[2]))
+
+
 def kv_float(s):
     k, v = s.split("=")
     return k, float(v)
@@ -866,6 +875,27 @@ def cmd_run(a):
               + (" (trained with it)" if env.get("sup") else " (not trained with it)"))
         if not a.vx:
             print("  (no --vx: the supervisor only acts while walking)")
+    # round 14 (2026-11-15): recovery-step policies (env rec_table). Standing; while a step runs the reference is the
+    # step's (slender_biped/rec_step.py), the command input (dx, dy outward, side) and the clock the step's. Steps
+    # come from keys (w / s / a / d / x: forward / back / left / right / in place, --rec-key-step m) and, with
+    # --rec-auto, from the capture point (IMU tilt + rate) as in training.
+    rtab = None
+    rec_on, rec_u, rec_cmd, rec_wf, rec_ref, rec_n = False, 0.0, np.zeros(3), np.zeros(2), None, 0
+    rec_pending = None
+    if env.get("rec_table"):
+        rtab = rec_step.load_table(env["rec_table"])      # (not `rec`: that name holds the video recorder)
+        rec_T = rtab.pop("rec_T")
+        if a.rec_auto is None:
+            a.rec_auto = bool(env.get("rec_cp", False))
+        rec_th = a.rec_th if a.rec_th is not None else float(env.get("rec_cp_th", 0.035))
+        rec_gain = float(env.get("rec_cp_gain", 1.2))
+        rec_al = 1.0 - math.exp(-2 * math.pi * float(env.get("rec_lpf", 3.0)) * dt)
+        print(f"recovery steps ({env['rec_table']}, {rec_T:.1f} s each): keys w / s / a / d / x = step forward / back / "
+              f"left / right / in place ({a.rec_key_step * 100:.0f} cm); capture-point steps "
+              + (f"ON (beyond {rec_th * 100:.1f} cm)" + (" (trained with it)" if env.get("rec_cp") else " (not trained with it)")
+                 if a.rec_auto else "off (--rec-auto to enable)"))
+        if a.vx:
+            sys.exit("recovery-step policies stand: run them without --vx")
     log_path = Path(a.log or f"stand_{a.run}_{time.strftime('%Y%m%d_%H%M%S')}.csv")
 
     with Keys() as keys:
@@ -935,7 +965,8 @@ def cmd_run(a):
                    + [f"q_{n}" for n in sv.names] + [f"qd_{n}" for n in sv.names]
                    + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
                    + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
-                   + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch"])
+                   + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch",
+                      "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side"])
         v_min, v_start = 99.0, None
         t_start = time.perf_counter()
         try:
@@ -994,6 +1025,25 @@ def cmd_run(a):
                             print(f"\n  RESUME walking at {t_run:.2f} s")
                         if sup.on:
                             cmd_v[:] = 0.0
+                    if rtab is not None:                 # round 14: start a recovery step (key or capture point)
+                        ang = np.array([rec_step_roll(g), rec_step_pitch(g)])
+                        rec_ref = ang.copy() if rec_ref is None else rec_ref
+                        rec_wf += rec_al * (np.asarray(wv[:2], float) - rec_wf)
+                        if not rec_on:
+                            new = None
+                            if rec_pending is not None:
+                                new, rec_pending = rec_pending, None
+                            elif a.rec_auto:
+                                trig, ccmd = rec_step.capture(ang - rec_ref, rec_wf, gain=rec_gain, th=rec_th,
+                                                              dx_max=float(rtab["dx"][-1]), dy_max=float(rtab["dy"][-1]))
+                                if trig:
+                                    new = np.asarray(ccmd, float)
+                            if new is not None:
+                                rec_on, rec_u, rec_cmd, rec_n = True, 0.0, new, rec_n + 1
+                                print(f"\n  STEP {rec_n} at {t_run:.2f} s: dx {new[0] * 100:+.1f} cm, out {new[1] * 100:.1f} cm, "
+                                      f"{'left' if new[2] > 0 else 'right'} foot")
+                        cmd_v[:] = rec_cmd if rec_on else 0.0
+                        phase = 2 * math.pi * rec_u
                     w_f = wv.copy() if w_f is None else w_f + w_al * (wv - w_f)
                     w_in = a.gyro_scale * w_f
                     if hold_p > 0:
@@ -1022,7 +1072,14 @@ def cmd_run(a):
                         act = lpf * last_a + (1.0 - lpf) * act
                     ramp = min(1.0, (t_run - ready) / a.ramp) if a.ramp > 0 else 1.0
                     q_base = q_nom
-                    if ref is not None:
+                    if rtab is not None:
+                        u_next = min(rec_u + dt / rec_T, 1.0) if rec_on else 0.0
+                        q_base = q_ready + ramp * (rec_step.lookup(rtab, rec_cmd if rec_on else np.zeros(3), u_next)[0] - q_ready)
+                        if rec_on:
+                            rec_u = u_next
+                            if rec_u >= 1.0:
+                                rec_on, rec_u = False, 0.0
+                    elif ref is not None:
                         q_base = q_ready + ramp * (ref_lookup(ref, cmd_v[0], phase + 2 * math.pi * hz * dt) - q_ready)
                     q_cmd = np.clip(q_base + ramp * scale * act, lo, hi)
                 if q_cmd[roll_idx[0]] < 0 and q_cmd[roll_idx[1]] < 0:       # pelvis rule: legs collide if both
@@ -1030,7 +1087,9 @@ def cmd_run(a):
                 if a.enable:
                     sv.write(q_cmd)
                 last_a = act
-                if t_run >= ready + a.ramp:              # the clock starts once the policy is fully engaged
+                if rtab is not None:                     # round 14: the clock is the recovery step's
+                    phase = 2 * math.pi * rec_u
+                elif t_run >= ready + a.ramp:              # the clock starts once the policy is fully engaged
                     ph_new = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
                     if gate_u:                          # settle gate (as trained): hold the clock at a lift-off
                         u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)   # while the body still rotates
@@ -1072,7 +1131,8 @@ def cmd_run(a):
                            + list(np.round(q_cmd, 4)) + list(sv.volt) + list(sv.temp.astype(int))
                            + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard]
                            + ([int(sup.on), round(math.degrees(sup.pred[0]), 2), round(math.degrees(sup.pred[1]), 2)]
-                              if sup is not None else [0, 0.0, 0.0]))
+                              if sup is not None else [0, 0.0, 0.0])
+                           + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)))
                 v_min = min(v_min, float(sv.volt.min()))
                 if v_start is None:
                     v_start = float(np.median(sv.volt))
@@ -1083,8 +1143,14 @@ def cmd_run(a):
                           f" L[{''.join(f'{x:+4.0f}' for x in d[:h])}] R[{''.join(f'{x:+4.0f}' for x in d[h:])}] deg"
                           f"  loop {el:4.1f} ms  {sv.volt.min():.1f} V ", end="", flush=True)
                 k += 1
-                if keys.get() is not None:
-                    break
+                kc = keys.get()
+                if kc is not None:
+                    if rtab is not None and kc in "wsadx":       # round 14: commanded recovery step
+                        st_ = a.rec_key_step
+                        rec_pending = np.array({"w": (st_, 0.0, 1.0), "s": (-st_, 0.0, 1.0), "a": (0.0, st_, 1.0),
+                                                "d": (0.0, st_, -1.0), "x": (0.0, 0.0, 1.0)}[kc])
+                    else:
+                        break
                 t_next += dt
                 wait = t_next - time.perf_counter()
                 if wait > 0:
@@ -1138,6 +1204,8 @@ def cmd_run(a):
               f"(logged per servo with temperature and load)")
     if read_fails:
         print(f"bus: {read_fails} sync reads failed after retries (ran on the previous reading)")
+    if rtab is not None:
+        print(f"recovery steps: {rec_n}")
     if sup is not None:
         print(f"recovery supervisor: {sup.n} stops" + (" (still recovering at the end)" if sup.on else ""))
     print(f"stopped by: {stop_reason}. {n} steps ({secs:.1f} s at 50 Hz), loop work median "
@@ -1223,6 +1291,11 @@ def main():
                     help="round 13: recovery supervisor while walking: a predicted tip stops the walk (command 0) and "
                          "hands over to this policy at command 0 (self), the stance pose (stance) or another run, then "
                          "walking resumes once the body is quiet")
+    sp.add_argument("--rec-auto", dest="rec_auto", action="store_true", default=None,
+                    help="round 14 recovery-step policies: step when the capture point leaves --rec-th (default: as trained)")
+    sp.add_argument("--no-rec-auto", dest="rec_auto", action="store_false")
+    sp.add_argument("--rec-th", type=float, help="m: capture-point trigger distance (default the run's rec_cp_th, 0.035)")
+    sp.add_argument("--rec-key-step", type=float, default=0.04, help="m: step size for the w / s / a / d keys")
     sp.add_argument("--sup-roll", type=float, help="deg: supervisor roll threshold (default the run's sup_roll or 12)")
     sp.add_argument("--sup-pitch", type=float, help="deg: supervisor pitch threshold (default the run's sup_pitch or 12)")
     sp.add_argument("--sup-tau", type=float, help="s: supervisor prediction horizon (default the run's or 0.1)")

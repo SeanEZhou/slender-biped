@@ -349,6 +349,28 @@ def widen(restore, env):
     return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
+def reset_cmd_inputs(restore, env, m0, s0):
+    """Round 14: give the 3 command inputs (policy obs[-5:-2], critic after the action) a fresh meaning: normalizer
+    mean m0 / std s0, and zero first-layer weights, so the restored policy starts as it was at command 0 and learns
+    the new command from there. (k5's sideways command was always 0: std 0, untrained weights, so a recovery step's
+    dy arrived as a huge random input.)"""
+    norm, pol, val = restore
+    mean, std, sv = dict(norm.mean), dict(norm.std), dict(norm.summed_variance)
+    nj = env.nj
+    idx = {"state": env.observation_size["state"][0] - 5, "privileged_state": env._priv_extra + 6 + 3 * nj}
+    for key, net in (("state", pol), ("privileged_state", val)):
+        i = idx[key]
+        cnt = float(np.asarray(sv[key])[0] / max(float(np.asarray(std[key])[0]) ** 2, 1e-12))
+        m, sd, v = np.array(mean[key]), np.array(std[key]), np.array(sv[key])
+        m[i:i + 3], sd[i:i + 3], v[i:i + 3] = m0, s0, cnt * np.asarray(s0) ** 2
+        mean[key], std[key], sv[key] = m, sd, v
+        k = np.array(net["params"]["hidden_0"]["kernel"])
+        k[i:i + 3] = 0.0
+        net["params"]["hidden_0"]["kernel"] = k
+        print(f"[reset-cmd] {key}: inputs {i}..{i + 2} mean {m0} std {s0}, weights zeroed", flush=True)
+    return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
+
+
 def install_lcp(coef, n_sensor, idx=""):
     """2026-11-11: gradient penalty on the policy mean's sensitivity to its sensor inputs (LCP, arXiv 2410.11825), so
     sensor noise (the servos' quantized speed readings) does not turn into command jitter. Hutchinson estimate of the
@@ -412,6 +434,8 @@ def main():
     ap.add_argument("--episode-length", type=int, default=1000)
     ap.add_argument("--init", help="params.pkl to warm-start from (curriculum)")
     ap.add_argument("--rw", nargs="*", help="reward weight overrides k=v")
+    ap.add_argument("--reset-cmd", help="round 14: 's0,s1,s2' = re-seed the 3 command inputs' normalizer (mean 0, these "
+                    "stds) and zero their first-layer weights when restoring --init (a new meaning for the command)")
     ap.add_argument("--set", nargs="*", help="EnvConfig overrides k=json")
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--entropy", type=float, default=0.005)
@@ -454,6 +478,8 @@ def main():
     if a.init:
         with open(a.init, "rb") as f:
             restore = widen(pickle.load(f), env)
+        if a.reset_cmd:
+            restore = reset_cmd_inputs(restore, env, [0.0, 0.0, 0.0], [float(x) for x in a.reset_cmd.split(",")])
 
     if a.lcp > 0:
         install_lcp(a.lcp, 6 + 3 * env.nj, a.lcp_idx)

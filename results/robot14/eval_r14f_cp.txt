@@ -1,0 +1,13 @@
+(of those up: both pads down 100%, joints within 6 deg 28% (median worst 8.7 deg), tilt < 5 deg 98%, still 96%)
+stand test, r14f_cp (runs/r14f_cp/params_0014M.pkl), sim robot, act-lpf 0.7, 12 per cell, shove 0.15 s
+  0.15 |    92%  17%   0.7 |    50%  33%   0.6 |    58%  17%   0.7 |    92%  25%   0.3 |  73% /  23%
+  0.25 |    50%   0%   1.1 |     0%   0%   0.4 |    25%   8%   0.8 |    42%  25%   1.1 |  29% /   8%
+  0.35 |    17%   0%   1.0 |     0%   0%   0.2 |     8%   0%   0.5 |     8%   0%   0.3 |   8% /   0%
+  dv 0.15 up   (n  35): command moved within 1 s (max |change| deg, mean over runs): yaw  5.3 roll  7.3 pitch  5.1 knee  8.1 roll  6.2
+  dv 0.15 fell (n  13): command moved within 1 s (max |change| deg, mean over runs): yaw  7.9 roll 12.4 pitch 12.7 knee 17.1 roll 10.7
+  dv 0.25 up   (n  14): command moved within 1 s (max |change| deg, mean over runs): yaw  6.4 roll  8.3 pitch  6.0 knee 10.2 roll  7.7
+  dv 0.25 fell (n  34): command moved within 1 s (max |change| deg, mean over runs): yaw  6.6 roll 10.9 pitch 12.5 knee 17.4 roll  8.8
+  dv 0.35 up   (n   4): command moved within 1 s (max |change| deg, mean over runs): yaw  7.3 roll 10.1 pitch  5.9 knee  7.6 roll  8.4
+  dv 0.35 fell (n  44): command moved within 1 s (max |change| deg, mean over runs): yaw  7.8 roll 12.0 pitch 14.8 knee 18.3 roll  9.9
+recovery steps started per run: 2.14 (up runs 1.02, fallen 2.79); touchdowns after the shove 0.6
+overall up 37%, home 10%

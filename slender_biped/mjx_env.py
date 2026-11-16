@@ -202,6 +202,19 @@ class EnvConfig:
     # `capture` term pays each touchdown for the foot's travel since its lift-off along the pelvis's direction of travel
     # (up to capture_len m). 0 = off.
     capture_v: float = 0.0
+    # round 14 recovery steps (slender_biped/rec_step.py): a reference library of shift-swing-land-close steps indexed
+    # by (dx, dy outward, side). While a step runs, the reference is the step's (instead of the gait's), the command
+    # input is (dx, dy, side) and the clock is the step's (u 0 -> 1 over rec_T); at rest both are 0 and the reference
+    # is the stance. Steps start at random while resting (rec_rand per second, after U(rec_rest_s) s: stage A, step on
+    # command) and / or when the capture point from the IMU leaves rec_cp_th m (rec_cp: stage B). Use with
+    # heading_cmd false, no settle gate, cmd_zero_prob 1.
+    rec_table: str = ""
+    rec_rand: float = 0.0
+    rec_rest_s: tuple = (0.8, 2.0)
+    rec_cp: bool = False
+    rec_cp_th: float = 0.035
+    rec_cp_gain: float = 1.2
+    rec_lpf: float = 3.0
     capture_len: float = 0.06
     sup_walker_lpf: float = 0.7
     # commands
@@ -416,6 +429,11 @@ class SlenderBipedEnv(Env):
                         x = jax.nn.swish(x)
                 return jp.tanh(x[..., : x.shape[-1] // 2])
             self._walker = walker
+        self.rec = None
+        if cfg.rec_table:
+            from .rec_step import load_table
+            self.rec = load_table(cfg.rec_table, jp)
+            self.rec_T = self.rec.pop("rec_T")
         self._reset_pitch = 0.0
         if cfg.reset_ref_pose and self.ref is not None:
             from .ref_gait import level_pitch, lookup
@@ -595,6 +613,8 @@ class SlenderBipedEnv(Env):
             push_timer=self._steps(k7, c.push_interval_s), push_left=jp.array(0, jp.int32), push_f=jp.zeros(3),
             sup_on=jp.array(False), sup_t=jp.array(0, jp.int32), sup_q=jp.array(0, jp.int32), sup_wf=jp.zeros(2),
             sup_ref=jp.zeros(2), sup_n=jp.array(0, jp.int32),
+            rec_on=jp.array(False), rec_u=jp.array(0.0), rec_cmd=jp.zeros(3), rec_n=jp.array(0, jp.int32), rec_wf=jp.zeros(2),
+            rec_rest=self._steps(jax.random.fold_in(k7, 5), c.rec_rest_s),
             last_act=jp.zeros(self.nj), last_act2=jp.zeros(self.nj),
             w_prev=jp.zeros(2),
             flex=jp.zeros(self.nj), flex_v=jp.zeros(self.nj), prev_cmd=qe, q_tgt=qe, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qe, (self.max_delay + 1, 1)),
@@ -666,6 +686,11 @@ class SlenderBipedEnv(Env):
             q_ref = jp.where(mir, self._swap(q_ref), q_ref)
             z_ref = jp.where(mir, z_ref[::-1], z_ref)
             st_ref = jp.where(mir, st_ref[::-1], st_ref)
+        if self.rec is not None:                 # round 14: the recovery step's reference while one runs
+            from .rec_step import lookup as rec_lookup
+            u_next = jp.where(state.info["rec_on"], state.info["rec_u"] + c.ctrl_dt / self.rec_T, 0.0)
+            q_ref, z_ref, st_ref = rec_lookup(self.rec, state.info["rec_cmd"], u_next, jp)
+            phase_next = 2 * jp.pi * jp.minimum(u_next, 1.0)
         q_base = q_ref if (self.ref is not None and c.ref_residual) else self.q_nom
         q_cmd = jp.clip(q_base + c.action_scale * act_real, self.q_lo, self.q_hi)
         ts = self.ts * s_["strength"]
@@ -1018,6 +1043,35 @@ class SlenderBipedEnv(Env):
             err = jp.mod(info["heading"] - yaw_now + jp.pi, 2 * jp.pi) - jp.pi
             info["cmd"] = info["cmd"].at[2].set(jp.clip(c.heading_gain * err, -0.3, 0.3))
         info["cmd_timer"] = jp.where(resample, self._steps(k_ct, c.cmd_resample_s), info["cmd_timer"])
+        if self.rec is not None:                # round 14: start / advance / end recovery steps
+            from .rec_step import capture
+            g_s = _tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"])
+            ang = jp.array([_roll_of(g_s), _pitch_of(g_s)]) - info["sup_ref"]
+            info["rec_wf"] = info["rec_wf"] + (1.0 - np.exp(-2 * np.pi * c.rec_lpf * c.ctrl_dt)) * (data.qvel[3:5] - info["rec_wf"])
+            on = state.info["rec_on"]
+            u_new = jp.where(on, state.info["rec_u"] + c.ctrl_dt / self.rec_T, 0.0)
+            fin = on & (u_new >= 1.0)
+            kr_ = jax.random.split(jax.random.fold_in(k_cmd, 31), 5)
+            rest = jp.where(fin, self._steps(kr_[0], c.rec_rest_s), info["rec_rest"] - jp.where(on, 0, 1))
+            dxs, dys = self.rec["dx"], self.rec["dy"]
+            rcmd = jp.array([jax.random.uniform(kr_[1], (), minval=dxs[0], maxval=dxs[-1]),
+                             jax.random.uniform(kr_[2], (), minval=dys[0], maxval=dys[-1]),
+                             jp.where(jax.random.uniform(kr_[3]) < 0.5, 1.0, -1.0)])
+            idle = ~on | fin
+            r_start = idle & (rest <= 0) & (jax.random.uniform(kr_[4]) < c.rec_rand * c.ctrl_dt)
+            if c.rec_cp:
+                trig, ccmd = capture(ang, info["rec_wf"], gain=c.rec_cp_gain, th=c.rec_cp_th, dx_max=dxs[-1], dy_max=dys[-1], xp=jp)
+                c_start = idle & trig
+            else:
+                c_start, ccmd = jp.array(False), rcmd
+            start = r_start | c_start
+            info["rec_cmd"] = jp.where(start, jp.where(c_start, ccmd, rcmd), info["rec_cmd"])
+            info["rec_on"] = (on & ~fin) | start
+            info["rec_u"] = jp.where(info["rec_on"] & ~start, u_new, 0.0)
+            info["rec_rest"] = rest
+            info["rec_n"] = info["rec_n"] + start.astype(jp.int32)
+            info["cmd"] = jp.where(info["rec_on"], info["rec_cmd"], jp.zeros(3))
+            info["phase"] = 2 * jp.pi * info["rec_u"]
         if c.sup:                               # round 13: recovery supervisor (slender_biped/recovery.py)
             g_s = _tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"])
             ang = jp.array([_roll_of(g_s), _pitch_of(g_s)]) - info["sup_ref"]

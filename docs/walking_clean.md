@@ -64,7 +64,7 @@ c_T12HH's schedule over one cycle (cycle fraction u):
 | from | 0 | 0.208 (lift-off) | 0.396 (touchdown) | 0.708 (lift-off) |
 | to | 0.208 | 0.396 | 0.708 | 0.896, then both down to 1 |
 
-**The policy's inputs (k5: 51):**
+**The policy's inputs (k5: 41):**
 - gravity direction (3) and gyro (3) from the IMU;
 - 10 joint angles, 10 joint speeds x 0.1, and its previous action (10);
 - the command (3): forward speed vx, sideways vy (always 0 in training, so meaningless) and the turning rate wz;
@@ -1978,7 +1978,7 @@ k5, all simulation-screened, then two standing ones tried on the robot. Full rec
 - Shove training made the walker worse (`r13b`).
 
 **On the robot (11:19-11:26):**
-- k5, `r13a_stand` and `r13c2_sup_early` standing: 11 of 11 trials fell (7 right, 4 forward).
+- k5, `r13a_stand` and `r13c2_sup_early` standing: 11 of 11 trials fell (7 left, 4 forward).
 - From the first visible tilt to 18 deg took 0.34-2.6 s (median ~0.55 s), enough time for a step (k5 swings in ~0.35 s).
 - Over that window no joint command moved more than 2-10 deg, and no foot lifted. The simulator shows the same: they
   learned small planted corrections and nothing else.
@@ -2005,3 +2005,72 @@ k5, all simulation-screened, then two standing ones tried on the robot. Full rec
    triggers a step.
 6. **Stage B:** shoves at full size from the start (Atalante: a ramp converged early), the capture point
    triggering the steps.
+
+## 33. Round 14: recovery steps by imitation (2026-11-15 12:50-14:55, simulation)
+
+The round-13 plan (§32): a reference library of recovery steps imitated with large rewards, its own clock, the capture
+point choosing the step. Standing only. Full record: `results/robot14/NOTES.md`.
+
+**Tools:**
+- [rec_step.py](../slender_biped/rec_step.py): IK-built tables of shift, swing, land and closing steps, indexed by
+  (dx, dy outward, side):
+  - `rs1`: 1.8 s per step, ±5 cm forward / back, 0-5 cm out, 2.5 cm lift;
+  - `rs2`: 2.8 s per step.
+  - The step ends in the stance it started from.
+- `capture()`: the capture point from the IMU (h 0.34 m) picks the step.
+- mjx_env `rec_*`: while a step runs, the reference is the step's, the command input is (dx, dy, side) and the clock is
+  the step's. Steps start at random (stage A) and / or from the capture point (stage B).
+- `train.py --reset-cmd`: new meaning for the command inputs (see the bug below).
+- policy_stand: the w / s / a / d / x keys command a step; `--rec-auto` lets the capture point trigger them.
+- push_eval: a `steps` test.
+
+**Results (sim robot):**
+
+| | k5 | `r14c2_slow` (stage A, rs2, 24M) | `r14e_swing` (+ swing pay) | `r14f_cp` (stage B) |
+|---|---|---|---|---|
+| up after 12 s of commanded steps | 0 % | **84 %** | 53 % | |
+| up after one shove at 0.15 / 0.25 m/s, capture-point steps on | 100 / 62 % (planted) | 81 / 28 % | 59 / 28 % | 73 / 29 % |
+
+**Learnings:**
+1. **The commanded step is half learned:** from falling at every step to surviving 84 % of runs, but by barely
+   lifting (2-3 mm on average against the reference's 12-25 mm).
+2. **Capture-point steps the policy can't yet carry out are worse than standing planted.** The trigger starts a
+   shift and a lift during the fall.
+3. **A slower step lifts more:** 2.8 s per step lifted 4x more than 1.8 s in the same 12M.
+4. **Reusing an input the parent policy never saw vary is a trap.** k5's sideways-command input had std 0 and
+   untrained weights, so the step command arrived as a huge random input. The first 40 min of training went into
+   that. Re-seed the normalizer and zero the weights of any input whose meaning changes.
+
+**Next:** make the step itself work first:
+- build the recovery step from k5's own swing (c_T12HH's joint motion, displaced);
+- a slower, bigger weight shift;
+- a termination when a scheduled swing foot stays down;
+- longer stage A.
+
+Then stage B with the trigger tuned against planted balance.
+
+## 34. Round 14 on the robot: the steps transfer, the closing step and sideways steps don't (2026-11-15 15:30-15:55)
+
+With video. Details and the operator's observations: `results/robot14/NOTES.md`
+([steps.py](../scripts/robot14_analysis/steps.py)).
+
+**What worked:**
+- **`r14c2_slow` on keys: 17 of 18 commanded steps** (sideways out, forward, back) over 92 s. The feet lift 2-5 cm on
+  the robot, more than simulation suggested.
+- **`r14f_cp`**: a gentle push from behind sometimes gets a forward step that holds (4 of 10 capture-point forward
+  steps).
+
+**What didn't:**
+- **`r14e_swing` sideways steps fell 4 of 5**, toward the closing foot, as it lifted it without shifting its weight
+  first.
+- **Every sideways and backward capture-point step fell.**
+  - Sideways, the capture-point rule picks the foot on the falling side, the loaded one, which can't lift.
+  - Backward, the reference itself is flawed: the IK weighted board pitch low, so the swinging board hangs toe-down
+    9-16 deg (worst on back steps) and lands toe-down.
+
+**Next (round 15), from the operator's notes:**
+- **Decisive steps:** further (8-10 cm), higher (4-5 cm), boards flat.
+- **No scripted closing step:** hold the new stance with a settle gate, then return by retracting the stepped foot,
+  or bringing the other one over, as a separate step once quiet.
+- **Sideways: step with the free foot** (crossover or unloading hop).
+- **Backward: a dedicated back-step reference.**

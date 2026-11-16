@@ -1,0 +1,1 @@
+{"ok": false, "error": "stopped by hand at ~13M (2026-11-15 13:58): the fast 1.8 s step barely lifted (ref_swing 18 vs 74 for the 2.8 s step at 12M); lane given to r14e_swing"}

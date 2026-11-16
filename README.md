@@ -3,9 +3,8 @@
 <table>
 <tr>
 <td valign="top"><img src="assets/photos/robot_standing.jpg" width="240" alt="The assembled robot standing on its snowboard pads"><br><sub>The robot today: two printed legs with ankle roll, ten hobby servos, torso and head.</sub></td>
-<td valign="top"><img src="assets/gifs/real_legs_walk.gif" width="220" alt="The legs walking on their own"><br><sub>First walk on the robot: legs and pelvis, policy <code>c3m_T12</code>, 10+ steps in most trials (§16).</sub></td>
-<td valign="top"><img src="assets/gifs/real_full_body_1.gif" width="220" alt="The full robot marching under its own balance"><br><sub>Full body, policy <code>c3f_T12</code>: balancing on its own while it marches, mostly in place.</sub></td>
-<td valign="top"><img src="assets/gifs/real_full_body_2.gif" width="220" alt="The full robot marching, side view"><br><sub>The same policy from another angle. No hand steadying it: every step is closed-loop on the IMU.</sub></td>
+<td valign="top"><img src="assets/gifs/real_k5_front.gif" width="240" alt="The full robot walking toward the camera"><br><sub>Full-body walking, policy <code>k5_high2</code>: large, clean steps, median 26 s and 30 steps per trial (§17).</sub></td>
+<td valign="top"><img src="assets/gifs/real_k5_side.gif" width="240" alt="The full robot walking, seen from the side"><br><sub>The same policy from the side. The power and data cables are held slack above it; every step is closed-loop on the IMU.</sub></td>
 </tr>
 </table>
 
@@ -28,7 +27,8 @@ error: a stance that holds while the controller is late or wrong.
 So the design pivoted to **one ankle roll servo per leg** (§16). The hips and ankles lean both legs together, so the
 weight moves over one flat board, and lifting the other foot is no longer a fall. With that, plus a calmer gait
 trained by imitation and against wobble, the robot took its first real walks: 10+ steps in most trials with the legs
-alone, and stable marching with the torso and head on.
+alone, and stable marching with the torso and head on. Since then the full robot, torso and head on, walks: up to
+188 s with `h4_t05`, and with large, clean steps with `k5_high2` (§17).
 
 Everything the project has learned, from servo modelling to reward weights to robot bring-up, is collected in
 **[docs/lessons.md](docs/lessons.md)**.
@@ -37,7 +37,7 @@ Everything the project has learned, from servo modelling to reward weights to ro
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
 - **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
 - **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
-- **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot) · [15. Big feet for soft rugs](#15-big-feet-for-soft-rugs) · [16. Walking on the big pads](#16-walking-on-the-big-pads)
+- **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot) · [15. Big feet for soft rugs](#15-big-feet-for-soft-rugs) · [16. Walking on the big pads](#16-walking-on-the-big-pads) · [17. Full-body walking](#17-full-body-walking)
 - **Reference:** [Lessons learned](docs/lessons.md) · [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
 
 An end-to-end robotics design study:
@@ -1264,6 +1264,53 @@ robot stands 3.7° further back than the model and drifts further back as it wal
 slightly forward. That, and the outer-edge strips for the feet designed this round, are the next measurements to bring
 into the model. Details: [docs/walking_clean.md §15–16](docs/walking_clean.md#15-robot-round-4-the-measured-give-in-training-and-outer-strips-2026-11-12-night).
 
+## 17. Full-body walking
+
+<table>
+<tr>
+<td valign="top"><img src="assets/gifs/real_full_body_1.gif" width="200" alt="The full robot marching in place"><br><sub><code>c3f_T12</code> (2026-11-10): the legs' walker with the torso and head on. It balances, but marches mostly in place.</sub></td>
+<td valign="top"><img src="assets/gifs/real_h4.gif" width="240" alt="The full robot walking with small steps"><br><sub><code>h4_t05</code> + run-time action filter (2026-11-13): the first full-body walker, up to 188 s and 299 steps.</sub></td>
+<td valign="top"><img src="assets/gifs/real_k5_front.gif" width="240" alt="The full robot walking with large steps"><br><sub><code>k5_high2</code> (2026-11-14/15): about twice h4's foot lift, much more progress per step.</sub></td>
+</tr>
+</table>
+
+Adding the torso and head (§12) put 0.3 kg 154 mm above the hips, and the legs' walker only marched in place with
+them on. Getting from there to a walk took five breakthroughs, each kept by the next
+([docs/walking_clean.md](docs/walking_clean.md) §0 and its history section have the full story).
+
+1. **The policy corrects a reference gait; it doesn't invent one.** Every walker outputs small corrections (±14° per
+   joint) on top of an IK-built reference gait. The reference is indexed by the forward command and a gait clock, and
+   the clock waits at each lift-off until the body has stopped rotating (the settle gate). Large imitation rewards
+   (joints and foot contacts) anchor the stepping; penalties only shape it. This is what made the legs walk (`c3m`,
+   §16), and every walker since works this way.
+2. **Train on the measured body.** The masses were re-weighed, and the joints' give under load (a spring behind
+   each servo, measured with tilt and wiggle tests) went into the simulator. Only a light tilt penalty was kept, so
+   that stepping stays cheap.
+3. **The shake was a feedback loop, and a filter at run time broke it.**
+   - The hollow frame rings at 4–5 Hz. The pelvis gyro sees the ring, the policy answers it about 80 ms late, and the
+     servos ring the frame again.
+   - A low-pass on the actions, applied only on the robot to a policy trained without it (`--act-lpf 0.6`), stopped
+     the loop: **`h4_t05` walked 188 s (299 steps)**.
+   - Training with the filter instead made every policy lean forward and fall on its face.
+4. **A higher reference gait for bigger steps.** The same recipe on a reference that lifts the knee 0.75 rad instead
+   of 0.45 doubled the real foot lift (`k5_high2`). No toes caught in the rug, and far more progress per step.
+   Engaging into the pose the policy holds (`--ready-act`) removed a forward lurch at the start.
+5. **Fix the hardware before retraining.** Loose hip-yaw servo screws and a few degrees of zero error on the left leg
+   were behind most falls. Tightened and re-zeroed, k5 went from a median 7.8 s and 4 steps to **25.7 s and 30 steps
+   (best 33 s / 42 steps)**, its falls no longer all to one side. No training change did as much.
+
+| policy | on the robot (0.015 m/s command) |
+|---|---|
+| `c3f_T12` | balances, marches mostly in place |
+| `h4_t05 --act-lpf 0.6` | 188 s (299 steps), 74 s, 76 s; small steps, occasional twitching |
+| **`k5_high2 --act-lpf 0.7`** | **median 25.7 s / 30 steps over 17 trials**; large steps, sometimes drifts left |
+
+**Now: recovering from pushes.** Training standing policies with shoves only made their planted balance firmer: on
+the robot they barely moved while falling. The current approach treats recovery like walking: IK-built recovery
+steps, chosen by the capture point and imitated with large rewards. The robot can now take commanded steps, and steps
+forward when pushed from behind; sideways and backward steps don't work yet
+([docs/walking_clean.md](docs/walking_clean.md) §32–34).
+
 ## Limitations and next steps
 
 - **Sim-to-real transfer is under way (§14, §16.1–16.2).** Quiet standing transfers. With ankle roll and the
@@ -1281,8 +1328,9 @@ into the model. Details: [docs/walking_clean.md §15–16](docs/walking_clean.md
 - **Staying on a line depends on sensing.** Without an extra sensor, leg odometry keeps 40–78 % of walks within 0.2 m
   of the line at 2 m; the 100 % result assumes a downward optical-flow sensor on a textured floor, and on the second
   seed that walker is just as straight but slower.
-- **Torso and head.** Printed and assembled (§12). The full-body walker `c3f_T12` balances with them on but barely
-  moves forward on the robot, and needs smoother actions to stop the servo buzz.
+- **Torso and head.** The full robot walks (§17): `k5_high2` takes large steps for ~26 s per trial (median), `h4_t05`
+  once walked 188 s. The remaining faults: some trials drift left, and an occasional twitch against the frame's 5 Hz
+  ring. It can't yet recover from a push that needs a step.
 - **First, keep closing the sim-to-real gap with measurements** ([docs/measuring.md](docs/measuring.md)): fit the
   simulator to each before training on it: the backward lean (stance offsets, cable pull), the outer-edge strips, the
   hip give directly (E6), landings and foot clearance (E3–E5).

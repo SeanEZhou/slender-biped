@@ -1,0 +1,1 @@
+{"ok": false, "error": "stopped by hand 2026-11-15 13:28: trained with the k5 command normalizer bug (sideways-command std 0, untrained weights); restarted with --reset-cmd"}

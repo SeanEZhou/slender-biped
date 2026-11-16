@@ -39,7 +39,8 @@ def main():
             while e < len(t) - 1 and tilt[e] > 1.5 and t[e] - t[s] < 3.0:
                 e += 1
             pk = s + int(np.argmax(tilt[s:e + 1]))
-            d = "roll " + ("L" if rr[pk] > 0 else "R") if abs(rr[pk]) > abs(pr[pk]) else "pitch " + ("fwd" if pr[pk] > 0 else "back")
+            # roll > 0 = leaning right (mjx_env._roll_of; robot10_analysis/batch.py: roll < 0 = a fall to the left)
+            d = "roll " + ("R" if rr[pk] > 0 else "L") if abs(rr[pk]) > abs(pr[pk]) else "pitch " + ("fwd" if pr[pk] > 0 else "back")
             def tt(th):
                 j = np.where(tilt[s:e + 1] > th)[0]
                 return f"{t[s + j[0]] - t[s]:.2f}" if len(j) else "  - "

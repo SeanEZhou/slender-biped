@@ -22,6 +22,22 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Push resistance, round 14 (2026-11-15)
+
+- **A recovery-step reference gets the step half learned:** commanded steps went from always falling (k5) to 84 %
+  survived in 24M, but with 2-3 mm lifts. Steps the policy can't yet carry out, triggered by the capture point,
+  are worse than standing planted. Get the step working first ([walking_clean.md §33](walking_clean.md)).
+- **When an input gets a new meaning, re-seed its normalizer and zero its weights** (`train.py --reset-cmd`): k5's
+  never-varied sideways command (std 0) turned the step command into a huge random input.
+- **Slower steps lift more** (2.8 s against 1.8 s: 4x the lift in the same training).
+- **On the robot (15:30-15:55):**
+  - The slow commanded step transferred: 17 of 18 steps, 2-5 cm lifts.
+  - The falls come in the scripted closing step: the weight isn't over the stepped foot yet.
+  - Sideways capture-point steps chose the loaded foot.
+  - Fix in the reference, not the reward: let the robot settle and choose how to return, step with the free foot
+    sideways, and keep the boards flat in the swing (a low IK pitch weight made the back-step boards hang 16 deg
+    toe-down).
+
 ## Push resistance, round 13 (2026-11-15)
 
 - **Shoves and penalties don't teach a recovery step.** 8 runs from k5 (shoves of 0.05-0.45 m/s, a capture-step
