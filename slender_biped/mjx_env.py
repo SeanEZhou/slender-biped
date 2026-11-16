@@ -252,6 +252,11 @@ class EnvConfig:
     # hold while the predicted roll |roll - its slow mean + settle_gate_tau * roll rate| exceeds this (rad; 0 = off).
     # The roll rate is low-passed at settle_gate_lpf Hz (the robot's 5 Hz ring stays out), the mean at 0.1 Hz.
     settle_gate_roll: float = 0.0
+    # round 16 (2026-11-15, the robot's falls): a lift-off also waits while the body isn't ready for it: the predicted
+    # lean toward the swinging foot (roll from the attitude at reset + settle_gate_tau x roll rate low-passed at
+    # settle_gate_lpf) beyond settle_gate_att[0] rad, or the predicted pitch beyond +-settle_gate_att[1] rad. The
+    # settle_gate_u entries are (left lift-off, right lift-off). () = off.
+    settle_gate_att: tuple = ()
     settle_gate_tau: float = 0.2
     settle_gate_lpf: float = 2.0
     heading_cmd: bool = False          # yaw-rate command = clip(k * heading error) (legged-gym style)
@@ -650,7 +655,7 @@ class SlenderBipedEnv(Env):
             ring=dict(r=jp.zeros(3), rd=jp.zeros(3), us=self._ring_W @ qe, buf=jp.tile(self._ring_W @ qe, (self._ring_nbuf, 1)),
                       i=jp.array(0, jp.int32)),
             w_f=jp.zeros(3), raw_lp=jp.zeros(self.nj), held=jp.zeros(6 + 2 * self.nj), hold_upd=jp.array(True),
-            hold_on=jp.array(False), wp_f=data.qvel[4], gate_wf=jp.array(0.0), gate_rs=jp.array(0.0),
+            hold_on=jp.array(False), wp_f=data.qvel[4], gate_wf=jp.array(0.0), gate_rs=jp.array(0.0), gate_wa=jp.zeros(2),
             vib=self._vib_sample(jax.random.fold_in(kb4, 11)),
         )
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
@@ -878,6 +883,16 @@ class SlenderBipedEnv(Env):
                 info["gate_wf"] = info["gate_wf"] + (1.0 - np.exp(-2 * np.pi * c.settle_gate_lpf * c.ctrl_dt)) * (data.qvel[3] - info["gate_wf"])
                 info["gate_rs"] = info["gate_rs"] + (1.0 - np.exp(-2 * np.pi * 0.1 * c.ctrl_dt)) * (roll - info["gate_rs"])
                 busy = busy | (jp.abs(roll - info["gate_rs"] + c.settle_gate_tau * info["gate_wf"]) > c.settle_gate_roll)
+            if c.settle_gate_att:                # round 16: not ready to lift: leaning toward the STANCE foot, or pitched
+                g_a = _tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"])
+                info["gate_wa"] = info["gate_wa"] + (1.0 - np.exp(-2 * np.pi * c.settle_gate_lpf * c.ctrl_dt)) * (data.qvel[3:5] - info["gate_wa"])
+                pred = jp.array([_roll_of(g_a), _pitch_of(g_a)]) - info["sup_ref"] + c.settle_gate_tau * info["gate_wa"]
+                g_l, g_r = c.settle_gate_u[0], c.settle_gate_u[1]
+                cross_l = jp.mod(u0 - g_l, 1.0) > jp.mod(u1 - g_l, 1.0)     # 2026-11-16: the RIGHT foot lifts at gate_u[0] (stance
+                # left; lean left = roll < 0): `toward` is the lean toward the stance foot. Written as "toward the swing
+                # foot" in round 16 with the sides swapped; kept as trained (round 16-18 policies)
+                toward = jp.where(cross_l, -pred[0], pred[0])
+                busy = busy | (toward > c.settle_gate_att[0]) | (jp.abs(pred[1]) > c.settle_gate_att[1])
             hold = (cross & moving_now & busy & (info["gate_held"] < int(c.settle_gate_max / c.ctrl_dt)))
             info["gate_held"] = jp.where(hold, info["gate_held"] + 1, 0)
             phase_next = jp.where(hold, state.info["phase"], phase_next)

@@ -45,6 +45,11 @@ def _cyc(x):
     return x - math.sin(2 * math.pi * x) / (2 * math.pi)
 
 
+def _quint(x):
+    x = min(1.0, max(0.0, x))
+    return x * x * x * (10.0 - 15.0 * x + 6.0 * x * x)
+
+
 HEEL = False                                     # place the lowest board edge on the floor (else the board centre)
 
 
@@ -72,7 +77,8 @@ def step_pose(t, T, d, p):
     q = Q_NOM.copy()
     stance = np.ones(2, bool)
     # fore-aft: before this step the swing foot is behind (-d/2), the stance foot ahead (+d/2); after: swapped
-    prog = _cyc((tau - t_sw0) / p["swing_t"])
+    # 2026-11-16 round 17: the foot can reach its fore-aft spot by place_frac of the swing and then set straight down
+    prog = _cyc((tau - t_sw0) / (p["swing_t"] * p.get("place_frac", 1.0)))
     x_sw = -d / 2 + d * prog
     x_st = d / 2 - d * prog
     q[4 * leg + 2:4 * leg + 4] = foot_q(x_sw)
@@ -81,7 +87,15 @@ def step_pose(t, T, d, p):
     if t_sw0 <= tau < t_sw1 and d > 0:
         x = (tau - t_sw0) / p["swing_t"]
         r = p.get("rise_frac", 0.5)              # 2026-11-09: rise over r of the swing, lower over the rest (slow touchdown)
-        b = (0.5 - 0.5 * math.cos(math.pi * x / r)) if x < r else (0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - r)))
+        sf, hv = p.get("set_frac", 0.0), p.get("hover", 0.0)
+        if x < r:
+            b = 0.5 - 0.5 * math.cos(math.pi * x / r)
+        elif sf <= 0.0:
+            b = 0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - r))
+        elif x < 1 - sf:          # round 17 soft set-down: down to `hover` of the lift by 1 - set_frac of the swing ...
+            b = hv + (1 - hv) * (0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - sf - r)))
+        else:                     # ... then the last bit slowly (zero speed at both ends)
+            b = hv * (0.5 + 0.5 * math.cos(math.pi * (x - (1 - sf)) / sf))
         q[4 * leg + 3] += p["lift_knee"] * b
         q[4 * leg + 2] += p["lift_hip"] * b
         stance[leg] = False
@@ -90,6 +104,9 @@ def step_pose(t, T, d, p):
     if d > 0:
         if p.get("hold_shift"):                  # 2026-11-09 slow step: stay over the stance foot until touchdown
             a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
+        elif p.get("rel0", 0.0) > 0:             # round 17: the release starts at rel0 of the swing (1 = touchdown)
+            t_r = t_sw0 + p["rel0"] * p["swing_t"]
+            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_r) / (t_sw1 - t_r + p["release_t"])))
         else:
             a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw0) / (p["swing_t"] + p["release_t"])))
         q[4 * st_leg + 1] -= p["shift"] * a          # stance leg inward
@@ -99,6 +116,59 @@ def step_pose(t, T, d, p):
     q[[1, 5]] += p.get("splay", 0.0)                 # 2026-11-11: wider stance, both hips abducted (ankles keep boards flat)
     z = np.zeros(2)
     z[leg] = lift
+    return q, stance, z
+
+
+def sway(x, flat):
+    """Round 18: the side-to-side weight shift over a cycle (x in [0, 1)): +1 over the left foot at x = 0.25 (mid right
+    swing), -1 over the right at 0.75. A sinusoid (flat 0), maximally flattened at the turning points with a 3rd
+    harmonic (flat 1: 2nd derivative 0 there) or 3rd + 5th (flat 2: 2nd and 4th derivatives 0), so the body moves
+    continuously like a human centre of mass (no holds), yet stays close to fully over the stance foot in the swing."""
+    ph = 2 * math.pi * x
+    f1, f3, f5 = math.sin(ph), math.sin(3 * ph), math.sin(5 * ph)
+    g1 = (f1 + f3 / 9.0) / (1.0 - 1.0 / 9.0)
+    g2 = (f1 + f3 / 6.0 + 0.02 * f5) / (1.0 - 1.0 / 6.0 + 0.02)
+    if flat <= 1.0:
+        return (1.0 - flat) * f1 + flat * g1
+    return (2.0 - flat) * g1 + (flat - 1.0) * g2
+
+
+def walk_pose(t, T, v, p):
+    """Round 18 (2026-11-16) continuous walk, two steps per cycle (right swing centred at T/2, left at 3T/2):
+    * weight shift: `sway` (smooth, periodic: no settle, no hold, no jump at the step boundaries);
+    * fore-aft: the pelvis advances at a constant v (each stance foot moves back at v the whole stance);
+    * swing: the board centre follows a planned path through the leg IK: up over rise_frac of the swing, forward
+      (zero speed at both ends) by place_frac, then straight down over drop_frac, with zero speed at lift-off and
+      touchdown in both directions. The board is level at both ends (it tips in the air as the IK dictates)."""
+    sw = p["swing_t"]
+    Ls = v * (2 * T - sw)                                   # the pelvis's travel over one stance
+    q = Q_NOM.copy()
+    stance = np.ones(2, bool)
+    z = np.zeros(2)
+    s = sway((t / (2 * T)) % 1.0, p.get("flat", 1.0))
+    q[1] -= p["shift"] * s                                  # +s: over the left foot (left hip roll inward)
+    q[5] += p["shift"] * s
+    hp0, kn0 = Q_NOM[2], Q_NOM[3]
+    x0, z0, _ = leg_fk(hp0, kn0)
+    for leg, c in ((1, 0.5 * T), (0, 1.5 * T)):            # 1 = right (swings first), 0 = left
+        tau = (t - (c + sw / 2)) % (2 * T)                  # time since this foot's touchdown
+        if tau < 2 * T - sw:
+            xf, h = Ls / 2 - v * tau, 0.0
+        else:
+            x = (tau - (2 * T - sw)) / sw
+            xf = -Ls / 2 + Ls * _cyc(x / p.get("place_frac", 0.8))
+            r, dr = p.get("rise_frac", 0.35), p.get("drop_frac", 0.4)
+            if x < r:                                   # quintic: zero speed and acceleration at both ends
+                b = _quint(x / r)
+            elif x < 1 - dr:
+                b = 1.0
+            else:
+                b = 1.0 - _quint((x - (1 - dr)) / dr)
+            h = p["swing_h"] * b
+            stance[leg] = False
+            z[leg] = h
+        q[4 * leg + 2:4 * leg + 4] = leg_ik(x0 + xf, z0 + h, hp0, kn0)
+    q[[1, 5]] += p.get("splay", 0.0)
     return q, stance, z
 
 
@@ -133,7 +203,7 @@ def with_ankles(q):
 def build(kind, p, vs, nphase):
     nj = 10 if p.get("ankle") else 8
     Q = np.zeros((len(vs), nphase, nj)); S = np.zeros((len(vs), nphase, 2)); Z = np.zeros((len(vs), nphase, 2))
-    if kind == "step":
+    if kind in ("step", "walk"):
         Tc = 2 * p["T_step"]
     else:
         Tc = p["settle0"] + 2 * p["shift_t"] + 2 * p["swing_t"] + p["hold"] + p["settle1"]
@@ -142,6 +212,8 @@ def build(kind, p, vs, nphase):
             t = Tc * ip / nphase
             if kind == "step":
                 q, st, z = step_pose(t, p["T_step"], v * p["T_step"], p)
+            elif kind == "walk":
+                q, st, z = walk_pose(t, p["T_step"], v, p)
             else:
                 q, st, z = balance_pose(t, p, v > 0)
             Q[iv, ip], S[iv, ip], Z[iv, ip] = (with_ankles(q) if nj == 10 else q), st, z
@@ -151,7 +223,7 @@ def build(kind, p, vs, nphase):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("kind", choices=["step", "balance"])
+    ap.add_argument("kind", choices=["step", "balance", "walk"])
     ap.add_argument("--name", required=True)
     ap.add_argument("--T-step", type=float, default=2.5)
     ap.add_argument("--settle0", type=float, default=0.4)
@@ -170,6 +242,15 @@ def main():
     ap.add_argument("--nphase", type=int, default=256)
     ap.add_argument("--hold-shift", action="store_true", help="keep the weight shift through the swing, release after touchdown")
     ap.add_argument("--rise-frac", type=float, default=0.5, help="fraction of the swing spent lifting (the rest lowers)")
+    ap.add_argument("--set-frac", type=float, default=0.0, help="round 17: last fraction of the swing spent setting the "
+                    "foot down slowly from --hover (fraction of the lift)")
+    ap.add_argument("--hover", type=float, default=0.0)
+    ap.add_argument("--place-frac", type=float, default=1.0, help="fraction of the swing by which the foot reaches its "
+                    "fore-aft spot (then it sets straight down)")
+    ap.add_argument("--rel0", type=float, default=0.0, help="fraction of the swing at which the weight shift starts "
+                    "to release (0: lift-off, as c_T12HH; 1: touchdown)")
+    ap.add_argument("--flat", type=float, default=1.0, help="round 18 walk: sway flatness at the turning points (0 sine, 1, 2)")
+    ap.add_argument("--drop-frac", type=float, default=0.4, help="round 18 walk: last fraction of the swing spent lowering")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
     ap.add_argument("--splay", type=float, default=0.0, help="rad, both hip rolls abducted throughout: a wider stance "
                     "(~0.27 m per rad per foot; robot round 3: falls came with the boards drifting together)")
@@ -178,7 +259,12 @@ def main():
              shift=a.shift, out=a.out, lift_knee=a.lift_knee, lift_hip=a.lift_hip, swing_h=a.swing_h, hold=a.hold,
              settle1=a.settle1, ankle=a.ankle, rise_frac=a.rise_frac,
              hold_shift=a.hold_shift, splay=a.splay)
-    vs = np.linspace(0, a.vmax, a.nv) if a.kind == "step" else np.array([0.0, a.vmax])
+    for k_, v_ in (("set_frac", a.set_frac), ("hover", a.hover), ("place_frac", a.place_frac), ("rel0", a.rel0)):
+        if v_ != (1.0 if k_ == "place_frac" else 0.0):
+            p[k_] = v_
+    if a.kind == "walk":
+        p.update(flat=a.flat, drop_frac=a.drop_frac, place_frac=a.place_frac, rise_frac=a.rise_frac)
+    vs = np.linspace(0, a.vmax, a.nv) if a.kind in ("step", "walk") else np.array([0.0, a.vmax])
     t = build(a.kind, p, vs, a.nphase)
     REF_DIR.mkdir(exist_ok=True)
     np.savez(REF_DIR / f"{a.name}.npz", **t)

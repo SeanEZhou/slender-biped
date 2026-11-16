@@ -1,0 +1,50 @@
+== loose k5_high2:params_0016M.pkl (as trained)
+walk test, k5_high2:params_0016M.pkl (runs/k5_high2/params_0016M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |    0%  0.0   0%  0.0cm |    6%  0.0   6%  1.5cm |    0%  0.0   0%  0.0cm |    6%  0.0   6%  1.8cm |   3% /   3%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    6%  0.0   6%  1.5cm |   2% /   2%
+overall up 2%, resumed 2%, supervisor triggers per run 0.00
+== loose k5_high2:params_0016M.pkl settle_gate_att=[0.052,0.105]
+walk test, k5_high2:params_0016M.pkl (runs/k5_high2/params_0016M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+overall up 0%, resumed 0%, supervisor triggers per run 0.00
+== loose m1_attgate (as trained)
+walk test, m1_attgate (runs/m1_attgate/params_0020M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |    6%  0.0   6%  0.7cm |    6%  0.0   6%  1.2cm |    0%  0.0   0%  0.0cm |   12%  0.0  12%  2.1cm |   6% /   6%
+  0.10 |    0%  0.0   0%  0.0cm |   12%  0.0  12%  2.4cm |   19%  0.0  19%  3.3cm |    0%  0.0   0%  0.0cm |   8% /   8%
+overall up 7%, resumed 7%, supervisor triggers per run 0.00
+== robot k5_high2:params_0016M.pkl (as trained)
+walk test, k5_high2:params_0016M.pkl (runs/k5_high2/params_0016M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |   88%  0.0  88% 14.8cm |   94%  0.0  94% 15.8cm |  100%  0.0 100% 17.5cm |   81%  0.0  81% 12.8cm |  91% /  91%
+  0.10 |   81%  0.0  81% 13.5cm |   75%  0.0  75% 12.9cm |   81%  0.0  81% 13.2cm |   88%  0.0  88% 13.6cm |  81% /  81%
+overall up 86%, resumed 86%, supervisor triggers per run 0.00
+== robot k5_high2:params_0016M.pkl settle_gate_att=[0.052,0.105]
+walk test, k5_high2:params_0016M.pkl (runs/k5_high2/params_0016M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |  100%  0.0 100% 17.4cm |   75%  0.0  75% 11.0cm |   75%  0.0  75% 12.6cm |   94%  0.0  94% 15.7cm |  86% /  86%
+  0.10 |   88%  0.0  88% 13.3cm |   81%  0.0  81% 13.3cm |   88%  0.0  88% 14.1cm |   75%  0.0  75% 10.8cm |  83% /  83%
+overall up 84%, resumed 84%, supervisor triggers per run 0.00
+== robot m1_attgate (as trained)
+walk test, m1_attgate (runs/m1_attgate/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |   94%  0.0  94% 17.8cm |   94%  0.0  94% 17.0cm |   88%  0.0  88% 16.6cm |   94%  0.0  94% 16.8cm |  92% /  92%
+  0.10 |   81%  0.0  81% 14.0cm |  100%  0.0 100% 17.9cm |   94%  0.0  94% 17.3cm |   81%  0.0  81% 14.4cm |  89% /  89%
+overall up 91%, resumed 91%, supervisor triggers per run 0.00
+== loose m2_attland (as trained)
+walk test, m2_attland (runs/m2_attland/params_0014M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |   19%  0.0  19%  3.4cm |    6%  0.0   6%  0.7cm |    6%  0.0   6%  1.1cm |    6%  0.0   6%  1.3cm |   9% /   9%
+  0.10 |   12%  0.0  12%  2.5cm |   12%  0.0  12%  2.4cm |   19%  0.0  19%  4.2cm |   25%  0.0  25%  5.2cm |  17% /  17%
+overall up 13%, resumed 13%, supervisor triggers per run 0.00
+== robot m2_attland (as trained)
+walk test, m2_attland (runs/m2_attland/params_0014M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |  100%  0.0 100% 16.3cm |  100%  0.0 100% 15.9cm |  100%  0.0 100% 16.1cm |   81%  0.0  81% 12.7cm |  95% /  95%
+  0.10 |   88%  0.0  88% 13.0cm |  100%  0.0 100% 16.7cm |   88%  0.0  88% 14.7cm |   88%  0.0  88% 13.8cm |  91% /  91%
+overall up 93%, resumed 93%, supervisor triggers per run 0.00
+== loose m2b_attland (m2 + 10M)
+walk test, m2b_attland (runs/m2b_attland/params_0010M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |   50%  0.0  50%  7.4cm |   31%  0.0  31%  4.3cm |   44%  0.0  44%  8.0cm |   44%  0.0  44%  7.3cm |  42% /  42%
+  0.10 |   25%  0.0  25%  3.8cm |   12%  0.0  12%  1.7cm |   38%  0.0  38%  6.1cm |   31%  0.0  31%  5.6cm |  27% /  27%
+overall up 34%, resumed 34%, supervisor triggers per run 0.00
+== robot m2b_attland (m2 + 10M)
+walk test, m2b_attland (runs/m2b_attland/params_0010M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+  0.00 |   69%  0.0  69% 10.8cm |   81%  0.0  81% 11.8cm |  100%  0.0 100% 16.0cm |   81%  0.0  81% 12.7cm |  83% /  83%
+  0.10 |   75%  0.0  75% 11.0cm |   75%  0.0  75% 11.8cm |   88%  0.0  88% 14.2cm |   75%  0.0  75% 10.6cm |  78% /  78%
+overall up 80%, resumed 80%, supervisor triggers per run 0.00

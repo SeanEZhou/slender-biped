@@ -1,0 +1,20 @@
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 32 20s | c_T12HH
+  up  97%  walked  29.0 cm (median of up)  touchdowns 535  |  landing speed p50  263 p90  323 mm/s  jolt after td p50  14.6 p90  19.8  mid-swing   5.7 (deg/s per tick)  clearance p10  9.9 p50 36.1 mm
+--
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 32 20s | c_S1hold ref_table="c_S1hold"
+  up  97%  walked  29.8 cm (median of up)  touchdowns 552  |  landing speed p50  289 p90  357 mm/s  jolt after td p50  16.9 p90  22.4  mid-swing   5.9 (deg/s per tick)  clearance p10  4.6 p50 35.7 mm
+--
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 32 20s | c_S3long ref_table="c_S3long" settle_gate_u=[0.1667,0.6667]
+  up  75%  walked  42.7 cm (median of up)  touchdowns 515  |  landing speed p50  181 p90  277 mm/s  jolt after td p50  13.1 p90  17.6  mid-swing   5.0 (deg/s per tick)  clearance p10  3.6 p50 40.0 mm
+--
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 32 20s | c_S4lh ref_table="c_S4lh" settle_gate_u=[0.1667,0.6667]
+  up  72%  walked  39.4 cm (median of up)  touchdowns 485  |  landing speed p50  219 p90  318 mm/s  jolt after td p50  13.8 p90  20.4  mid-swing   5.0 (deg/s per tick)  clearance p10  3.1 p50 40.2 mm
+--
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 32 20s | c_S5mid ref_table="c_S5mid" settle_gate_u=[0.1667,0.6667]
+  up  84%  walked  32.8 cm (median of up)  touchdowns 542  |  landing speed p50  179 p90  256 mm/s  jolt after td p50  13.2 p90  18.5  mid-swing   4.8 (deg/s per tick)  clearance p10  2.7 p50 31.4 mm
+--
+gait m2_attland (params_0014M.pkl, ZERO ACTION) sim robot vx 0.015 n 32 20s | c_T12HH ref_table="c_T12HH"
+Traceback (most recent call last):
+--
+gait m2_attland (params_0014M.pkl, ZERO ACTION) sim robot vx 0.015 n 32 20s | c_S4lh ref_table="c_S4lh" settle_gate_u=[0.1667,0.6667]
+Traceback (most recent call last):

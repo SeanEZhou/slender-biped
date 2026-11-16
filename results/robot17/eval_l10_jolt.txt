@@ -1,0 +1,28 @@
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l10_jolt (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S8mid15
+  up  90%  walked  34.4 cm (median of up)  touchdowns 649  |  landing speed p50  176 p90  257 mm/s  jolt after td p50  13.6 p90  17.9  mid-swing   3.6 (deg/s per tick)  clearance p10 25.1 p50 34.2 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l10_jolt (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_S8mid15
+  up  38%  walked  31.2 cm (median of up)  touchdowns 362  |  landing speed p50  157 p90  259 mm/s  jolt after td p50  11.8 p90  16.3  mid-swing   2.9 (deg/s per tick)  clearance p10 26.8 p50 35.9 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 74%, joints within 6 deg 12% (median worst 16.1 deg), tilt < 5 deg 47%, still 1%)
+walk test, l10_jolt (runs/l10_jolt/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |  100%  0.0 100% 17.5cm |   81%  0.0  81% 13.2cm |   88%  0.0  88% 14.8cm |   94%  0.0  94% 15.5cm |  91% /  91%
+  0.10 |   69%  0.0  69% 11.4cm |   88%  0.0  88% 15.5cm |   75%  0.0  75% 13.1cm |   94%  0.0  94% 14.2cm |  81% /  81%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 6.4
+overall up 86%, resumed 86%, supervisor triggers per run 0.00
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 69%, joints within 6 deg 11% (median worst 17.1 deg), tilt < 5 deg 29%, still 2%)
+walk test, l10_jolt (runs/l10_jolt/params_0020M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   50%  0.0  50%  8.2cm |   31%  0.0  31%  5.1cm |   69%  0.0  69% 12.3cm |   44%  0.0  44%  7.1cm |  48% /  48%
+  0.10 |   31%  0.0  31%  5.3cm |   31%  0.0  31%  5.0cm |   44%  0.0  44%  7.9cm |   44%  0.0  44%  6.8cm |  38% /  38%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 3.7
+overall up 43%, resumed 43%, supervisor triggers per run 0.00

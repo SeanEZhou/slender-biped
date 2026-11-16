@@ -22,6 +22,62 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Robot round 17 and continuous walking, round 18 (2026-11-16)
+
+- **Check which foot is which against the model, not the comments.** Two analysis scripts and the round-16 gate's
+  description had the sides swapped: the right foot swings first. Round 16's "lean toward the swing foot" was the
+  stance foot. Before trusting a side-specific finding, check one frame against FK: which board is under the pelvis?
+- **Plot the reference's swing at the floor, not just its peak.** c_S9mid18 peaks at 44 mm but ends with ~0.25 s
+  within 10 mm of the floor. On the robot, that's the "tripping" the operator saw.
+- **"Soft" set-downs by slowing near the floor skim the rug.** Finish the forward motion high, then come straight down.
+  On this 2-joint sagittal leg, a level-board lift (equal hip and knee) moves the foot on a circle around the hip, so
+  its last centimetres are a backward sweep along the floor. A vertical path through the IK tips the board in the air
+  but lands it level.
+- **Check a reference table for discontinuities** (largest change per phase step against the typical one). The
+  round-17 release ran past the end of the step, and the hip-roll targets jumped 3-4 deg at every step boundary.
+- **Match the reference's accelerations to the servos.** The robot's swing foot trails its command by ~0.1 s where the
+  table asks more than the servos' ramp (60 rad/s^2): quintic profiles with longer rise and fall keep the knee near it.
+- **Continuous walking needs a continuous reference:** a periodic sway (no settle, no hold), constant pelvis speed and
+  no jumps. Human and G1 gaits run on a clock that never stops, with the centre of mass on one smooth sinusoid.
+
+## Smoother steps, round 17 (2026-11-16)
+
+- **Measure what the operator sees.** "Every step crashes down" showed up as the gyro's tick-to-tick change: 3-4x
+  higher in the 0.1 s after each touchdown than mid-stance, on every policy. The same number from the simulator
+  (`gait_eval.py`) and the robot log (`landing.py`) lets a gait change be judged before the robot sees it.
+- **Look at the reference before training on it.** c_T12HH unwound the weight shift from lift-off (the body falls
+  onto the swinging foot by design) and asked for 87 rad/s^2 from servos that ramp at 35-60. Both were in the table,
+  not the policy.
+- **Check where the centre of mass sits over the stance board** (MuJoCo, the reference pose). With shift 0.12 it was
+  1 cm inside the board's inner edge: with the hip's give, the body tips toward the swing side every step.
+- **Give the swing time, take it from double support.** A 0.6 s swing with a slow set-down (same 1.2 s step) cut landing
+  speed by a third; 62 % double support had time to spare.
+- **Grow a reference change in small steps from a policy that already walks it.** Shift 0.18 straight from m2 fell
+  sideways (4 % up); 0.15 from l4_mid (itself from m2) was the most robust of the round, and 0.18 from there walked.
+- **A penalty only works where the reference lets it.** `land_v` barely moved k5's landings on c_T12HH (and cost
+  stability), but on the soft-swing table removing it made landings harder and the loose sim fall every time.
+- **More steps on the same recipe made policies worse, not better** (l4b, l10, l13, and m2b in round 16): pick the
+  checkpoint by evaluation, not by training length.
+- **A doubled jolt penalty (`ang_acc`) didn't reduce the jolt;** the gait's geometry did.
+
+## Walking stability, round 16 (2026-11-15 night)
+
+- **Find the fatal step, not the average.** k5's falls are single bad steps: the body's stance roll holds at ~6 deg
+  until the step that falls. Averages over a trial hide that.
+- **Most falls start at a lift-off the body isn't ready for:** (2026-11-16: "swing foot" below should read "stance
+  foot", as the sides were swapped; see round 18 above)
+  - leaning or rolling toward the swing foot (sideways falls);
+  - pitched forward after a hard landing (forward falls).
+  - The risk rises steeply with the roll rate toward the swing foot at lift-off: 0-2 % -> 67 %.
+  - ([walking_clean.md §36](walking_clean.md))
+- **A gate that only watches the rotation rate lets them through.** Gate on the predicted attitude, with the
+  direction relative to the swinging foot.
+- **A gate only helps a policy trained with it.** Added at run time to k5 it changed nothing in simulation; trained in
+  (`m1`, `m2`), falls dropped by a third to a half.
+- **Penalising tilted landings on top of the gate (`m2`) was the best in both simulators.** 10M more (m2b) traded
+  the nominal robot model (80 %) for loose hips (34 % against 13 %): the two simulators can disagree, so test both
+  on the robot.
+
 ## Push resistance, round 15 (2026-11-15 evening)
 
 - **Grow the step, don't jump to it.**

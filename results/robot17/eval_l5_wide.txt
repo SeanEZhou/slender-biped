@@ -1,0 +1,32 @@
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l5_wide (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S6wide
+  up   4%  walked  35.9 cm (median of up)  touchdowns 162  |  landing speed p50  151 p90  264 mm/s  jolt after td p50  10.8 p90  15.4  mid-swing   4.3 (deg/s per tick)  clearance p10  2.9 p50 41.4 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l5_wide (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_S6wide
+  up   0%  walked   0.0 cm (median of up)  touchdowns 53  |  landing speed p50  129 p90  202 mm/s  jolt after td p50   8.7 p90  13.6  mid-swing   3.7 (deg/s per tick)  clearance p10 32.4 p50 43.5 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 60%, joints within 6 deg 0% (median worst 21.3 deg), tilt < 5 deg 40%, still 0%)
+walk test, l5_wide (runs/l5_wide/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   19%  0.0  19%  3.3cm |   19%  0.0  19%  3.5cm |    0%  0.0   0%  0.0cm |   25%  0.0  25%  5.1cm |  16% /  16%
+  0.10 |   19%  0.0  19%  3.3cm |    0%  0.0   0%  0.0cm |   25%  0.0  25%  5.3cm |   19%  0.0  19%  4.1cm |  16% /  16%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 2.0
+overall up 16%, resumed 16%, supervisor triggers per run 0.00
+  print(f"(of those up: both pads down {both[up].mean():.0%}, joints within 6 deg {(np.degrees(qerr) < 6)[up].mean():.0%} "
+  ret = ret.dtype.type(ret / rcount)
+  f"(median worst {np.degrees(np.median(qerr[up])) if up.any() else 0:.1f} deg), tilt < 5 deg {(tilt < 5)[up].mean():.0%}, "
+  f"still {still[up].mean():.0%})")
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down nan%, joints within 6 deg nan% (median worst 0.0 deg), tilt < 5 deg nan%, still nan%)
+walk test, l5_wide (runs/l5_wide/params_0020M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 0.3
+overall up 0%, resumed 0%, supervisor triggers per run 0.00

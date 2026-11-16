@@ -268,3 +268,8 @@ personal-notes/
 *_sheet.jpg
 video_test_*
 robotvid/
+# round 16-18 (2026-11-16): the l9_s18 chain (m2 -> l4 -> l7 -> l9) and round 18's starting point
+!runs/m2_attland/params_0014M.pkl
+!runs/l4_mid/params_0020M.pkl
+!runs/l7_s15/params_0020M.pkl
+!runs/l9_s18/params_0020M.pkl

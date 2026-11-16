@@ -846,6 +846,16 @@ def cmd_run(a):
     gate_roll = math.radians(a.gate_roll) if a.gate_roll is not None else float(env.get("settle_gate_roll", 0.0) or 0.0)
     gate_tau = float(env.get("settle_gate_tau", 0.2))
     gate_lpf = float(env.get("settle_gate_lpf", 2.0))
+    # round 16: the attitude gate (rad: lean toward the STANCE foot, |pitch|; round 16 wrote 'swing foot' with the sides
+    # swapped, corrected 2026-11-16, behaviour kept as trained), predicted 0.2 s ahead, from the attitude
+    # when the clock starts. --gate-att R,P (deg) overrides the run's settle_gate_att; 0,0 = off
+    gate_att = tuple(env.get("settle_gate_att", ()) or ())
+    if a.gate_att is not None:
+        gate_att = tuple(math.radians(float(x)) for x in a.gate_att.split(",")) if a.gate_att not in ("0,0", "off") else ()
+    if gate_att:
+        print(f"attitude gate: a lift-off waits while the predicted lean toward the stance foot > {math.degrees(gate_att[0]):.1f}"
+              f" deg or |pitch| > {math.degrees(gate_att[1]):.1f} deg (from the attitude when the clock starts)"
+              + ("" if env.get("settle_gate_att") else " (not as trained)"))
     gate_held = 0
     if gate_u:
         print("settle gate guard ON: no hold while the body rolls away from centre or a foot is up (--no-gate-guard: as trained)"
@@ -970,6 +980,7 @@ def cmd_run(a):
         held, hold_upd = None, True                     # obs_hold_u: the held sensor inputs, sample on the next tick
         hold_on, wp_f = False, None                     # obs_hold_late: hold started; obs_hold_pitch_lpf: the pitch rate
         gate_wf, gate_rs, roll_pred = 0.0, None, 0.0    # roll gate: roll rate low-passed, the standing roll, prediction
+        gate_wpf, gate_ps = 0.0, None                   # attitude gate: pitch rate low-passed, the standing pitch
         guard = 0                                       # gate guard: 0 = none, 1 = roll diverging, 2 = a foot is up
         yaw = 0.0                                       # heading change since engage (gyro yaw rate, integrated)
         stop_reason, overruns, k, stale = "user", 0, 0, 0
@@ -1138,14 +1149,27 @@ def cmd_run(a):
                         if gate_roll > 0:
                             roll_pred = roll_rel + gate_tau * gate_wf
                             busy = busy or abs(roll_pred) > gate_roll
+                        if gate_att:                    # round 16: not ready to lift (leaning toward the stance foot, pitched)
+                            pitch = math.atan2(float(g[0]), -float(g[2]))
+                            gate_ps = pitch if gate_ps is None else gate_ps
+                            gate_wpf += (1.0 - math.exp(-2 * math.pi * gate_lpf * dt)) * (float(wv[1]) - gate_wpf)
+                            p_pred = pitch - gate_ps + gate_tau * gate_wpf
+                            r_pred = roll_rel + gate_tau * gate_wf
+                            left_up = ((u0 - gate_u[0]) % 1.0) > ((u1 - gate_u[0]) % 1.0)   # (really: the RIGHT foot lifts, stance left)
+                            toward = -r_pred if left_up else r_pred
+                            if cross:
+                                roll_pred = toward
+                                busy = busy or toward > gate_att[0] or abs(p_pred) > gate_att[1]
                         # 2026-11-14 video (215251): the gate froze the clock at the lift-off while the body was already
                         # rolling away and a foot was coming up; frozen, the reference never brings the foot down and the
                         # robot fell toward it. Waiting only helps while the body swings back toward centre.
                         guard = 0
                         if a.gate_guard and cross and busy:
-                            if abs(roll_rel) > math.radians(4.0) and roll_rel * gate_wf > 0 and abs(gate_wf) > math.radians(10.0):
+                            if gate_att:                # round 16: rule 1 (rolling away -> step now) is the
+                                pass                    # fall the attitude gate exists to stop: rule 1 is off
+                            elif abs(roll_rel) > math.radians(4.0) and roll_rel * gate_wf > 0 and abs(gate_wf) > math.radians(10.0):
                                 guard = 1                       # rolling away from centre: step now
-                            elif abs(q[knee_idx[0]] - q[knee_idx[1]]) > math.radians(12.0):
+                            if abs(q[knee_idx[0]] - q[knee_idx[1]]) > math.radians(12.0):
                                 guard = 2                       # a foot is already up (knees differ > 12 deg)
                         hold = (cross and a.vx and not (sup is not None and sup.on) and busy and not guard and gate_held < gate_n)
                         gate_held = gate_held + 1 if hold else 0
@@ -1328,6 +1352,8 @@ def main():
     sp.add_argument("--rec-auto", dest="rec_auto", action="store_true", default=None,
                     help="round 14 recovery-step policies: step when the capture point leaves --rec-th (default: as trained)")
     sp.add_argument("--no-rec-auto", dest="rec_auto", action="store_false")
+    sp.add_argument("--gate-att", help="round 16: 'R,P' deg: hold a lift-off while the predicted lean toward the swing "
+                    "foot > R or |pitch| > P (default the run's settle_gate_att; '0,0' = off)")
     sp.add_argument("--rec-side", choices=["loaded", "free"], default="loaded",
                     help="round 15: sideways capture steps with the foot on the falling side (loaded, as trained) or "
                          "the other one (free: the lever)")

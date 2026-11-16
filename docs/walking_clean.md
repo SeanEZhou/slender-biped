@@ -23,6 +23,7 @@ cables hang slack above and slightly behind the robot instead of pulling, §18):
 | `b6_mid` | s10 + back lean + pull, shorter steps | 66 s, stopped; stable but mostly steps in place (11-14 mm), toes catch the rug | §17, §18 |
 | **`b7_seed2`** | s10 + back lean + pull | **122 s and 99 s, 45 s**: the best leg policy so far, smooth on a flat rug; the longest steps (L 22-33, R 14-21 mm), fewest servo reversals. Toes catch on rougher rug; heels close (one fall with the heels together) | §17, §18 |
 | **`k5_high2` + `--act-lpf 0.7`** | full body, round 10 (§27): h4 on the higher-stepping reference c_T12HH | **the best full-body walker since 2026-11-15** (after the hip-yaw screws were tightened and the left hip pitch re-zeroed, §31): 17 trials, median 25.7 s up and 30 steps (max 32.9 s, 42 steps), 7 falls (4 left, 3 right). Large, clean steps (~2x h4's lift): much faster progress per step than h4, slightly less reliable. Some trials drift left: the left step lands wider and shorter (§31). `python policy_stand.py run --run k5_high2 --enable --vx 0.015 --act-lpf 0.7 --video` (`--no-gate-guard` or not: similar) | §27, §28, §31 |
+| **`l9_s18` + `--act-lpf 0.7`** | full body, round 17 (§37): c_S9mid18, a 0.6 s soft swing with the weight held over the stance foot (shift 0.18), from k5 via m2, l4, l7 | **the softest, quietest steps so far** (2026-11-16): 41 s (33 steps, fell back) and 48 s (37 steps, stopped standing); peak landing jolt 30 % below k5 / m2. The swing ends skimming the rug, so steps feel like small trips (§37.1). `python policy_stand.py run --run l9_s18 --enable --vx 0.015 --act-lpf 0.7 --video` | §37 |
 | **`h4_t05` + `--act-lpf 0.6`** | full body, round 6 (§19); action low-pass at run time | **the best full-body walker until round 10: 188 s (299 steps, stopped standing), 74 s (115, fell left), 76 s (109, ended at 7° roll)** on 2026-11-13 evening; pitched 4.5° forward. With `--act-lpf 0.7` (22:16): 147 s (251 steps) and 138 s (227), both ended standing; at `--vx 0.02` 84 s, 67 s and 32 s (fell right in a twitch bout) (§24). It sometimes starts fighting the 5 Hz ring and twitches when there's no need. `python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` | §20, §22 |
 
 All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
@@ -2112,3 +2113,116 @@ Details: `results/robot15/NOTES.md`.
 **Next (push resistance, now paused for k5's walking stability):**
 1. Grow from rs2 one change at a time, trained 24M+ alone.
 2. Then `r15w_walk` alone.
+
+## 36. Round 16: k5's falls start at a lift-off the body isn't ready for (2026-11-15 22:00-23:50)
+
+Back to k5's walking stability. Details: `results/robot16/NOTES.md`
+([walk_steps.py](../scripts/robot16_analysis/walk_steps.py)).
+
+**The trials (21:37-21:51, 13 with video):**
+- 12 fell: 5 forward (new), 4 left, 3 right. 6.8 % of steps end in a fall; the 00:39 batch was 2.8 %.
+- The hardware hasn't changed: stance, zeros, volts and loop time all match 00:39.
+- **No build-up.** The body's peak roll per stance holds at ~6 deg until the fatal step (15-21 deg). Each fall is one
+  bad step.
+- **The bad step lifts off when the body isn't ready:**
+  - Sideways falls: leaning +3.3 deg (median, p90 +11) toward the swing foot, where good lift-offs lean 2.6 deg the
+    other way. Rolling toward the swing foot at lift-off: 10 % of the next stances roll past 12 deg at 0-10 deg/s,
+    67 % beyond 20 deg/s (0-2 % when rolling toward the stance foot).
+  - Forward falls: a right landing kicks the pitch forward (+18..+36 deg/s) and the next lift-off goes ahead pitched
+    +13..+14 deg.
+- **Why the settle gate lets them through:** it holds only on the rotation rate (17 deg/s), never on attitude or
+  direction. It held < 0.1 s on 90 % of steps.
+- **Landings:** the right board lands rolled 3.5 deg (median); 49 % of right landings are > 5 deg off flat (left 21 %).
+
+**The change: an attitude gate** (`settle_gate_att`, env and `policy_stand --gate-att`). A lift-off also waits while
+the predicted lean toward the swing foot > 3 deg or the predicted |pitch| > 6 deg (angle from the attitude when the
+clock starts, + 0.2 s x the 2 Hz low-passed rate).
+
+**Walk tests** (`push_eval walk`, 14 s, 16 per direction and dv, % up):
+
+| | robot sim, no shove | robot sim, 0.1 m/s | loose sim (both) |
+|---|---|---|---|
+| k5 | 91 % | 81 % | 2 % |
+| k5 + the gate at run time only | 86 % | 83 % | 0 % |
+| `m1_attgate` (k5 + the gate, trained 20M) | 92 % | 89 % | 7 % |
+| **`m2_attland`** (+ boards landing flat, `foot_tilt` -10 -> -30, 14M) | **95 %** | **91 %** | **13 %** |
+| `m2b_attland` (m2 + 10M) | 83 % | 78 % | **34 %** |
+
+- The gate alone, on a policy not trained with it, does nothing.
+- Trained with it, `m1` falls about a third less after a shove and walks further (14-18 cm against 13-14 cm after the
+  shove). Each difference is about one standard error.
+- **`m2` is best on both simulators**, with 6M less training than `m1`. Its falls in the robot sim are half k5's
+  (7 % against 14 %), and in the loose sim it stays up 6x as often (13 % against 2 %).
+- **`m2b_attland` (m2 + 10M) is mixed.** In the loose sim it stays up 2.6x as often as m2, but in the robot sim it is
+  worse than k5 (80 % against 86 %) and walks less far. More training made it robust to loose hips (which reproduced
+  k5's robot falls in round 11) at some cost on the nominal model.
+- For the robot: m2 first, then m2b, with k5 in the same session as the baseline.
+
+**Machine:** two lanes grew to ~3.9 GB each and `mem_guard` killed the second. `m2_attland` (the gate + boards landing
+flat) ran after `m1`, alone, for 14M.
+
+## 37. Round 17: steps that set down instead of crashing (2026-11-16 02:00-08:52, simulation)
+
+The round-16 robot test (8 trials; m2 looked best, 2 of 3 stopped up): the policies "look like k5; every step comes
+crashing down and vibrates the whole body". Details: `results/robot17/NOTES.md`.
+
+**Measured:** the gyro's tick-to-tick change is 3-4x higher in the 0.1 s after every touchdown than mid-stance, on the
+robot (k5, m1, m2, m2b alike; [landing.py](../scripts/robot17_analysis/landing.py)) and in the simulator
+([gait_eval.py](../scripts/gait_eval.py): k5's boards land at 260 mm/s). On the robot it is mostly roll, plus a yaw
+twist.
+
+**Cause: c_T12HH's design** (rebuilt exactly by `shift_gait.py`):
+- the weight shift unwinds from lift-off, so the body moves back toward the swinging foot while on one leg;
+- even held, a 0.12 rad shift leaves the centre of mass 1 cm inside the stance board's inner edge: with the hip's
+  give the body tips toward the swing side (CPU sim: rolling toward the landing foot at ~26 deg/s at contact);
+- a 0.45 s swing of 0.75 rad needs ~87 rad/s^2; the servos ramp at 35-60, so the foot arrives still moving;
+- double support takes 62 % of each step, time the swing can use.
+
+**New gaits** (`shift_gait.py --set-frac/--hover/--place-frac/--rel0`), same 1.2 s step: a 0.6 s swing that comes down
+to 20 % of the lift by 72 %, sets down slowly and reaches its spot first; the shift held until touchdown; lift
+0.60 rad; shift 0.15 / 0.18. Plus the soft-touchdown penalty `land_v` -100 below 2 cm. Each lane 20M, one at a time.
+
+**Final ranking** (96 runs per row, 20 s at 0.015 m/s):
+
+| | robot sim up | loose sim up | landing speed | jolt after touchdown (mid-swing) | walked |
+|---|---|---|---|---|---|
+| k5 | 72 % | 0 % | 259 mm/s | 15.3 (5.4) | 27 cm |
+| m2_attland | 91 % | 3 % | 260 | 14.7 (5.7) | 29 cm |
+| **`l4_mid`** (c_S5mid: soft swing, held shift 0.12, lift 0.60; from m2) | **98 %** | 28 % | 188 | 12.3 (3.8) | 34 cm |
+| **`l7_s15`** (c_S8mid15: the same, shift 0.15; from l4_mid) | 91 % | **36 %** | **180** | 12.2 (3.5) | **39 cm** |
+| `l9_s18` (shift 0.18; from l7) | 81 % | 36 % | 184 | **11.8 (3.0)** | 39 cm |
+
+- The soft swing cuts landing speed by 30 %; the held shift and the lower lift bring the jolt down; growing the shift
+  from a policy that already walks the soft swing gives the most robust policy (0.18 straight from m2 fell sideways).
+- At 0.03 m/s l4_mid / l7_s15 stay up 93 / 88 % and walk 50 cm in 20 s (m2 88 %, 39 cm).
+- Didn't help: the landing penalty on k5's gait alone, k5's swing with the wide shift, a doubled jolt or landing
+  penalty, a higher hover, a slower weight transfer after touchdown, 20M more on the same recipe.
+- l4_mid's lowest 10 % of swings clear only 5 mm (watch the rug); l7 11 mm, l9 25 mm.
+
+**For the robot:** l7_s15, l4_mid, l9_s18, with m2 as the same-session baseline, all `--vx 0.015 --act-lpf 0.7
+--video`; then the best at `--vx 0.03`.
+
+**Next:** the body still rolls toward the new foot at ~24 deg/s before it lands (a third less is stopped at contact).
+
+### 37.1 On the robot (2026-11-16 10:18-10:25, 9 trials)
+
+Details in [results/robot17/NOTES.md](../results/robot17/NOTES.md).
+
+- **l9_s18 is the best of the round** and goes on the working list. The operator: "best captures the goal of silent,
+  soft, efficient steps", but each step "feels like the robot is tripping a little".
+  - 41 s and 48 s trials.
+  - Peak landing jolt 30 % below k5 / m2.
+- **l7_s15** steps softer than k5 but is less stable.
+- **l4_mid** trips after 1-2 steps.
+- **m2** is like k5.
+
+What the video and logs show:
+- **The trip is in the table.** The last third of c_S9mid18's swing keeps a flat board within ~10 mm of the rug
+  (the slow set-down). Its equal hip + knee lift moves the foot on a circle about the hip, so the descent is mostly a
+  backward sweep along the floor. The board brushes the pile before it is placed.
+- **The round-17 rel0 tables jump** the hip-roll targets 3-4 deg at every step boundary: the release after touchdown
+  ran past the end of the step.
+- **On l9 the body still rolls into each landing at ~30 deg/s,** and the boards land 3 deg on their inner edge.
+- **The right foot swings first.** walk_steps.py, landing.py and round 16's description of its attitude gate had the
+  sides swapped. Corrected: round 16's fatal lift-offs leaned toward the *stance* foot. The gate, swapped identically
+  in training and on the robot, holds exactly those; it is kept as trained.

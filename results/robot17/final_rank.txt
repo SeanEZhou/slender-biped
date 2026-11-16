@@ -1,0 +1,34 @@
+gait k5_high2:params_0016M.pkl (params_0016M.pkl) sim robot vx 0.015 n 96 20s | c_T12HH
+  up  72%  walked  26.8 cm (median of up)  touchdowns 1244  |  landing speed p50  259 p90  313 mm/s  jolt after td p50  15.3 p90  20.6  mid-swing   5.4 (deg/s per tick)  clearance p10 23.9 p50 41.6 mm
+gait k5_high2:params_0016M.pkl (params_0016M.pkl) sim loose vx 0.015 n 96 20s | c_T12HH
+  up   0%  walked   0.0 cm (median of up)  touchdowns 186  |  landing speed p50  279 p90  320 mm/s  jolt after td p50  14.8 p90  20.5  mid-swing   5.5 (deg/s per tick)  clearance p10  7.8 p50 35.5 mm
+gait m2_attland (params_0014M.pkl) sim robot vx 0.015 n 96 20s | c_T12HH
+  up  91%  walked  28.6 cm (median of up)  touchdowns 1457  |  landing speed p50  260 p90  320 mm/s  jolt after td p50  14.7 p90  19.7  mid-swing   5.7 (deg/s per tick)  clearance p10 15.9 p50 36.4 mm
+gait m2_attland (params_0014M.pkl) sim loose vx 0.015 n 96 20s | c_T12HH
+  up   3%  walked  39.0 cm (median of up)  touchdowns 349  |  landing speed p50  259 p90  320 mm/s  jolt after td p50  14.0 p90  21.3  mid-swing   5.8 (deg/s per tick)  clearance p10  3.8 p50 31.8 mm
+gait l4_mid (params_0020M.pkl) sim robot vx 0.015 n 96 20s | c_S5mid
+  up  98%  walked  34.4 cm (median of up)  touchdowns 1567  |  landing speed p50  188 p90  250 mm/s  jolt after td p50  12.3 p90  16.6  mid-swing   3.8 (deg/s per tick)  clearance p10  5.0 p50 28.2 mm
+gait l4_mid (params_0020M.pkl) sim loose vx 0.015 n 96 20s | c_S5mid
+  up  28%  walked  36.3 cm (median of up)  touchdowns 687  |  landing speed p50  201 p90  264 mm/s  jolt after td p50  11.8 p90  16.1  mid-swing   3.8 (deg/s per tick)  clearance p10 11.3 p50 26.0 mm
+gait l7_s15 (params_0020M.pkl) sim robot vx 0.015 n 96 20s | c_S8mid15
+  up  91%  walked  38.7 cm (median of up)  touchdowns 1407  |  landing speed p50  180 p90  256 mm/s  jolt after td p50  12.2 p90  16.9  mid-swing   3.5 (deg/s per tick)  clearance p10 11.3 p50 33.6 mm
+gait l7_s15 (params_0020M.pkl) sim loose vx 0.015 n 96 20s | c_S8mid15
+  up  36%  walked  38.7 cm (median of up)  touchdowns 731  |  landing speed p50  163 p90  257 mm/s  jolt after td p50  11.1 p90  16.2  mid-swing   2.9 (deg/s per tick)  clearance p10 22.4 p50 35.6 mm
+gait l9_s18 (params_0020M.pkl) sim robot vx 0.015 n 96 20s | c_S9mid18
+  up  81%  walked  39.3 cm (median of up)  touchdowns 1288  |  landing speed p50  184 p90  267 mm/s  jolt after td p50  11.8 p90  16.2  mid-swing   3.0 (deg/s per tick)  clearance p10 24.5 p50 36.1 mm
+gait l9_s18 (params_0020M.pkl) sim loose vx 0.015 n 96 20s | c_S9mid18
+  up  36%  walked  36.8 cm (median of up)  touchdowns 785  |  landing speed p50  170 p90  238 mm/s  jolt after td p50  10.5 p90  13.8  mid-swing   2.5 (deg/s per tick)  clearance p10 30.0 p50 38.0 mm
+gait l13_lv2 (params_0020M.pkl) sim robot vx 0.015 n 96 20s | c_S8mid15
+  up  71%  walked  35.5 cm (median of up)  touchdowns 1113  |  landing speed p50  187 p90  268 mm/s  jolt after td p50  13.1 p90  17.6  mid-swing   3.9 (deg/s per tick)  clearance p10 22.2 p50 34.2 mm
+gait l13_lv2 (params_0020M.pkl) sim loose vx 0.015 n 96 20s | c_S8mid15
+  up   3%  walked  36.9 cm (median of up)  touchdowns 188  |  landing speed p50  161 p90  272 mm/s  jolt after td p50  10.2 p90  14.0  mid-swing   3.1 (deg/s per tick)  clearance p10 26.4 p50 38.2 mm
+gait m2_attland (params_0014M.pkl) sim robot vx 0.03 n 96 20s | c_T12HH
+  up  88%  walked  39.3 cm (median of up)  touchdowns 1384  |  landing speed p50  252 p90  343 mm/s  jolt after td p50  13.7 p90  19.7  mid-swing   6.2 (deg/s per tick)  clearance p10 22.2 p50 39.6 mm
+gait l4_mid (params_0020M.pkl) sim robot vx 0.03 n 96 20s | c_S5mid
+  up  93%  walked  50.3 cm (median of up)  touchdowns 1710  |  landing speed p50  165 p90  247 mm/s  jolt after td p50  11.8 p90  16.6  mid-swing   4.3 (deg/s per tick)  clearance p10  3.8 p50 29.1 mm
+gait l7_s15 (params_0020M.pkl) sim robot vx 0.03 n 96 20s | c_S8mid15
+  up  88%  walked  49.5 cm (median of up)  touchdowns 1378  |  landing speed p50  180 p90  261 mm/s  jolt after td p50  12.3 p90  17.5  mid-swing   4.2 (deg/s per tick)  clearance p10 13.4 p50 35.8 mm
+gait l9_s18 (params_0020M.pkl) sim robot vx 0.03 n 96 20s | c_S9mid18
+  up  74%  walked  44.0 cm (median of up)  touchdowns 1205  |  landing speed p50  192 p90  282 mm/s  jolt after td p50  12.7 p90  17.2  mid-swing   3.3 (deg/s per tick)  clearance p10 23.4 p50 35.5 mm
+gait l13_lv2 (params_0020M.pkl) sim robot vx 0.03 n 96 20s | c_S8mid15
+  up  51%  walked  45.0 cm (median of up)  touchdowns 985  |  landing speed p50  183 p90  261 mm/s  jolt after td p50  13.7 p90  18.1  mid-swing   4.4 (deg/s per tick)  clearance p10 13.4 p50 36.4 mm

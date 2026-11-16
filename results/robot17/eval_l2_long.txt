@@ -1,0 +1,28 @@
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l2_long (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S3long
+  up  77%  walked  35.6 cm (median of up)  touchdowns 628  |  landing speed p50  160 p90  243 mm/s  jolt after td p50  13.5 p90  17.9  mid-swing   4.4 (deg/s per tick)  clearance p10 31.5 p50 46.2 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait l2_long (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_S3long
+  up   0%  walked   0.0 cm (median of up)  touchdowns 82  |  landing speed p50  152 p90  274 mm/s  jolt after td p50  12.7 p90  17.6  mid-swing   4.5 (deg/s per tick)  clearance p10 29.1 p50 40.9 mm
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 72%, joints within 6 deg 15% (median worst 12.9 deg), tilt < 5 deg 71%, still 1%)
+walk test, l2_long (runs/l2_long/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   94%  0.0  94% 17.7cm |   75%  0.0  75% 14.0cm |   81%  0.0  81% 14.5cm |   75%  0.0  75% 13.1cm |  81% /  81%
+  0.10 |   62%  0.0  62% 11.9cm |   81%  0.0  81% 15.9cm |   62%  0.0  62% 11.0cm |   81%  0.0  81% 14.7cm |  72% /  72%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 6.2
+overall up 77%, resumed 77%, supervisor triggers per run 0.00
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 50%, joints within 6 deg 0% (median worst 9.5 deg), tilt < 5 deg 50%, still 0%)
+walk test, l2_long (runs/l2_long/params_0020M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |    6%  0.0   6%  1.3cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   2% /   2%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    6%  0.0   6%  1.6cm |   2% /   2%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 0.3
+overall up 2%, resumed 2%, supervisor triggers per run 0.00

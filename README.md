@@ -1304,6 +1304,7 @@ them on. Getting from there to a walk took five breakthroughs, each kept by the 
 | `c3f_T12` | balances, marches mostly in place |
 | `h4_t05 --act-lpf 0.6` | 188 s (299 steps), 74 s, 76 s; small steps, occasional twitching |
 | **`k5_high2 --act-lpf 0.7`** | **median 25.7 s / 30 steps over 17 trials**; large steps, sometimes drifts left |
+| **`l9_s18 --act-lpf 0.7`** | 41 s and 48 s (2026-11-16): the softest, quietest steps so far (peak landing jolt 30 % below k5); the swing ends skimming the rug |
 
 **Now: recovering from pushes.** Training standing policies with shoves only made their planted balance firmer: on
 the robot they barely moved while falling. The current approach treats recovery like walking: IK-built recovery
