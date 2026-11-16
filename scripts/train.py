@@ -349,7 +349,7 @@ def widen(restore, env):
     return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
-def reset_cmd_inputs(restore, env, m0, s0):
+def reset_cmd_inputs(restore, env, m0, s0, keep=False):
     """Round 14: give the 3 command inputs (policy obs[-5:-2], critic after the action) a fresh meaning: normalizer
     mean m0 / std s0, and zero first-layer weights, so the restored policy starts as it was at command 0 and learns
     the new command from there. (k5's sideways command was always 0: std 0, untrained weights, so a recovery step's
@@ -362,12 +362,28 @@ def reset_cmd_inputs(restore, env, m0, s0):
         i = idx[key]
         cnt = float(np.asarray(sv[key])[0] / max(float(np.asarray(std[key])[0]) ** 2, 1e-12))
         m, sd, v = np.array(mean[key]), np.array(std[key]), np.array(sv[key])
+        k = np.array(net["params"]["hidden_0"]["kernel"])
+        if keep:   # round 15: same pre-activation for any raw command (rescaled weights, bias for the mean shift);
+            m_old, s_old = m[i:i + 3].copy(), sd[i:i + 3].copy()   # inputs that never varied (std ~0): zeroed
+            used = s_old > 1e-6
+            m_new = np.where(used, m_old, 0.0)
+            bias = np.array(net["params"]["hidden_0"]["bias"])
+            for j in range(3):
+                if used[j]:
+                    bias = bias + k[i + j] * (m_new[j] - m_old[j]) / s_old[j]
+                    k[i + j] = k[i + j] * np.asarray(s0)[j] / s_old[j]
+                else:
+                    k[i + j] = 0.0
+            net["params"]["hidden_0"]["bias"] = bias
+            m0 = m_new
+            print(f"[reset-cmd keep] {key}: old mean {m_old} std {s_old}", flush=True)
+        else:
+            k[i:i + 3] = 0.0
         m[i:i + 3], sd[i:i + 3], v[i:i + 3] = m0, s0, cnt * np.asarray(s0) ** 2
         mean[key], std[key], sv[key] = m, sd, v
-        k = np.array(net["params"]["hidden_0"]["kernel"])
-        k[i:i + 3] = 0.0
         net["params"]["hidden_0"]["kernel"] = k
-        print(f"[reset-cmd] {key}: inputs {i}..{i + 2} mean {m0} std {s0}, weights zeroed", flush=True)
+        print(f"[reset-cmd] {key}: inputs {i}..{i + 2} mean {m0} std {s0}, weights "
+              + ("rescaled (never-varied inputs zeroed)" if keep else "zeroed"), flush=True)
     return (norm.replace(mean=mean, std=std, summed_variance=sv), pol, val)
 
 
@@ -436,6 +452,9 @@ def main():
     ap.add_argument("--rw", nargs="*", help="reward weight overrides k=v")
     ap.add_argument("--reset-cmd", help="round 14: 's0,s1,s2' = re-seed the 3 command inputs' normalizer (mean 0, these "
                     "stds) and zero their first-layer weights when restoring --init (a new meaning for the command)")
+    ap.add_argument("--reset-cmd-keep", action="store_true", help="round 15: with --reset-cmd, rescale the command "
+                    "inputs' first-layer weights to the new stds instead of zeroing them (the restored policy acts the same "
+                    "on the commands it knew; inputs that never varied are zeroed)")
     ap.add_argument("--set", nargs="*", help="EnvConfig overrides k=json")
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--entropy", type=float, default=0.005)
@@ -479,7 +498,8 @@ def main():
         with open(a.init, "rb") as f:
             restore = widen(pickle.load(f), env)
         if a.reset_cmd:
-            restore = reset_cmd_inputs(restore, env, [0.0, 0.0, 0.0], [float(x) for x in a.reset_cmd.split(",")])
+            restore = reset_cmd_inputs(restore, env, [0.0, 0.0, 0.0], [float(x) for x in a.reset_cmd.split(",")],
+                                       keep=a.reset_cmd_keep)
 
     if a.lcp > 0:
         install_lcp(a.lcp, 6 + 3 * env.nj, a.lcp_idx)

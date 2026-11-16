@@ -1,0 +1,10 @@
+stand test, r14f_cp, --set rec_cp_free=false (sideways capture steps with the loaded foot, as trained)
+dv m/s |               fwd |              back |              left |             right |  all up / home
+  0.15 |    88%  25%   1.1 |    62%  25%   1.0 |    75%  25%   0.2 |    88%  25%   0.9 |  78% /  25%
+  0.25 |    12%   0%   0.2 |    25%   0%   0.2 |    38%  12%   1.1 |    50%  12%   1.2 |  31% /   6%
+overall up 55%, home 16%
+stand test, r14f_cp, --set rec_cp_free=true (sideways capture steps with the unloaded foot: the lever)
+  0.15 |    88%  25%   0.6 |    75%  38%   0.4 |    75%  38%   0.2 |    88%  25%   0.9 |  81% /  31%
+  0.25 |    38%  12%   0.4 |    25%   0%   0.5 |    25%  12%   0.5 |    50%  12%   0.9 |  34% /   9%
+overall up 58%, home 20%
+(sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s)

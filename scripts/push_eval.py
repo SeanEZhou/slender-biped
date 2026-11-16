@@ -78,6 +78,7 @@ def main():
     ap.add_argument("--dur", type=float, default=0.15)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--set", nargs="*", default=[], help="EnvConfig overrides k=json")
+    ap.add_argument("--vx", type=float, default=0.015, help="walk test: forward command (m/s)")
     a = ap.parse_args()
     W, p, d = load_policy(a.run)
     steps = a.test == "steps"           # round 14: recovery-step policies stepping on command (random targets), no shoves
@@ -89,12 +90,16 @@ def main():
     if stand:
         over.update(cmd_zero_prob=1.0, sup=False)
     import json as _j
-    if _j.loads((d / "config.json").read_text())["env"].get("rec_table"):   # round 14: recovery-step policies
-        over.update(rec_rand=1.5 if steps else 0.0, rec_rest_s=(0.6, 1.5), rec_cp=not steps)
+    renv = _j.loads((d / "config.json").read_text())["env"]
+    rec_walk = bool(renv.get("rec_walk", False))
+    if renv.get("rec_table"):   # round 14: recovery-step policies
+        over.update(rec_rand=1.5 if steps else 0.0, rec_rest_s=(0.6, 1.5), rec_cp=not steps, rec_rand_walk=0.0)
+        if rec_walk and not stand:     # round 15: walk, capture-point step, resume (no supervisor)
+            over.update(sup=False, cmd_vx=(a.vx, a.vx))
     if steps:
         dvs = [0.0]
     else:
-        over.update(cmd_vx=(0.015, 0.015), cmd_zero_prob=0.0, cmd_wz=(0.0, 0.0), sup=not a.no_sup)
+        over.update(cmd_vx=(a.vx, a.vx), cmd_zero_prob=0.0, cmd_wz=(0.0, 0.0), sup=not a.no_sup)
     if a.sim in ("robot", "loose"):
         over.update(ROBOT)
     if a.sim == "loose":
@@ -187,6 +192,8 @@ def main():
         print("dv m/s | " + " | ".join(f"{dn:>22s}" for dn in DIRS) + " |  all up / resumed")
         print("       | " + " | ".join(f"{'up trig resum dist':>22s}" for _ in DIRS))
     td = np.asarray(td); nsup = np.asarray(nsup)
+    if rec_walk and not stand:          # round 15: "trig" = capture-point recovery steps started
+        nsup = np.asarray(st.info["rec_n"])
     tot = {}
     for dv in dvs:
         cells = []

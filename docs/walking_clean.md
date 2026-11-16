@@ -2074,3 +2074,41 @@ With video. Details and the operator's observations: `results/robot14/NOTES.md`
   or bringing the other one over, as a separate step once quiet.
 - **Sideways: step with the free foot** (crossover or unloading hop).
 - **Backward: a dedicated back-step reference.**
+
+## 35. Round 15: decisive steps don't learn in 8M; walk-recover-resume built, not trained (2026-11-15 19:00-21:10)
+
+Details: `results/robot15/NOTES.md`.
+
+**The reference, rs3** (`rec_step.build2`):
+- **Bigger steps:** up to 8 cm fore-aft or outward, lifting 5 cm (6 cm back).
+- **Loaded-leg-friendly:** only a 1.2 cm weight shift first, so the loaded leg can step out (the operator's "retract
+  and step out").
+- **Settle before returning:** a hold gate stops the clock after the step until the body is quiet.
+- **Return:** fore-aft, the other foot closes up; sideways, the stepped foot retracts.
+
+**Geometry without ankle pitch:**
+- With a level pelvis both boards are flat in a split stance only with the thighs symmetric about vertical. Planted
+  boards tilt up to 11 deg, and the pelvis must sit at the feet's fore-aft midpoint whenever both are down.
+- A lifting board tips toe-down up to 26 deg.
+
+**Results:**
+- **`r15a_steps`** (stage A on rs3, from r14c2_slow): 0 % up in the steps test after 8M. With zero action the step
+  falls 0.34 s in: without a weight shift the policy must make all the balance itself. Round 14 needed 24M for
+  smaller, slower steps.
+- **`r15w_walk`** (k5 + rs3 + `rec_walk`): ready but untrained; lost to the RAM hangs.
+- **Free foot vs loaded foot** for sideways capture steps (`r14f_cp`): 58 % against 55 %, no difference.
+
+**Machine:**
+- Three lanes hung WSL twice (7.9 GB RAM).
+- Every round before ran two, but these lanes use 3.7 GB each, so even two ran it down to 561 MB.
+  `scripts/mem_guard.sh` now kills the newest lane first.
+
+**Why no working policy** (details in the notes):
+- **Too big a jump from what worked, unchecked before training:** size, lift, swing speed and weight shift all
+  changed at once.
+- **An unavoidable lift-shortfall penalty:** `tip_z` records the planned lift, not the reachable one.
+- **8M of the planned training,** after the RAM hangs.
+
+**Next (push resistance, now paused for k5's walking stability):**
+1. Grow from rs2 one change at a time, trained 24M+ alone.
+2. Then `r15w_walk` alone.

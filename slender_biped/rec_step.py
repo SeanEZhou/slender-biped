@@ -101,7 +101,8 @@ class _IK:
                 mujoco.mj_jacGeom(m, d, jp, jr, self.tip[f])
                 e_p = P[f] - p[f]
                 e_r = 0.5 * sum(np.cross(Rc[f][:, i], R[f][:, i]) for i in range(3))
-                W = np.array([1.0, w_pitch, 1.0]) * 0.05     # rotation error in m-equivalent; world y = board pitch
+                wpf = w_pitch[f] if np.ndim(w_pitch) else w_pitch
+                W = np.array([1.0, wpf, 1.0]) * 0.05         # rotation error in m-equivalent; world y = board pitch
                 rows += [e_p, W * e_r]
                 J += [jp[:, self.dadr], W[:, None] * jr[:, self.dadr]]
             e, J = np.concatenate(rows), np.vstack(J)
@@ -156,7 +157,109 @@ def build(name, model="hw_ank3_b150_m2_10dof", stance_ref="c_T12HH", dxs=(-0.05,
 
 def load_table(name, xp=np):
     z = np.load(REF_DIR / f"{name}.npz")
-    return {k: xp.asarray(z[k]) for k in ("q", "tip_z", "stance", "dx", "dy")} | {"rec_T": float(z["rec_T"])}
+    return ({k: xp.asarray(z[k]) for k in ("q", "tip_z", "stance", "dx", "dy")} | {"rec_T": float(z["rec_T"])}
+            | {"gate_u": float(z["gate_u"]) if "gate_u" in z else -1.0})
+
+
+# ---------------------------------------------------------------- round 15: decisive step, hold, return
+# Segment durations (s): weight shift, A swings out by D, pelvis to the new support's middle, hold (the gate sits in its
+# middle: the clock stops there until the body is quiet), pelvis over A, B closes fore-aft (by dx), pelvis over B,
+# A retracts sideways (by dy), pelvis centres. Fore-aft the rear / front foot closes up (as people do: the stance ends
+# displaced by dx), sideways the stepped foot comes back (the stance ends where it started across). A return swing's
+# lift scales with its distance (no swing for a zero distance).
+SEG15 = (0.08, 0.36, 0.24, 0.16, 0.20, 0.36, 0.20, 0.36, 0.20)
+
+
+def plan2(u, side, dx, dy, shift=0.012, lift=0.05, lift_back=0.06, shift_ret=0.03, drop=0.012, seg=SEG15):
+    """Round 15 step. Returns pelvis (x, y, z offset), foot A and B displacements (x, y, z), stance flags (A, B)."""
+    D = np.array([dx, side * dy])
+    Dx, Dy = np.array([dx, 0.0]), np.array([0.0, side * dy])
+    yA = np.array([0.0, side])
+    b = np.cumsum((0.0,) + tuple(seg)) / sum(seg)
+    seg_t = lambda i: (u - b[i]) / (b[i + 1] - b[i])  # noqa: E731
+    mag = min(1.0, float(np.hypot(dx, dy)) / 0.09)
+    zd = -drop * mag
+    lf = lift if dx >= 0 else lift + (lift_back - lift) * min(1.0, -dx / 0.08)
+    lB = lift * min(1.0, abs(dx) / 0.03)
+    lA = lift * min(1.0, dy / 0.03)
+    #     0      shift        out        mid       hold      over A               close B     over B                retract   centre
+    # both boards planted: the pelvis stays at the feet's fore-aft midpoint (with a level pelvis and no ankle pitch both
+    # boards are flat only there); it moves fore-aft only while one foot swings
+    mx = np.array([0.5 * dx, 0.0])
+    P = [np.zeros(2), -shift * yA, mx + 0.35 * Dy, 0.5 * D, 0.5 * D, mx + Dy + shift_ret * yA, Dx + Dy + shift_ret * yA,
+         Dx - shift_ret * yA, Dx - shift_ret * yA, Dx]
+    Z = [0.0, 0.0, zd, zd, zd, zd, zd, zd, zd, 0.0]
+    i = int(np.clip(np.searchsorted(b, u, side="right") - 1, 0, len(seg) - 1))
+    t = _ss(seg_t(i))
+    pel = P[i] + (P[i + 1] - P[i]) * t
+    pz = Z[i] + (Z[i + 1] - Z[i]) * t
+
+    def swing(k, frm, to, h):
+        tt = float(np.clip(seg_t(k), 0.0, 1.0))
+        xy = frm + (to - frm) * _ss(np.clip((tt - 0.1) / 0.8, 0.0, 1.0))      # lift first, land straight down
+        return np.r_[xy, h * math.sin(math.pi * tt)], not (0.0 < tt < 1.0) or h <= 0.0
+    if u < b[3]:
+        fA, dnA = swing(1, np.zeros(2), D, lf)
+    else:
+        fA, dnA = swing(7, D, Dx, lA)
+    fB, dnB = swing(5, np.zeros(2), Dx, lB)
+    return np.r_[pel, pz], fA, fB, (dnA, dnB)
+
+
+def build2(name, model="hw_ank3_b150_m2_10dof", stance_ref="c_T12HH", dxs=(-0.08, -0.04, 0.0, 0.04, 0.08),
+           dys=(0.0, 0.04, 0.08), nph=192, w_pitch=(1.0, 1.5), **kw):
+    """w_pitch: board pitch weight in the IK for a planted / a swinging foot (no ankle pitch: a lifting foot tilts)."""
+    from .ref_gait import level_pitch, load
+    ik = _IK(model)
+    q_st = np.asarray(load(stance_ref)["q"][0, 0], float)
+    a = level_pitch(ik.m, ik.joints, q_st)
+    quat = np.zeros(4)
+    mujoco.mju_axisAngle2Quat(quat, np.array([0.0, 1.0, 0.0]), a)
+    base0 = np.zeros(3)
+    P0, R0 = ik.fk(base0, quat, q_st)
+    seg = kw.get("seg", SEG15)
+    rec_T = float(sum(seg))
+    b = np.cumsum((0.0,) + tuple(seg)) / sum(seg)
+    gate_u = 0.5 * (b[3] + b[4])
+    sw_pitch = []
+    Q = np.zeros((2, len(dxs), len(dys), nph, len(q_st)))
+    TZ = np.zeros((2, len(dxs), len(dys), nph, 2))
+    ST = np.ones((2, len(dxs), len(dys), nph, 2))
+    worst, worst_pitch = 0.0, 0.0
+    for si, side in enumerate((+1, -1)):
+        A, B = (0, 1) if side > 0 else (1, 0)
+        for ix, dx in enumerate(dxs):
+            for iy, dy in enumerate(dys):
+                q = q_st.copy()
+                for k in range(nph):
+                    u = k / (nph - 1)
+                    pel, fA, fB, (dnA, dnB) = plan2(u, side, dx, dy, **kw)
+                    P = P0.copy()
+                    P[A] += fA; P[B] += fB
+                    dn_ = np.zeros(2, bool); dn_[A], dn_[B] = dnA, dnB
+                    hz = np.zeros(2); hz[A], hz[B] = fA[2], fB[2]          # flat near the floor, freer up high
+                    wp_ = w_pitch[0] - (w_pitch[0] - w_pitch[1]) * np.clip(hz / 0.02, 0.0, 1.0)
+                    q, err = ik.solve(base0 + pel, quat, q, P, R0, w_pitch=wp_, iters=80)
+                    _, Rc = ik.fk(base0 + pel, quat, q)
+                    pit = np.degrees(np.arcsin(np.clip(Rc[:, 2, 0], -1, 1)))
+                    down = dn_
+                    worst_pitch = max(worst_pitch, float(np.max(np.abs(pit[down]), initial=0.0)))
+                    sw_pitch.append(float(np.max(np.abs(pit[~down]), initial=0.0)))
+                    worst = max(worst, err)
+                    Q[si, ix, iy, k] = q
+                    TZ[si, ix, iy, k, A], TZ[si, ix, iy, k, B] = fA[2], fB[2]
+                    ST[si, ix, iy, k, A], ST[si, ix, iy, k, B] = float(dnA), float(dnB)
+                Q[si, ix, iy, -1] = Q[si, ix, iy, 0]
+    out = REF_DIR / f"{name}.npz"
+    np.savez(out, q=Q, tip_z=TZ, stance=ST, dx=np.array(dxs), dy=np.array(dys), rec_T=rec_T, gate_u=gate_u,
+             stance_ref=stance_ref, model=model, kind="v2")
+    jump = np.degrees(np.max(np.abs(np.diff(Q, axis=3)), axis=(0, 1, 2, 3)))
+    print(f"{out}: {Q.shape}, rec_T {rec_T:.2f} s, gate at u {gate_u:.3f}; worst foot position error {worst * 1000:.1f} mm,"
+          f" board pitch: planted worst {worst_pitch:.1f} deg, swinging worst {max(sw_pitch):.1f}; largest per-bin joint step (deg): "
+          + " ".join(f"{j.split('_', 1)[1][:6]} {v:.1f}" for j, v in zip(ik.joints, jump)))
+    rng = np.degrees(Q.max(3) - Q.min(3)).max(axis=(0, 1, 2))
+    print("joint range over a step (deg, worst target): " + " ".join(f"{v:.0f}" for v in rng))
+    return out
 
 
 def lookup(t, cmd, u, xp=np):
@@ -196,13 +299,16 @@ def capture(ang, w, h=0.34, gain=1.2, th=0.035, dx_max=0.05, dy_max=0.05, xp=np)
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["build"])
+    ap.add_argument("cmd", choices=["build", "build2"])
     ap.add_argument("--name", default="rs1")
     ap.add_argument("--shift", type=float, default=0.03)
     ap.add_argument("--lift", type=float, default=0.025)
     ap.add_argument("--rec-T", type=float, default=1.8)
     a = ap.parse_args()
-    build(a.name, shift=a.shift, lift=a.lift, rec_T=a.rec_T)
+    if a.cmd == "build2":
+        build2(a.name)
+    else:
+        build(a.name, shift=a.shift, lift=a.lift, rec_T=a.rec_T)
 
 
 if __name__ == "__main__":

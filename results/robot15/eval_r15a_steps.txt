@@ -1,0 +1,8 @@
+(of those up: both pads down nan%, joints within 6 deg nan% (median worst 0.0 deg), tilt < 5 deg nan%, still nan%)
+steps test, r15a_steps (runs/r15a_steps/params_0008M.pkl), sim robot, act-lpf 0.7, 8 per cell, shove 0.15 s
+dv m/s |               fwd |              back |              left |             right |  all up / home
+       |     up home steps |     up home steps |     up home steps |     up home steps
+  0.00 |     0%   0%   1.4 |     0%   0%   1.4 |     0%   0%   1.8 |     0%   0%   1.9 |   0% /   0%
+  dv 0.00 fell (n  32): command moved within 1 s (max |change| deg, mean over runs): yaw  5.5 roll  8.3 pitch 18.0 knee 22.9 roll  7.8
+recovery steps started per run: 2.50 (up runs 0.00, fallen 2.50); touchdowns after the shove 1.6
+overall up 0%, home 0%

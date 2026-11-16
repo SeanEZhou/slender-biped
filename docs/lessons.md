@@ -22,6 +22,24 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Push resistance, round 15 (2026-11-15 evening)
+
+- **Grow the step, don't jump to it.**
+  - Doubling step size and lift and halving the weight shift at once (rs3) gave 0 % survival after 8M, against 84 %
+    for round 14's smaller, slower steps.
+  - Change one of size, speed or weight shift at a time, or use a curriculum.
+  - ([walking_clean.md §35](walking_clean.md)).
+- **Without ankle pitch, a split stance can't have both boards flat** unless the thighs are symmetric about vertical
+  with the pelvis at the feet's fore-aft midpoint. Check a reference's planted-board tilt and foot error per cell
+  before training.
+  - A lifted board tips toe-down, so back steps need extra lift.
+  - Blend IK weights smoothly: a step change at touchdown made 19 deg target jumps.
+- **Two training lanes at most; check RAM per lane.**
+  - Three lanes hung WSL twice and lost an hour.
+  - Lanes carrying two reference tables use 3.7 GB each, so even two can run out.
+  - `scripts/mem_guard.sh` kills the newest lane before the VM hangs.
+- **Free foot vs loaded foot sideways:** no difference in simulation with the round-14 policy (58 % / 55 %).
+
 ## Push resistance, round 14 (2026-11-15)
 
 - **A recovery-step reference gets the step half learned:** commanded steps went from always falling (k5) to 84 %
@@ -412,7 +430,8 @@ ang_vel_xy −1, ang_acc −0.006, action_rate −0.1, action_acc −0.1, clear 
 
 - **Audit actuators from first principles before training.** It rejected a servo before any GPU time was spent.
   ([experiments.md, Lessons](experiments.md#lessons-process-not-just-results))
-- **One GPU job at a time, queued, with a watchdog.** Queue scripts (`scripts/*_queue*.sh`) record every setting;
+- **At most two training lanes at once, queued, with a watchdog** (7.9 GB WSL RAM: three hung it twice on
+  2026-11-15; check a lane's memory before pairing, and run `scripts/mem_guard.sh`). Queue scripts (`scripts/*_queue*.sh`) record every setting;
   ~20M steps take ~21 min on an RTX 4070 SUPER. Check on long jobs every ~20 min so a dead job isn't missed.
 - **Keep every policy the user might test** (final checkpoint of every run is in git, whitelisted in `.gitignore`;
   `config.json` and `progress.jsonl` for every run). Don't delete policies without asking.
