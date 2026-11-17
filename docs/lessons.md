@@ -22,6 +22,31 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 19 on the robot (2026-11-17)
+
+- **Continuous hip roll is what made steps run together.** k5 absorbs each landing, then continues; from l9 on the
+  hips roll through the step and compensate. A smaller roll (shift 0.13) with the transfer held until the foot is
+  down gave the smoothest walkers (p1 / p4: 0-5 falls in 115-152 steps).
+- **Check stride against what the table asks before calling a policy slow.** p1 / p4 make the commanded 36 mm; k5 and
+  l9 overstep (k5 partly by tipping forward). And check that a policy follows the speed command at all: p1 / p4 barely
+  lengthen their stride at 2x the command in simulation.
+- **Look for a one-sided failure pattern before retraining.** 10 of 11 near-falls went right; every policy walks with a
+  1-2 deg right bias, which points at the robot as much as the policy.
+
+## Round 18 on the robot, round 19 (2026-11-16 evening)
+
+- **Measure the robot's command-to-joint lag per joint** (best-lag fit of cmd against encoder in the logs): 80 ms knee
+  and hip pitch, 120-140 ms hip roll. A weight transfer timed to the scheduled touchdown starts before the foot is down.
+- **More lean isn't more stable.** n15 kept its table's whole 0.18 rad shift (legs ~30 deg apart at lift-off) and fell
+  outward over the stance foot on the robot. l9's policy had learned to cancel most of it. Shift 0.13 trained as robust
+  in simulation with 20-23 deg.
+- **Big leans trip the gate**: on the robot it held n15's clock 14-31 % of the time (simulation 5 %). The steps got
+  slower and shorter.
+- **The simulator ranked n15 at 91 % and the robot fell every ~5 steps.** Neither stiffer nor looser hips in simulation
+  reproduced it. Robot-test small changes early.
+- **Check sign conventions when comparing simulator and robot scripts.** The CPU script's roll had the opposite sign
+  and turned "outward over the stance foot" into "toward the swing foot" for an afternoon.
+
 ## Robot round 17 and continuous walking, round 18 (2026-11-16)
 
 - **Check which foot is which against the model, not the comments.** Two analysis scripts and the round-16 gate's
@@ -37,8 +62,22 @@ left ([walking_clean.md §31](walking_clean.md)).
   round-17 release ran past the end of the step, and the hip-roll targets jumped 3-4 deg at every step boundary.
 - **Match the reference's accelerations to the servos.** The robot's swing foot trails its command by ~0.1 s where the
   table asks more than the servos' ramp (60 rad/s^2): quintic profiles with longer rise and fall keep the knee near it.
-- **Continuous walking needs a continuous reference:** a periodic sway (no settle, no hold), constant pelvis speed and
-  no jumps. Human and G1 gaits run on a clock that never stops, with the centre of mass on one smooth sinusoid.
+- **A human-like reference doesn't train on this robot.** A periodic sway, constant pelvis speed and a straight-down
+  swing (all smooth, no holds) fell 60-96 % in simulation, from a policy that walked l9's table. Each half alone broke
+  it:
+  - the straight-down swing on l9's structure: 29 % up;
+  - l9's swing on the smooth structure: 15 %.
+  - Change the reference one ingredient at a time from a gait that works.
+- **Keep swing-leg retraction.** l9's lift (equal hip + knee) swings the foot ~5 cm ahead and pulls it back as it lands,
+  a known stabiliser. Removing it cost most of the stability. Doing it while the foot is high, then setting straight
+  down, kept it and removed the rug skim (n11: loose sim 85 % against l9's 36 %).
+- **Remove one stop at a time and measure.**
+  - Fixing the 4 deg target jump doubled the loose-sim survival.
+  - Removing the centre pause took it to 94 %.
+  - 1.1 s steps held (90 / 75 %); 1.0 s did not (15 %; 58 % with a short fine-tune).
+  - Turning the gate off cut the loose sim from 75 % to 48 %.
+- **A policy can walk a faster table zero-shot (75 %) and lose it in training (6 % at 10M).** Evaluate the starting
+  point on the new table before training on it.
 
 ## Smoother steps, round 17 (2026-11-16)
 

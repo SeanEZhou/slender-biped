@@ -1,0 +1,37 @@
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait n14_s19 (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S19soft
+  up  62%  walked  33.5 cm (median of up)  touchdowns 497  |  landing speed p50  239 p90  276 mm/s  jolt after td p50  13.3 p90  18.3  mid-swing   2.9 (deg/s per tick)  clearance p10 35.8 p50 40.8 mm
+  gate holding (clock stopped) 6.4 % of the walking time
+  swing profile (lowest board point, mm, lift-off .. scheduled touchdown):   -0    0    5   14   31   39   40   38   30   22   12    4   -0
+  lands vs scheduled touchdown: p10 -0.50 p50 -0.06 p90 +0.00 s
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait n14_s19 (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_S19soft
+  up  46%  walked  33.3 cm (median of up)  touchdowns 400  |  landing speed p50  226 p90  262 mm/s  jolt after td p50  11.5 p90  15.9  mid-swing   2.9 (deg/s per tick)  clearance p10 36.3 p50 41.7 mm
+  gate holding (clock stopped) 8.5 % of the walking time
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait n14_s19 (params_0020M.pkl) sim robot vx 0.03 n 32 20s | c_S19soft
+  up  66%  walked  37.0 cm (median of up)  touchdowns 337  |  landing speed p50  235 p90  267 mm/s  jolt after td p50  12.8 p90  19.3  mid-swing   3.3 (deg/s per tick)  clearance p10 35.2 p50 40.9 mm
+  gate holding (clock stopped) 7.5 % of the walking time
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 71%, joints within 6 deg 6% (median worst 22.6 deg), tilt < 5 deg 50%, still 0%)
+walk test, n14_s19 (runs/n14_s19/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   81%  0.0  81% 13.3cm |   69%  0.0  69% 11.0cm |   69%  0.0  69% 11.7cm |   62%  0.0  62% 11.6cm |  70% /  70%
+  0.10 |   38%  0.0  38%  5.9cm |   62%  0.0  62%  9.8cm |   56%  0.0  56% 10.0cm |   75%  0.0  75% 13.0cm |  58% /  58%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 5.1
+overall up 64%, resumed 64%, supervisor triggers per run 0.00
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+(of those up: both pads down 61%, joints within 6 deg 4% (median worst 20.6 deg), tilt < 5 deg 40%, still 0%)
+walk test, n14_s19 (runs/n14_s19/params_0020M.pkl), recovery self, supervisor off, sim loose, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   62%  0.0  62% 10.8cm |   25%  0.0  25%  4.1cm |   50%  0.0  50%  8.3cm |   50%  0.0  50%  9.3cm |  47% /  47%
+  0.10 |   25%  0.0  25%  4.1cm |   50%  0.0  50%  7.5cm |   50%  0.0  50%  8.7cm |   44%  0.0  44%  6.6cm |  42% /  42%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 3.7
+overall up 45%, resumed 45%, supervisor triggers per run 0.00

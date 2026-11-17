@@ -96,8 +96,19 @@ def step_pose(t, T, d, p):
             b = hv + (1 - hv) * (0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - sf - r)))
         else:                     # ... then the last bit slowly (zero speed at both ends)
             b = hv * (0.5 + 0.5 * math.cos(math.pi * (x - (1 - sf)) / sf))
-        q[4 * leg + 3] += p["lift_knee"] * b
-        q[4 * leg + 2] += p["lift_hip"] * b
+        if p.get("ik_swing"):             # round 18d: the walk table's swing (quintic up, forward by place_frac,
+            hp0, kn0 = Q_NOM[2], Q_NOM[3]  # straight down through the IK) in place of the bump
+            x0, z0, _ = leg_fk(hp0, kn0)
+            r2, dr = p.get("ik_rise", 0.45), p.get("ik_drop", 0.45)
+            b = _quint(x / r2) if x < r2 else (1.0 if x < 1 - dr else 1.0 - _quint((x - (1 - dr)) / dr))
+            xr = 0.0                      # round 18f: swing-leg retraction while high: reach ik_reach ahead mid-swing,
+            pf = p.get("place_frac", 1.0)  # back to the spot by place_frac (before the straight-down part ends)
+            if p.get("ik_reach", 0.0) > 0 and x < pf:
+                xr = p["ik_reach"] * (0.5 - 0.5 * math.cos(2 * math.pi * x / pf))
+            q[4 * leg + 2:4 * leg + 4] = leg_ik(x0 + x_sw + xr, z0 + p["ik_h"] * b, hp0, kn0)
+        else:
+            q[4 * leg + 3] += p["lift_knee"] * b
+            q[4 * leg + 2] += p["lift_hip"] * b
         stance[leg] = False
         lift = p["swing_h"] * b
     # weight shift: in over shift_t before the swing, out over the swing plus release_t
@@ -117,6 +128,16 @@ def step_pose(t, T, d, p):
     z = np.zeros(2)
     z[leg] = lift
     return q, stance, z
+
+
+def _bump(x, p):
+    """l9's (c_S9mid18) lift profile over the swing fraction x: rise 0.42, down to a 0.2 hover, set down over 0.28."""
+    r, sf, hv = 0.42, 0.28, 0.2
+    if x < r:
+        return 0.5 - 0.5 * math.cos(math.pi * x / r)
+    if x < 1 - sf:
+        return hv + (1 - hv) * (0.5 + 0.5 * math.cos(math.pi * (x - r) / (1 - sf - r)))
+    return hv * (0.5 + 0.5 * math.cos(math.pi * (x - (1 - sf)) / sf))
 
 
 def sway(x, flat):
@@ -145,7 +166,21 @@ def walk_pose(t, T, v, p):
     q = Q_NOM.copy()
     stance = np.ones(2, bool)
     z = np.zeros(2)
-    s = sway((t / (2 * T)) % 1.0, p.get("flat", 1.0))
+    if p.get("sway_ds"):          # round 18b: the whole side-to-side transfer in double support (quintic, through the
+        m = p.get("ds_margin", 0.0)   # centre at speed), fully over the stance foot from lift-off to touchdown (+ m)
+        a0 = 0.5 * T + sw / 2 + m     # after the right touchdown: from over the left (+1) to over the right (-1)
+        D = T - sw - 2 * m
+        tt = t % (2 * T)
+        x1 = ((tt - a0) % (2 * T)) / D             # first transfer (+1 -> -1) starts at a0
+        x2 = ((tt - a0 - T) % (2 * T)) / D         # second (-1 -> +1) starts a step later
+        if x1 <= 1.0:
+            s = 1.0 - 2.0 * _quint(x1)
+        elif x2 <= 1.0:
+            s = -1.0 + 2.0 * _quint(x2)
+        else:
+            s = -1.0 if ((tt - a0) % (2 * T)) < T else 1.0
+    else:
+        s = sway((t / (2 * T)) % 1.0, p.get("flat", 1.0))
     q[1] -= p["shift"] * s                                  # +s: over the left foot (left hip roll inward)
     q[5] += p["shift"] * s
     hp0, kn0 = Q_NOM[2], Q_NOM[3]
@@ -167,6 +202,12 @@ def walk_pose(t, T, v, p):
             h = p["swing_h"] * b
             stance[leg] = False
             z[leg] = h
+            if p.get("bump"):                     # round 18d: l9's swing instead (equal hip + knee bump on the
+                xb = x / p["bump_sw"] if p["bump_sw"] < 1 else x     # floor path), to separate swing from structure
+                q[4 * leg + 2:4 * leg + 4] = leg_ik(x0 + xf, z0, hp0, kn0)
+                q[4 * leg + 2] += p["bump"] * _bump(xb, p)
+                q[4 * leg + 3] += p["bump"] * _bump(xb, p)
+                continue
         q[4 * leg + 2:4 * leg + 4] = leg_ik(x0 + xf, z0 + h, hp0, kn0)
     q[[1, 5]] += p.get("splay", 0.0)
     return q, stance, z
@@ -250,6 +291,13 @@ def main():
     ap.add_argument("--rel0", type=float, default=0.0, help="fraction of the swing at which the weight shift starts "
                     "to release (0: lift-off, as c_T12HH; 1: touchdown)")
     ap.add_argument("--flat", type=float, default=1.0, help="round 18 walk: sway flatness at the turning points (0 sine, 1, 2)")
+    ap.add_argument("--ik-h", type=float, default=0.0, help="round 18d step: the IK straight-down swing, centre lift (m)")
+    ap.add_argument("--ik-rise", type=float, default=0.45, help="round 18 step: with --ik-h, fraction of the swing rising")
+    ap.add_argument("--ik-drop", type=float, default=0.45, help="round 18 step: with --ik-h, fraction of the swing lowering")
+    ap.add_argument("--ik-reach", type=float, default=0.0, help="round 18f step: with --ik-h, reach this far ahead mid-swing and retract")
+    ap.add_argument("--bump", type=float, default=0.0, help="round 18d walk: l9's equal hip + knee bump (rad) as the swing")
+    ap.add_argument("--sway-ds", action="store_true", help="round 18b walk: transfer in double support, held through the swing")
+    ap.add_argument("--ds-margin", type=float, default=0.0, help="s: the held shift extends this long past lift-off / touchdown")
     ap.add_argument("--drop-frac", type=float, default=0.4, help="round 18 walk: last fraction of the swing spent lowering")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
     ap.add_argument("--splay", type=float, default=0.0, help="rad, both hip rolls abducted throughout: a wider stance "
@@ -262,8 +310,16 @@ def main():
     for k_, v_ in (("set_frac", a.set_frac), ("hover", a.hover), ("place_frac", a.place_frac), ("rel0", a.rel0)):
         if v_ != (1.0 if k_ == "place_frac" else 0.0):
             p[k_] = v_
+    if a.ik_h > 0:
+        p.update(ik_swing=True, ik_h=a.ik_h, ik_rise=a.ik_rise, ik_drop=a.ik_drop)
+        if a.ik_reach > 0:
+            p.update(ik_reach=a.ik_reach)
+    if a.kind == "walk" and a.bump > 0:
+        p.update(bump=a.bump, bump_sw=1.0)
     if a.kind == "walk":
         p.update(flat=a.flat, drop_frac=a.drop_frac, place_frac=a.place_frac, rise_frac=a.rise_frac)
+        if a.sway_ds:
+            p.update(sway_ds=True, ds_margin=a.ds_margin)
     vs = np.linspace(0, a.vmax, a.nv) if a.kind in ("step", "walk") else np.array([0.0, a.vmax])
     t = build(a.kind, p, vs, a.nphase)
     REF_DIR.mkdir(exist_ok=True)

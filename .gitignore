@@ -273,3 +273,12 @@ robotvid/
 !runs/l4_mid/params_0020M.pkl
 !runs/l7_s15/params_0020M.pkl
 !runs/l9_s18/params_0020M.pkl
+# rounds 18-19 (2026-11-16): the p1_s13 / p4_gate chain (l9 -> n7 -> n11 -> n15 -> p1 -> p4), p3, and the 10M checkpoints tested on the robot
+!runs/n7_s12/params_0020M.pkl
+!runs/n11_s16r/params_0020M.pkl
+!runs/n15_s20/params_0020M.pkl
+!runs/n19_s25/params_0010M.pkl
+!runs/n18_s23/params_0010M.pkl
+!runs/p1_s13/params_0020M.pkl
+!runs/p3_bump/params_0020M.pkl
+!runs/p4_gate/params_0020M.pkl

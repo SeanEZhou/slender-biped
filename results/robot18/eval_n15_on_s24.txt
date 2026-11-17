@@ -1,0 +1,3 @@
+gait n15_s20 (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S24t10 ref_table="c_S24t10" gait_hz=0.5 settle_gate_u=[0.1523,0.6523]
+  up  60%  walked  26.6 cm (median of up)  touchdowns 603  |  landing speed p50  277 p90  309 mm/s  jolt after td p50  15.2 p90  20.7  mid-swing   3.0 (deg/s per tick)  clearance p10 36.6 p50 44.9 mm
+  gate holding (clock stopped) 11.5 % of the walking time

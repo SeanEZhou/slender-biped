@@ -1,0 +1,11 @@
+gait p2_s18 (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_P2s18
+  up  65%  walked  30.2 cm (median of up)  touchdowns 556  |  landing speed p50  283 p90  314 mm/s  jolt after td p50  17.9 p90  23.0  mid-swing   3.0 (deg/s per tick)  clearance p10 35.1 p50 40.0 mm
+  gate holding (clock stopped) 5.6 % of the walking time
+  swing profile (lowest board point, mm, lift-off .. scheduled touchdown):   -0    0    4   11   24   36   40   40   37   29   20    8   -0
+  lands vs scheduled touchdown: p10 -0.44 p50 -0.02 p90 +0.04 s
+gait p2_s18 (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_P2s18
+  up  67%  walked  26.1 cm (median of up)  touchdowns 489  |  landing speed p50  272 p90  300 mm/s  jolt after td p50  14.8 p90  19.3  mid-swing   2.9 (deg/s per tick)  clearance p10 35.2 p50 39.8 mm
+  gate holding (clock stopped) 6.3 % of the walking time
+gait p2_s18 (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_P2s18 prof_acc=[6.0,60.0,25.0]
+  up  71%  walked  31.6 cm (median of up)  touchdowns 567  |  landing speed p50  246 p90  290 mm/s  jolt after td p50  13.6 p90  18.6  mid-swing   2.7 (deg/s per tick)  clearance p10 29.0 p50 35.6 mm
+  gate holding (clock stopped) 7.2 % of the walking time

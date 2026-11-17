@@ -1,0 +1,11 @@
+gait p4_gate (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_P1s13
+  up  88%  walked  32.4 cm (median of up)  touchdowns 664  |  landing speed p50  269 p90  300 mm/s  jolt after td p50  19.8 p90  24.9  mid-swing   2.9 (deg/s per tick)  clearance p10 30.9 p50 36.1 mm
+  gate holding (clock stopped) 4.4 % of the walking time
+  swing profile (lowest board point, mm, lift-off .. scheduled touchdown):   -0   -0    1    6   19   32   36   35   31   23   14    4   -0
+  lands vs scheduled touchdown: p10 -0.46 p50 -0.44 p90 -0.02 s
+gait p4_gate (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_P1s13
+  up  73%  walked  31.9 cm (median of up)  touchdowns 583  |  landing speed p50  260 p90  293 mm/s  jolt after td p50  16.1 p90  21.6  mid-swing   2.7 (deg/s per tick)  clearance p10 31.8 p50 37.1 mm
+  gate holding (clock stopped) 5.8 % of the walking time
+gait p4_gate (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_P1s13 prof_acc=[6.0,60.0,25.0]
+  up  81%  walked  29.8 cm (median of up)  touchdowns 651  |  landing speed p50  250 p90  288 mm/s  jolt after td p50  16.8 p90  21.0  mid-swing   2.8 (deg/s per tick)  clearance p10 23.2 p50 31.4 mm
+  gate holding (clock stopped) 5.7 % of the walking time

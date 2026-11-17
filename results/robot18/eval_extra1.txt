@@ -1,0 +1,12 @@
+gait n10_s14:params_0000M.pkl (params_0000M.pkl) sim robot vx 0.015 n 48 20s | c_S14fast
+  up  75%  walked  31.2 cm (median of up)  touchdowns 635  |  landing speed p50  198 p90  282 mm/s  jolt after td p50  15.0 p90  18.8  mid-swing   2.9 (deg/s per tick)  clearance p10 29.4 p50 39.8 mm
+  gate holding (clock stopped) 10.6 % of the walking time
+gait n10_s14:params_0010M.pkl (params_0010M.pkl) sim robot vx 0.015 n 48 20s | c_S14fast
+  up   6%  walked  37.4 cm (median of up)  touchdowns 215  |  landing speed p50  190 p90  271 mm/s  jolt after td p50  15.0 p90  19.1  mid-swing   3.8 (deg/s per tick)  clearance p10 30.8 p50 39.8 mm
+  gate holding (clock stopped) 16.2 % of the walking time
+gait n7_s12 (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_S12fix settle_gate_u=[]
+  up  92%  walked  30.8 cm (median of up)  touchdowns 715  |  landing speed p50  182 p90  249 mm/s  jolt after td p50  13.7 p90  17.8  mid-swing   2.7 (deg/s per tick)  clearance p10 20.4 p50 36.8 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+gait n7_s12 (params_0020M.pkl) sim loose vx 0.015 n 48 20s | c_S12fix settle_gate_u=[]
+  up  48%  walked  29.9 cm (median of up)  touchdowns 458  |  landing speed p50  174 p90  217 mm/s  jolt after td p50  11.8 p90  15.7  mid-swing   2.6 (deg/s per tick)  clearance p10 33.0 p50 38.8 mm
+  gate holding (clock stopped) 0.0 % of the walking time

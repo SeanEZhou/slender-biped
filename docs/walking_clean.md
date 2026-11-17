@@ -2226,3 +2226,75 @@ What the video and logs show:
 - **The right foot swings first.** walk_steps.py, landing.py and round 16's description of its attitude gate had the
   sides swapped. Corrected: round 16's fatal lift-offs leaned toward the *stance* foot. The gate, swapped identically
   in training and on the robot, holds exactly those; it is kept as trained.
+
+## 38. Round 18: continuous walking (2026-11-16 11:05-17:57, simulation)
+
+The goal: steps quiet enough that the robot can take the next one right away, stepping continuously like a human or
+a G1 instead of step, stop, step. Details: [results/robot18/NOTES.md](../results/robot18/NOTES.md).
+
+**A human-like reference didn't train.** New `shift_gait.py walk` tables: one smooth periodic sway, constant pelvis
+speed, a quintic straight-down swing by IK, no holds or jumps. From l9 they fell 60-96 % in simulation. Taken apart:
+- **The straight-down swing alone** (on l9's structure): 29 % up.
+- **The smooth structure alone** (with l9's swing): 15 %.
+- **The missing piece is swing-leg retraction.** l9's equal hip + knee lift swings the foot ~5 cm ahead and pulls it
+  back as it lands. That pull-back stabilises the gait, and near the floor it is also the rug skim.
+
+**One change at a time from l9 worked:**
+1. **n7** removes the 4 deg hip-roll jump at every step boundary (a round-17 table bug). Loose sim 42 -> 61 %.
+2. **n11** does the retraction while the foot is high, then sets it straight down. The rug skim is gone (the lowest
+   point over the last third of the swing is 28 / 15 / 6 mm against l9's 12 / 1 / 0); loose sim 83 %.
+3. **n15** removes the stop at the centre of the weight shift. Robot sim 91 %, loose sim 86 %, the gate holding 5 %.
+4. **1.1 s steps hold** (n16 86 / 80 %; n19 at 10M 88 / 79 %). **1.0 s steps don't** (15-58 %).
+
+**The cost:** the straight-down landing is faster in the simulator (267 against 184 mm/s). A 30 mm lift softens it
+(n18 10M: 228 mm/s, jolt 12.7), with some loss of robustness.
+
+**Also:**
+- **Evaluate the starting policy on a new table before training on it.** n7's policy walked the 1.0 s table zero-shot
+  (75 %), and 10M of training on it collapsed it (6 %).
+- **The gate still matters with loose hips** (n7 without it: 75 -> 48 % in the loose sim).
+- **Second fine-tunes often lost robustness.** Their 10M checkpoints were sometimes better (n18, n19).
+
+**For the robot:** n15_s20, n19_s25 (10M), n18_s23 (10M), n7_s12, then l9 as the baseline, all `--vx 0.015
+--act-lpf 0.7 --video` (checkpoints with `--params params_0010M.pkl`).
+
+## 39. Round 19: less lean, transfer after the foot is down (2026-11-16 19:25-21:09, simulation)
+
+**Round 18 on the robot** (18:52-19:01, 17 trials): n15 / n18 / n19 / n7 fall every 1.5-5 steps (l9: every 19). They
+fall outward over the stance foot. The operator: the step is "done" mid-air and the robot is already leaning; far too
+much lean; longer, shorter steps.
+- **The joints trail their commands by 80 ms** (knee, hip pitch) **and 120-140 ms** (hip roll), so the transfer starts
+  with the foot still in the air.
+- **At lift-off n15's legs open ~30 deg** (l9's policy cancels most of its table's stance shift: ~20 deg).
+- **The gate held n15's clock 14-31 % of the time on the robot** (5 % in simulation).
+- The simulator rated n15 at 91 %.
+
+**Round 19:**
+- **The changes:** shift 0.18 -> 0.13; the transfer held 0.1 s past the scheduled touchdown, then 0.2 s; no centre
+  pause.
+- **The smaller shift is what helps.** p1 (n15's swing) and p3 (l9's swing) stay up 94-96 % in the robot sim, with
+  the legs 20-23 deg apart at lift-off. p2 (only the held transfer) 65 %.
+- **p4** relaxes the gate's lean limits (5 / 8 deg): the clock stops 4.4 % of the time.
+
+**For the robot:** p3_bump, p1_s13, p4_gate, then l9 as the baseline
+([results/robot19/NOTES.md](../results/robot19/NOTES.md)).
+
+### 39.1 On the robot (2026-11-16 23:49 - 11-17 00:03, 19 trials)
+
+Details in [results/robot19/NOTES.md](../results/robot19/NOTES.md).
+
+- **p1_s13 and p4_gate go on the working list:** even smoother than l9, but slower.
+  - p4: 115 steps without a fall; 3 of 4 trials walked 45 s and were stopped upright. The most coherent gait so far.
+  - p1: 5 falls in 152 steps, two 50 s walks.
+  - Body roll per cycle 9-10 deg (l9 13, k5 12.5); the gate pauses 6-8 % of the time (l9 19 %, n15 26 %).
+- **They are slower because they step what the table asks:** 34 mm strides at `--vx 0.015` (the table: 36 mm),
+  14 mm/s. l9 (42 mm) and k5 (54 mm, partly the body tipping forward) overstep. In simulation p1 / p4 hardly lengthen
+  their stride at vx 0.025-0.03: the policy flattens the commanded stride.
+- **The remaining falls go right:** 10 of the 11 tilts past 10 deg, over the right foot. Every policy walks with a
+  1-2 deg right bias.
+- **p3 trips:** l9's bump swing, shortened to 0.55 s, drags on the rug (38 % of mid-swing under 10 mm).
+
+**The operator, comparing k5, l9, p1 and p4 side by side:** the use of the hips is the step change. k5 absorbs the
+impact of each step and then continues; from l9 on the hips roll continuously and compensate, and the steps run into
+each other. p1 / p4 are more stable but slower, p4 the most coherent and the slowest. The direction to double down on:
+p4's gait, with longer steps.

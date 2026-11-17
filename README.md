@@ -1275,7 +1275,7 @@ into the model. Details: [docs/walking_clean.md §15–16](docs/walking_clean.md
 </table>
 
 Adding the torso and head (§12) put 0.3 kg 154 mm above the hips, and the legs' walker only marched in place with
-them on. Getting from there to a walk took five breakthroughs, each kept by the next
+them on. Getting from there to a walk took six breakthroughs, each kept by the next
 ([docs/walking_clean.md](docs/walking_clean.md) §0 and its history section have the full story).
 
 1. **The policy corrects a reference gait; it doesn't invent one.** Every walker outputs small corrections (±14° per
@@ -1298,6 +1298,17 @@ them on. Getting from there to a walk took five breakthroughs, each kept by the 
 5. **Fix the hardware before retraining.** Loose hip-yaw servo screws and a few degrees of zero error on the left leg
    were behind most falls. Tightened and re-zeroed, k5 went from a median 7.8 s and 4 steps to **25.7 s and 30 steps
    (best 33 s / 42 steps)**, its falls no longer all to one side. No training change did as much.
+6. **Balance with the hips, continuously.** k5 absorbs the impact of each step and then continues. From `l9_s18` on,
+   the reference gait rolls the hips through the whole step (a weight shift toward the stance foot that starts before
+   lift-off and is released after the swinging foot is down), and the policy uses the hip roll to compensate as it
+   goes. Steps run into each other instead of landing, settling, and starting again. `p1_s13` / `p4_gate` (round 19)
+   keep that roll but smaller (shift 0.13 instead of 0.18) and hold the transfer until 0.1 s after touchdown: the
+   smoothest walkers so far ([docs/walking_clean.md](docs/walking_clean.md) §38–39).
+
+<img src="assets/gifs/real_gait_k5_l9_p1_p4.gif" width="900" alt="k5, l9, p1 and p4 walking side by side, synced on the gait clock">
+<br><sub>The same 7.5 s of the gait clock on the robot, real time, from a right-foot lift-off: <code>k5_high2</code>
+(2026-11-15), <code>l9_s18</code>, <code>p1_s13</code>, <code>p4_gate</code> (2026-11-16, same session). Each tile
+follows the robot; "lands" marks each scheduled touchdown. k5 lands and settles; l9 onward roll through the steps.</sub>
 
 | policy | on the robot (0.015 m/s command) |
 |---|---|
@@ -1305,6 +1316,8 @@ them on. Getting from there to a walk took five breakthroughs, each kept by the 
 | `h4_t05 --act-lpf 0.6` | 188 s (299 steps), 74 s, 76 s; small steps, occasional twitching |
 | **`k5_high2 --act-lpf 0.7`** | **median 25.7 s / 30 steps over 17 trials**; large steps, sometimes drifts left |
 | **`l9_s18 --act-lpf 0.7`** | 41 s and 48 s (2026-11-16): the softest, quietest steps so far (peak landing jolt 30 % below k5); the swing ends skimming the rug |
+| **`p1_s13 --act-lpf 0.7`** | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps; even smoother than l9 (body roll 9° per cycle against 13°, the gate pausing 6 % of the time against 19 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s |
+| **`p4_gate --act-lpf 0.7`** | 2026-11-16: 3 of 4 trials walked 45 s and were stopped upright, 115 steps without a fall; the most coherent gait so far, and the slowest (same stride as p1) |
 
 **Now: recovering from pushes.** Training standing policies with shoves only made their planted balance firmer: on
 the robot they barely moved while falling. The current approach treats recovery like walking: IK-built recovery
