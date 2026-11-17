@@ -2266,7 +2266,7 @@ much lean; longer, shorter steps.
 - **The joints trail their commands by 80 ms** (knee, hip pitch) **and 120-140 ms** (hip roll), so the transfer starts
   with the foot still in the air.
 - **At lift-off n15's legs open ~30 deg** (l9's policy cancels most of its table's stance shift: ~20 deg).
-- **The gate held n15's clock 14-31 % of the time on the robot** (5 % in simulation).
+- **The gate held n15's clock 14-31 % of the time on the robot** (5 % in simulation). *Corrected 2026-11-17: 5.6 %; the log's `gate_held` is a tick counter and those numbers averaged it.*
 - The simulator rated n15 at 91 %.
 
 **Round 19:**
@@ -2286,7 +2286,7 @@ Details in [results/robot19/NOTES.md](../results/robot19/NOTES.md).
 - **p1_s13 and p4_gate go on the working list:** even smoother than l9, but slower.
   - p4: 115 steps without a fall; 3 of 4 trials walked 45 s and were stopped upright. The most coherent gait so far.
   - p1: 5 falls in 152 steps, two 50 s walks.
-  - Body roll per cycle 9-10 deg (l9 13, k5 12.5); the gate pauses 6-8 % of the time (l9 19 %, n15 26 %).
+  - Body roll per cycle 9-10 deg (l9 13, k5 12.5); the gate pauses 2.5-3.2 % of the time (l9 4.3 %, n15 5.6 %; corrected 2026-11-17).
 - **They are slower because they step what the table asks:** 34 mm strides at `--vx 0.015` (the table: 36 mm),
   14 mm/s. l9 (42 mm) and k5 (54 mm, partly the body tipping forward) overstep. In simulation p1 / p4 hardly lengthen
   their stride at vx 0.025-0.03: the policy flattens the commanded stride.
@@ -2298,3 +2298,53 @@ Details in [results/robot19/NOTES.md](../results/robot19/NOTES.md).
 impact of each step and then continues; from l9 on the hips roll continuously and compensate, and the steps run into
 each other. p1 / p4 are more stable but slower, p4 the most coherent and the slowest. The direction to double down on:
 p4's gait, with longer steps.
+
+## 40. Round 20: a farther p4, and the flat-hip leg (2026-11-17 01:07-09:00, simulation)
+
+Details: [results/robot20/NOTES.md](../results/robot20/NOTES.md). 13 runs from p4, each scored in the robot simulator
+at 0.015-0.06 m/s and with loose and slow hips.
+
+**A farther p4.** Pushing p4 on today's leg gained 20-35 % ground and lost stability:
+- doubling the progress reward (q1);
+- paying for longer strides (q2, q5);
+- 1.1 s steps (q3);
+- faster commands (q4).
+
+The one that kept it is **q7_v5**: p4's table to 0.06 m/s, then continued at a fixed 0.05-0.06. It holds 98 % up and
+39 cm at 0.03 m/s (p4: 90 %, 35 cm), and 81 % with slow hips.
+
+**No policy walks at its command above ~0.025 m/s.** All 13 settle at 17-30 mm/s whatever they are asked.
+
+**The flat-hip leg** (`scripts/make_flathip_model.py`):
+- **The layout:** pitch / roll / yaw servos front to back under the hip plate, the yaw servo behind the hip under a
+  round butt.
+- **Lengths:** thigh 178 mm and shin 144 mm, against 138 / 111 mm, at the same height.
+- **Less rotation for the same speed:** the gait swings the hip pitch 29 deg at 0.03 m/s, against 36 deg.
+- **Results:**
+  - With its centre of mass 10 mm back (the butt), nothing walked. With it rebalanced (the torso ~42 mm forward), the
+    leg trained.
+  - It was more robust than today's leg in 2 of 3 matched pairs and failed the third.
+  - It never walked farther.
+  - Its swing inertia about the hip is 1.7x, and it lands harder.
+- **On this evidence it is not yet a speed gain.** If built: keep the centre of mass over the hips and the shin and
+  foot light.
+
+**For the robot:** q7_v5 at `--vx 0.03` and `0.045`, against p4 at `--vx 0.03`.
+
+### 40.1 On the robot (2026-11-17 10:25-10:31, 6 trials)
+
+Details in [results/robot20/NOTES.md](../results/robot20/NOTES.md).
+
+- **p4 remains the most stable, smooth and continuous walker.** At the higher command: 0 falls in 78 steps, stride
+  34 -> 42 mm, 17 mm/s.
+- **q7 trips on its first steps:**
+  - Trained at one high command, it cancels a third of the weight shift: legs 7.6 deg apart at lift-off against p4's
+    17.
+  - The body pitches forward over the left landing.
+  - The simulator rated it the round's best (98 %).
+- **q2 looks like k5:** less shift, the body pitching forward, and no faster than p4.
+- **Why the flat hip isn't faster in simulation:** the tables hold the pelvis still for 60 % of the cycle and surge
+  it during each swing at up to 5x the average speed. The ankle-less boards can't follow, the body rocks back about
+  40 % of every surge, and both legs cap at 17-30 mm/s. Next: a constant pelvis speed with p4's shift.
+- **Correction:** the gate-hold shares reported from robot logs in §38-39 averaged a tick counter. Held time is l9
+  4.3 %, n15 5.6 %, p1 2.5 %, p4 3.2 %.

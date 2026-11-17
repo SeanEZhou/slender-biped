@@ -1316,8 +1316,8 @@ follows the robot; "lands" marks each scheduled touchdown. k5 lands and settles;
 | `h4_t05 --act-lpf 0.6` | 188 s (299 steps), 74 s, 76 s; small steps, occasional twitching |
 | **`k5_high2 --act-lpf 0.7`** | **median 25.7 s / 30 steps over 17 trials**; large steps, sometimes drifts left |
 | **`l9_s18 --act-lpf 0.7`** | 41 s and 48 s (2026-11-16): the softest, quietest steps so far (peak landing jolt 30 % below k5); the swing ends skimming the rug |
-| **`p1_s13 --act-lpf 0.7`** | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps; even smoother than l9 (body roll 9° per cycle against 13°, the gate pausing 6 % of the time against 19 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s |
-| **`p4_gate --act-lpf 0.7`** | 2026-11-16: 3 of 4 trials walked 45 s and were stopped upright, 115 steps without a fall; the most coherent gait so far, and the slowest (same stride as p1) |
+| **`p1_s13 --act-lpf 0.7`** | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps; even smoother than l9 (body roll 9° per cycle against 13°, the gate pausing 2.5 % of the time against 4.3 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s |
+| **`p4_gate --vx 0.03 --act-lpf 0.7`** | the most stable, smooth and continuous gait so far. At `--vx 0.015` (2026-11-16): 115 steps without a fall, but the slowest (34 mm strides, 14 mm/s). At `--vx 0.03` (2026-11-17): 42 mm strides at 17 mm/s, 78 steps without a fall |
 
 **Now: recovering from pushes.** Training standing policies with shoves only made their planted balance firmer: on
 the robot they barely moved while falling. The current approach treats recovery like walking: IK-built recovery
@@ -1345,6 +1345,11 @@ forward when pushed from behind; sideways and backward steps don't work yet
 - **Torso and head.** The full robot walks (§17): `k5_high2` takes large steps for ~26 s per trial (median), `h4_t05`
   once walked 188 s. The remaining faults: some trials drift left, and an occasional twitch against the frame's 5 Hz
   ring. It can't yet recover from a push that needs a step.
+- **Leg v2: the flat hip (designed, simulation only; [docs/leg_v2.md](docs/leg_v2.md)).** The hip servos lie in a
+  row under the hip plate (pitch / roll / yaw, front to back) instead of stacking down the leg, so the thigh and shin
+  take the leg's whole length: 178 / 144 mm against 138 / 111 at the same height, and ~20 % less hip rotation for
+  the same speed. In simulation it was the more stable leg in 2 of 3 matched training pairs, and not yet faster:
+  speed is capped by the reference gait's stop-and-go body motion on both legs.
 - **First, keep closing the sim-to-real gap with measurements** ([docs/measuring.md](docs/measuring.md)): fit the
   simulator to each before training on it: the backward lean (stance offsets, cable pull), the outer-edge strips, the
   hip give directly (E6), landings and foot clearance (E3–E5).

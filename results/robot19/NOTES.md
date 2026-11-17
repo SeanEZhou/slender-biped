@@ -25,7 +25,7 @@ What the logs show ([r19 analysis in this file's scripts](../../scripts/robot18_
   - At lift-off, n15's legs open ~30 deg: the swing hip roll +19-21 deg out, the stance hip in 8-10 deg.
   - l9: ~20 deg (+15-19 out, only 3.5-4.4 in): l9's policy cancels most of its table's 10 deg stance shift.
   - n15 keeps all of it.
-- **Stops:** on the robot the gate held n15's clock 14-31 % of the time (simulator 5 %), so its steps take 1.28-1.35 s
+- **Stops:** on the robot the gate held n15's clock 14-31 % of the time (simulator 5 %) [wrong, see the correction below: 5.6 %], so its steps take 1.28-1.35 s
   against l9's 1.23-1.28. The lean trips the gate's lean check.
 - **The landing:** n15's knee extends at ~193 deg/s just before touchdown (l9 ~70): the straight-down drop is fast on
   the robot. The peak jolt after touchdown is the same as l9's (33 vs 34). The operator hears it as quieter.
@@ -75,7 +75,7 @@ Hip roll at lift-off from the CPU sim ([lo_cpu.py-style check]: commanded hip ro
 - **p3 (l9's swing, shift 0.13, transfer held; from n7):** l9's soft landings (173 mm/s, jolt 13.4) and the least lean
   (legs open ~20.5 deg). Robot sim 94 %, but loose 69 %. Late in the swing it still comes close to the floor
   (9 / 2 / 0 mm). The gate holds 11 %.
-- The gate holds 9-14 % of the time in the new runs, and on the robot it held n15 14-31 %. **p4_gate:** p1 with the
+- The gate holds 9-14 % of the time in the new runs, and on the robot it held n15 14-31 % [corrected: 5.6 %]. **p4_gate:** p1 with the
   gate's lean limits relaxed from 3 / 6 deg to 5 / 8 deg (`settle_gate_att [0.087, 0.140]`), from p1. Fewer stops,
   if the lean is now small enough not to need them.
 - **p2 (only the transfer held, shift 0.18 kept): worse** (65 / 67 / 71 %, the legs still open 28 deg). The smaller
@@ -111,7 +111,7 @@ All `--vx 0.015 --act-lpf 0.7 --video`. Each run's config carries its table, gat
 What to look for:
 - **Does the robot stay over the stance foot until the swinging foot is down?** Point 1: the transfer now waits 0.1 s.
 - **Is the lean visibly smaller than n15's?**
-- **Do steps come more regularly, with fewer pauses?** The log's `gate_held`; n15 was held 14-31 % on the robot.
+- **Do steps come more regularly, with fewer pauses?** The log's `gate_held`; n15 was held 14-31 % on the robot [corrected: 5.6 %].
 - **Falls per step against l9's 19 touchdowns per fall tonight.**
 
 Afterwards: `scripts/robot18_analysis/swing_clear.py <logs>` (falls per touchdown, swing height) and
@@ -125,18 +125,24 @@ slower than l9 or k5, whose steps are much bigger. p3 doesn't work.
 `swing_clear.py` (fall = tilt > 20 deg) and `scripts/robot19_analysis/gait_metrics.py`. k5 and l9 rows are from earlier
 sessions (11-15 21:37-21:51, 11-16 18:58-19:01) plus tonight's l9 baseline.
 
+
+> **Correction (2026-11-17):** the robot log's `gate_held` counts the ticks a hold has lasted (0, 1, 2, ...); the
+> round-18/19 robot numbers averaged that counter. The share of walking time the clock was held: k5 1.9 %, l9 4.3 %,
+> n15 5.6 %, p1 2.5 %, p4 3.2 % (simulation figures were right: they test `gate_held > 0`). n15's lean did not trip
+> the gate much more than l9's; its longer steps (1.30 s) are not explained by the gate.
+
 | run | trials | walking s | touchdowns | falls | falls / td | step len mm | stride mm | s / step | speed mm/s | roll p2p deg | hip-roll spread at lift-off | gate held |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| k5_high2 | 12 | 196 | 157 | 11 | 7.0 % | 27 | 54 | 1.20 | 23 | 12.5 | 8 | 6 % |
-| l9_s18 | 5 | 108 | 83 | 3 | 3.6 % | 25 | 42 | 1.24 | 17 | 13.3 | 17 | 19 % |
-| n15_s20 (round 18) | 8 | 43 | 32 | 7 | 22 % | 21 | 24 | 1.30 | 9 | 8.6 | 27 | 26 % |
-| **p1_s13** | 7 | 188 | 152 | 5 | 3.3 % | 26 | 34 | 1.22 | 14 | 9.4 | 16 | 6 % |
-| **p4_gate** | 4 | 143 | 115 | 0 | 0 % | 27 | 34 | 1.24 | 14 | 10.3 | 17 | 8 % |
+| k5_high2 | 12 | 196 | 157 | 11 | 7.0 % | 27 | 54 | 1.20 | 23 | 12.5 | 8 | 1.9 % |
+| l9_s18 | 5 | 108 | 83 | 3 | 3.6 % | 25 | 42 | 1.24 | 17 | 13.3 | 17 | 4.3 % |
+| n15_s20 (round 18) | 8 | 43 | 32 | 7 | 22 % | 21 | 24 | 1.30 | 9 | 8.6 | 27 | 5.6 % |
+| **p1_s13** | 7 | 188 | 152 | 5 | 3.3 % | 26 | 34 | 1.22 | 14 | 9.4 | 16 | 2.5 % |
+| **p4_gate** | 4 | 143 | 115 | 0 | 0 % | 27 | 34 | 1.24 | 14 | 10.3 | 17 | 3.2 % |
 | p3_bump | 3 | 10 | 8 | 3 | 38 % | 17 | 30 | 1.22 | 12 | 8.6 | 12 | 3 % |
 
 - **p1 / p4 are the steadiest walkers so far.** p4: 3 of 4 trials walked 45 s and were stopped up (one near-tilt
   of 10 deg each); p1: 2 x 50 s up, 5 falls in 152 touchdowns. Body roll per cycle is 9-10 deg against l9's 13 and k5's
-  12.5, the gate holds 6-8 % of the time (n15 26 %, l9 19 %), step time 1.22-1.24 s and even.
+  12.5, the gate holds 2.5-3.2 % of the time (n15 5.6 %, l9 4.3 %; corrected 2026-11-17), step time 1.22-1.24 s and even.
 - **They are slower because they step exactly what they are asked.** At `--vx 0.015` every table asks for a
   36 mm stride (0.015 m/s x 2.4 s per cycle); p1 / p4 make 34 mm, at 14 mm/s. k5 (54 mm, 23 mm/s) and l9 (42 mm)
   overstep: l9 also in simulation (40 cm per 20 s against p1's 31), k5 only on the robot, where 5 of its 11 falls are

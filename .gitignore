@@ -282,3 +282,8 @@ robotvid/
 !runs/p1_s13/params_0020M.pkl
 !runs/p3_bump/params_0020M.pkl
 !runs/p4_gate/params_0020M.pkl
+# round 20 (2026-11-17): robot-tested (q2, q7) and the leg v2 (flat hip) walkers
+!runs/q2_v6s/params_0020M.pkl
+!runs/q7_v5/params_0030M.pkl
+!runs/f1_bal/params_0030M.pkl
+!runs/f2_fast/params_0030M.pkl

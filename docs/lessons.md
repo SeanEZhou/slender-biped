@@ -22,6 +22,23 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 20 on the robot (2026-11-17)
+
+- **Check what a log column means before averaging it.** `gate_held` counts ticks into a hold; averaging it inflated
+  the gate's share 3-5x and produced a wrong finding ("big leans trip the gate").
+- **Watch the weight shift at lift-off when tuning for speed.** On the robot, every faster policy gave up some of the
+  shift (q7: half of p4's), and that is what made it fall. The simulator didn't penalise it.
+- **Fine-tuning at one command narrows the policy** (q7 at 0.05-0.06 m/s). Keep the command range wide.
+
+## Round 20 (2026-11-17, simulation)
+
+- **Check whether a policy follows its speed command before tuning for speed.** Every fine-tune from p4 settled at
+  17-30 mm/s whatever it was asked. Rewards for progress and stride moved stability, not speed.
+- **One seed per design is not a comparison.** The flat-hip leg beat today's leg on stability in two matched pairs
+  and lost the third badly. Run more than one seed per pair before calling a leg design better.
+- **A new frame's centre of mass is a hard constraint:** 10 mm further back and the policy never walked. Rebalance
+  in the model before training.
+
 ## Round 19 on the robot (2026-11-17)
 
 - **Continuous hip roll is what made steps run together.** k5 absorbs each landing, then continues; from l9 on the
@@ -40,7 +57,7 @@ left ([walking_clean.md §31](walking_clean.md)).
 - **More lean isn't more stable.** n15 kept its table's whole 0.18 rad shift (legs ~30 deg apart at lift-off) and fell
   outward over the stance foot on the robot. l9's policy had learned to cancel most of it. Shift 0.13 trained as robust
   in simulation with 20-23 deg.
-- **Big leans trip the gate**: on the robot it held n15's clock 14-31 % of the time (simulation 5 %). The steps got
+- ~~**Big leans trip the gate**~~ (wrong, corrected 2026-11-17: the log's `gate_held` is a tick counter and was averaged; n15 was held 5.6 % of the time, l9 4.3 %). Originally: on the robot it held n15's clock 14-31 % of the time (simulation 5 %). The steps got
   slower and shorter.
 - **The simulator ranked n15 at 91 % and the robot fell every ~5 steps.** Neither stiffer nor looser hips in simulation
   reproduced it. Robot-test small changes early.

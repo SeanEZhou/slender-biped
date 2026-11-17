@@ -1,0 +1,18 @@
+gait q7_v5 (params_0030M.pkl) sim robot vx 0.015 n 48 20s | c_Q1v6
+  up  88%  walked  35.0 cm (median of up)  touchdowns 685  |  landing speed p50  267 p90  294 mm/s  jolt after td p50  18.8 p90  24.3  mid-swing   4.0 (deg/s per tick)  clearance p10 25.8 p50 32.2 mm
+  gate holding (clock stopped) 3.3 % of the walking time
+gait q7_v5 (params_0030M.pkl) sim robot vx 0.03 n 48 20s | c_Q1v6
+  up  98%  walked  39.1 cm (median of up)  touchdowns 709  |  landing speed p50  263 p90  296 mm/s  jolt after td p50  18.6 p90  24.4  mid-swing   4.3 (deg/s per tick)  clearance p10 25.0 p50 32.2 mm
+  gate holding (clock stopped) 4.6 % of the walking time
+gait q7_v5 (params_0030M.pkl) sim robot vx 0.045 n 48 20s | c_Q1v6
+  up  90%  walked  41.7 cm (median of up)  touchdowns 702  |  landing speed p50  267 p90  297 mm/s  jolt after td p50  19.3 p90  24.4  mid-swing   4.9 (deg/s per tick)  clearance p10 23.1 p50 31.3 mm
+  gate holding (clock stopped) 4.3 % of the walking time
+gait q7_v5 (params_0030M.pkl) sim robot vx 0.06 n 48 20s | c_Q1v6
+  up  83%  walked  47.9 cm (median of up)  touchdowns 702  |  landing speed p50  268 p90  301 mm/s  jolt after td p50  18.9 p90  23.9  mid-swing   5.5 (deg/s per tick)  clearance p10 20.8 p50 32.2 mm
+  gate holding (clock stopped) 4.7 % of the walking time
+gait q7_v5 (params_0030M.pkl) sim loose vx 0.045 n 48 20s | c_Q1v6
+  up  46%  walked  42.7 cm (median of up)  touchdowns 433  |  landing speed p50  259 p90  294 mm/s  jolt after td p50  17.6 p90  22.1  mid-swing   3.8 (deg/s per tick)  clearance p10 25.8 p50 31.5 mm
+  gate holding (clock stopped) 5.4 % of the walking time
+gait q7_v5 (params_0030M.pkl) sim robot vx 0.045 n 48 20s | c_Q1v6 prof_acc=[6.0,60.0,25.0]
+  up  81%  walked  40.6 cm (median of up)  touchdowns 707  |  landing speed p50  244 p90  282 mm/s  jolt after td p50  16.9 p90  21.9  mid-swing   5.2 (deg/s per tick)  clearance p10  8.1 p50 27.2 mm
+  gate holding (clock stopped) 5.5 % of the walking time

@@ -28,7 +28,7 @@ for f in sys.argv[1:]:
         for (ue,kind,side) in ev:
             if u[i]!=u[i+1] and (u[i]-ue)%1>(u[i+1]-ue)%1: evs.append((i+1,kind,side))
     R=res.setdefault(run,dict(len=[],D=[],dt=[],spread=[],roll=[],held=[],kd=[],pitch=[],T=0,tds=0,ws=[]))
-    R['T']+=t[b]-t[k0]; R['held'].append(held[k0:b].sum()); R['tds']+=sum(e[1]=='td' for e in evs)
+    R['T']+=t[b]-t[k0]; R['held'].append((held[k0:b] > 0).sum()); R['tds']+=sum(e[1]=='td' for e in evs)   # gate_held counts the ticks a hold has lasted
     tds=[e for e in evs if e[1]=='td']
     for a,(i,kind,side) in enumerate(evs):
         if kind!='lo': continue
