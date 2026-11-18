@@ -22,9 +22,11 @@ cables hang slack above and slightly behind the robot instead of pulling, §18):
 | **`s10_robust`** | s7 + give k 2-6 + IMU offsets | **4 trials: 19-28 s (mean 24), 18-24 steps: the steadiest of round 4**; one earlier walk of 93 s (95 steps) | §15, §16 |
 | `b6_mid` | s10 + back lean + pull, shorter steps | 66 s, stopped; stable but mostly steps in place (11-14 mm), toes catch the rug | §17, §18 |
 | **`b7_seed2`** | s10 + back lean + pull | **122 s and 99 s, 45 s**: the best leg policy so far, smooth on a flat rug; the longest steps (L 22-33, R 14-21 mm), fewest servo reversals. Toes catch on rougher rug; heels close (one fall with the heels together) | §17, §18 |
+| **`h4_t05` + `--act-lpf 0.6`** | full body, round 6 (§19); action low-pass at run time | **the best full-body walker until round 10: 188 s (299 steps, stopped standing), 74 s (115, fell left), 76 s (109, ended at 7° roll)** on 2026-11-13 evening; pitched 4.5° forward. With `--act-lpf 0.7` (22:16): 147 s (251 steps) and 138 s (227), both ended standing; at `--vx 0.02` 84 s, 67 s and 32 s (fell right in a twitch bout) (§24). It sometimes starts fighting the 5 Hz ring and twitches when there's no need. `python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` | §20, §22 |
 | **`k5_high2` + `--act-lpf 0.7`** | full body, round 10 (§27): h4 on the higher-stepping reference c_T12HH | **the best full-body walker since 2026-11-15** (after the hip-yaw screws were tightened and the left hip pitch re-zeroed, §31): 17 trials, median 25.7 s up and 30 steps (max 32.9 s, 42 steps), 7 falls (4 left, 3 right). Large, clean steps (~2x h4's lift): much faster progress per step than h4, slightly less reliable. Some trials drift left: the left step lands wider and shorter (§31). `python policy_stand.py run --run k5_high2 --enable --vx 0.015 --act-lpf 0.7 --video` (`--no-gate-guard` or not: similar) | §27, §28, §31 |
 | **`l9_s18` + `--act-lpf 0.7`** | full body, round 17 (§37): c_S9mid18, a 0.6 s soft swing with the weight held over the stance foot (shift 0.18), from k5 via m2, l4, l7 | **the softest, quietest steps so far** (2026-11-16): 41 s (33 steps, fell back) and 48 s (37 steps, stopped standing); peak landing jolt 30 % below k5 / m2. The swing ends skimming the rug, so steps feel like small trips (§37.1). `python policy_stand.py run --run l9_s18 --enable --vx 0.015 --act-lpf 0.7 --video` | §37 |
-| **`h4_t05` + `--act-lpf 0.6`** | full body, round 6 (§19); action low-pass at run time | **the best full-body walker until round 10: 188 s (299 steps, stopped standing), 74 s (115, fell left), 76 s (109, ended at 7° roll)** on 2026-11-13 evening; pitched 4.5° forward. With `--act-lpf 0.7` (22:16): 147 s (251 steps) and 138 s (227), both ended standing; at `--vx 0.02` 84 s, 67 s and 32 s (fell right in a twitch bout) (§24). It sometimes starts fighting the 5 Hz ring and twitches when there's no need. `python policy_stand.py run --run h4_t05 --enable --vx 0.015 --act-lpf 0.6` | §20, §22 |
+| **`p1_s13` + `--act-lpf 0.7`** | full body, round 19 (§39): c_P1s13, n15's swing with the weight shift cut from 0.18 to 0.13, from n15 | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps. Even smoother than l9 (body roll 9° per cycle against 13°; the gate pauses 2.5 % of the time against 4.3 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s. `python policy_stand.py run --run p1_s13 --enable --vx 0.015 --act-lpf 0.7 --video` | §39.1 |
+| **`p4_gate` + `--vx 0.03 --act-lpf 0.7`** | full body, round 19 (§39): p1 with the settle gate's lean limits relaxed to 5 / 8° (from 3 / 6°) | **the most stable, smooth and continuous gait so far**. At `--vx 0.015` (2026-11-16): 115 steps without a fall, 3 of 4 trials stopped upright after 45 s, but the slowest (34 mm strides, 14 mm/s). At `--vx 0.03` (2026-11-17): 42 mm strides at 17 mm/s, 78 steps without a fall. A small balance loss at lift-off can escalate to a fall within one step (§41). `python policy_stand.py run --run p4_gate --enable --vx 0.03 --act-lpf 0.7 --video` | §39.1, §40.1, §41 |
 
 All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
 Tried on the robot and failed (the bar for this table: 10+ steps in every trial): `fb2_lean`, `fb4_soft` (full body: step, but
@@ -2348,3 +2350,46 @@ Details in [results/robot20/NOTES.md](../results/robot20/NOTES.md).
   40 % of every surge, and both legs cap at 17-30 mm/s. Next: a constant pelvis speed with p4's shift.
 - **Correction:** the gate-hold shares reported from robot logs in §38-39 averaged a tick counter. Held time is l9
   4.3 %, n15 5.6 %, p1 2.5 %, p4 3.2 %.
+
+## 41. Round 21: a continuous gait, the weight shift, small balance losses (2026-11-17 11:36-17:14, simulation)
+
+Details: [results/robot21/NOTES.md](../results/robot21/NOTES.md).
+
+**How p4 falls** (robot, 5 trials, 3 falls). The falls come within one step of a lift-off where the body was 2-4 deg
+off its usual roll. The table's weight shift is the same amount and timing whatever the body is doing, and the
+policy's correction then overshoots. On average p4 corrects small errors; the falls are the tail.
+
+**A continuous gait** (`shift_gait.py --glide`): p4's table with the pelvis at a constant speed (feet on the floor
+sweep back all cycle).
+- At p4's shift (w1, x1) it walks 15-30 % farther than p4 in simulation.
+- It is less robust: 75-88 % up against 85-94 %, and 80 % through shoves against 95 %.
+
+**The shift amount.** Smaller tables (0.10, 0.08) gave policies that shift later: they lift off with 67-79 % of their
+peak spread.
+- A new check (`gait_eval.py`: legs apart at lift-off) ranks the robot-tested policies as the robot did: p4 91 %
+  (works), q2 86 % (shaky), q7 76 % (fell).
+- The simulator scores the late shifters highly, so it can't choose the amount.
+
+**A late-shift penalty** (`late_shift`, at each lift-off): x1 shifts on time (89 %), but only where the table shifts
+enough.
+
+**Small shoves in training:** more robust, less distance (x3).
+
+**Leg v2 on the continuous gait (f6):** the most robust policy of the round, and the slowest.
+
+**For the robot:** x1_g13L, x3_g13Ls, x2_g10L at `--vx 0.025`, against p4 at `--vx 0.03`.
+
+### 41.1 On the robot (2026-11-18 00:07-00:24, 26 trials)
+
+Details in [results/robot21/NOTES.md](../results/robot21/NOTES.md).
+
+- **x1_g13L steps on time and butter-smooth, then falls**: 12 of 16 trials, median 9 steps, 10 of them over the left
+  foot. Its shift is lopsided (the legs open 17-19 deg on right swings, 12-13 on left), the body droops a little
+  further toward the swing side every right step, and the correction finally throws it over the left foot.
+- **x2_g10L** is the most reliable of the three and walks like l9; nothing new.
+- **x3_g13Ls** reacts to small flexes and twitches; 4 of 4 trials fell on the third step.
+- **Speed is stride.** Every policy steps every 1.2-1.3 s. k5 53 mm, l9 49, x1 45, p4 40 (22 / 20 / 19 / 16 mm/s).
+- **The operator:** p4's sway is too much; smooth steps come from step timing, not big sways; the p4 / x direction
+  gives up too much speed and the sway itself costs stability. Back to k5, with k5's speed and step size as a hard
+  requirement (§42).
+

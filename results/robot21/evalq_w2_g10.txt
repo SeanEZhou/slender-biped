@@ -1,0 +1,4 @@
+gait w2_g10 (params_0030M.pkl) sim robot vx 0.025 n 48 20s | c_G10
+  up  88%  walked  40.5 cm (median of up)  touchdowns 700  |  landing speed p50  267 p90  294 mm/s  jolt after td p50  17.5 p90  23.4  mid-swing   3.7 (deg/s per tick)  clearance p10 26.6 p50 34.7 mm
+  gate holding (clock stopped) 2.2 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 19.0 p50 22.7 deg; peak in the swing p50 29.9 (lift-off / peak 76%)

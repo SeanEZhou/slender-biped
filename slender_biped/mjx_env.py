@@ -271,7 +271,7 @@ class EnvConfig:
         track_lin=1.0, track_ang=0.5, upright=1.0, height=0.5, lin_vel_z=-1.0, ang_vel_xy=-0.05,
         torque=-0.02, saturation=-0.5, overspeed=-0.5, action_rate=-0.02, joint_vel=-0.0005,
         over_rated=0.0, heading=0.0, stop=0.0, pose=-0.3, slip=-4.0, feet_air_time=0.0, contact_phase=0.0, swing_height=0.0,
-        both_feet=0.0, touchdown=0.0, liftoff=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
+        both_feet=0.0, touchdown=0.0, liftoff=0.0, late_shift=0.0, stride=0.0, ref_q=0.0, ref_tip=0.0, ref_contact=0.0, width=0.0,
         track_vy=0.0, line=0.0, airborne=0.0, settle=0.0, progress=0.0, ref_swing=0.0, land_v=0.0, scuff=0.0, foot_tilt=0.0, ang_acc=0.0, action_acc=0.0,
         clear=0.0, capture=0.0, roll_lim=0.0, tilt_lim=0.0, narrow=0.0, board_yaw=0.0, alive=0.5, act_hf=0.0,
         termination=-20.0))
@@ -393,6 +393,7 @@ class SlenderBipedEnv(Env):
                                    cfg.prof_acc[0] for j in self.joints])
         self.max_delay = max(cfg.delay_steps, cfg.dr_delay_steps[1] if cfg.dr else 0)
         self.q_nom = jp.array(self.meta["nominal_q"])
+        self._iroll = (self.joints.index("L_hip_roll"), self.joints.index("R_hip_roll"))
         lo = np.array([m.jnt_range[m.actuator_trnid[i, 0]][0] for i in range(self.nj)])
         hi = np.array([m.jnt_range[m.actuator_trnid[i, 0]][1] for i in range(self.nj)])
         self.q_lo, self.q_hi = jp.array(lo), jp.array(hi)
@@ -992,9 +993,14 @@ class SlenderBipedEnv(Env):
                 # step-and-settle (2026-11-08): body rotation rate while the reference has both boards down
                 settle=jp.where(moving & jp.all(st_ref), jp.sum(w_body[:2] ** 2), 0.0),
                 # the scheduled foot is up during its swing (lowest point, up to ref_swing_h): standing earns nothing
-                ref_swing=jp.where(moving, jp.sum(jp.where(st_ref, 0.0, jp.clip(low, 0.0, c.ref_swing_h) / c.ref_swing_h)), 0.0))
+                ref_swing=jp.where(moving, jp.sum(jp.where(st_ref, 0.0, jp.clip(low, 0.0, c.ref_swing_h) / c.ref_swing_h)), 0.0),
+                # round 21: at each real lift-off, the legs' hip-roll spread short of the reference's (rad^2): a policy
+                # that moves its weight across late (q7_v5 on the robot) pays; corrections at other times are free
+                late_shift=jp.where(moving, jp.sum(liftoff) * jp.maximum(
+                    jp.abs(q_ref[self._iroll[0]] - q_ref[self._iroll[1]])
+                    - jp.abs(data.qpos[7 + self._iroll[0]] - data.qpos[7 + self._iroll[1]]), 0.0) ** 2, 0.0))
         else:
-            ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0, settle=0.0, ref_swing=0.0)
+            ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0, settle=0.0, ref_swing=0.0, late_shift=0.0)
         capture, free = 0.0, jp.array(False)
         if c.capture_v > 0:
             vh = v_world[:2]

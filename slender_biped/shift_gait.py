@@ -81,6 +81,13 @@ def step_pose(t, T, d, p):
     prog = _cyc((tau - t_sw0) / (p["swing_t"] * p.get("place_frac", 1.0)))
     x_sw = -d / 2 + d * prog
     x_st = d / 2 - d * prog
+    if p.get("glide"):
+        # round 21: the pelvis moves at a constant speed. Every foot on the floor sweeps back relative to the pelvis at
+        # d / T through the whole cycle (double support included); the swinging foot blends from the track it lifted
+        # off (behind) onto the track it lands on (ahead), so it is still on the floor from placement on.
+        r_ = d / T
+        x_st = d / 2 - r_ * tau
+        x_sw = (-d / 2 - r_ * tau) * (1.0 - prog) + (d / 2 + r_ * (T - tau)) * prog
     q[4 * leg + 2:4 * leg + 4] = foot_q(x_sw)
     q[4 * st_leg + 2:4 * st_leg + 4] = foot_q(x_st)
     lift = 0.0
@@ -113,13 +120,14 @@ def step_pose(t, T, d, p):
         lift = p["swing_h"] * b
     # weight shift: in over shift_t before the swing, out over the swing plus release_t
     if d > 0:
+        sh_t = p["shift_t"] - p.get("shift_lead", 0.0)   # round 22: the shift is complete shift_lead s before lift-off
         if p.get("hold_shift"):                  # 2026-11-09 slow step: stay over the stance foot until touchdown
-            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
+            a = _ease((tau - t_sh0) / sh_t) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
         elif p.get("rel0", 0.0) > 0:             # round 17: the release starts at rel0 of the swing (1 = touchdown)
             t_r = t_sw0 + p["rel0"] * p["swing_t"]
-            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_r) / (t_sw1 - t_r + p["release_t"])))
+            a = _ease((tau - t_sh0) / sh_t) * (1.0 - _ease((tau - t_r) / (t_sw1 - t_r + p["release_t"])))
         else:
-            a = _ease((tau - t_sh0) / p["shift_t"]) * (1.0 - _ease((tau - t_sw0) / (p["swing_t"] + p["release_t"])))
+            a = _ease((tau - t_sh0) / sh_t) * (1.0 - _ease((tau - t_sw0) / (p["swing_t"] + p["release_t"])))
         q[4 * st_leg + 1] -= p["shift"] * a          # stance leg inward
         q[4 * leg + 1] += (p["shift"] + p["out"]) * a if tau < t_sw0 else p["shift"] * a
         if tau >= t_sw0:                             # the swing leg keeps `out` from lift-off on, landing wider
@@ -300,6 +308,10 @@ def main():
     ap.add_argument("--ds-margin", type=float, default=0.0, help="s: the held shift extends this long past lift-off / touchdown")
     ap.add_argument("--drop-frac", type=float, default=0.4, help="round 18 walk: last fraction of the swing spent lowering")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
+    ap.add_argument("--glide", action="store_true", help="round 21 step: constant pelvis speed (feet on the floor "
+                    "sweep back all cycle) instead of moving the body only during the swing")
+    ap.add_argument("--shift-lead", type=float, default=0.0, help="round 22 step: s, the weight shift is complete this "
+                    "long before lift-off (the robot's hip roll trails its command by 120-140 ms)")
     ap.add_argument("--leg", default="", help="round 20: THIGH,SHIN for the planar IK (m, hip pitch -> knee -> board "
                     "centre), e.g. the flat-hip leg's 0.1782,0.17625 (models/hw_flathip*.json leg_ik); default today's leg")
     ap.add_argument("--splay", type=float, default=0.0, help="rad, both hip rolls abducted throughout: a wider stance "
@@ -317,6 +329,10 @@ def main():
             p[k_] = v_
     if a.leg:
         p["leg"] = a.leg
+    if a.glide:
+        p["glide"] = True
+    if a.shift_lead > 0:
+        p["shift_lead"] = a.shift_lead
     if a.ik_h > 0:
         p.update(ik_swing=True, ik_h=a.ik_h, ik_rise=a.ik_rise, ik_drop=a.ik_drop)
         if a.ik_reach > 0:

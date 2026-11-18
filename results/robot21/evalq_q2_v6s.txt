@@ -1,0 +1,4 @@
+gait q2_v6s (params_0020M.pkl) sim robot vx 0.025 n 48 20s | c_Q1v6
+  up  85%  walked  39.8 cm (median of up)  touchdowns 640  |  landing speed p50  267 p90  291 mm/s  jolt after td p50  19.3 p90  24.4  mid-swing   3.5 (deg/s per tick)  clearance p10 27.7 p50 34.5 mm
+  gate holding (clock stopped) 6.1 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 23.4 p50 27.9 deg; peak in the swing p50 32.4 (lift-off / peak 86%)

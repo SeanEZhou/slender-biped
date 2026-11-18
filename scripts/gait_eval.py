@@ -71,16 +71,18 @@ def main():
         dead = dead | (st2.done > 0)
         low, centre = jax.vmap(env._tip_low)(st2.pipeline_state)
         return (st2, dead), (low, centre[..., 2], st2.pipeline_state.qvel[:, 3:5], dead, st2.pipeline_state.qpos[:, 0:2],
-                             st2.info["phase"], st2.info.get("gate_held", jp.zeros(N, jp.int32)) > 0)
+                             st2.info["phase"], st2.info.get("gate_held", jp.zeros(N, jp.int32)) > 0,
+                             st2.pipeline_state.qpos[:, jnp_roll])
 
-    (st, dead), (low, cz, w, dd, xy, ph, gh) = jax.jit(lambda c: jax.lax.scan(body, c, jp.arange(nst)))((st, jp.zeros(N, bool)))
-    low, cz, w, dd, xy, ph, gh = map(np.asarray, (low, cz, w, dd, xy, ph, gh))
+    jnp_roll = jp.array([7 + env.joints.index("L_hip_roll"), 7 + env.joints.index("R_hip_roll")])
+    (st, dead), (low, cz, w, dd, xy, ph, gh, hr) = jax.jit(lambda c: jax.lax.scan(body, c, jp.arange(nst)))((st, jp.zeros(N, bool)))
+    low, cz, w, dd, xy, ph, gh, hr = map(np.asarray, (low, cz, w, dd, xy, ph, gh, hr))
     w = np.degrees(w)
     jolt = np.r_[np.zeros((1, N)), np.linalg.norm(np.diff(w, axis=0), axis=2)]       # (T, N)
     contact = low < 0.0015
     vz = np.r_[np.zeros((1, N, 2)), np.diff(cz, axis=0)] / cfg.ctrl_dt
     k0 = int(2.0 / cfg.ctrl_dt)                                                      # skip the first 2 s
-    td_v, td_j, mid_j, peaks = [], [], [], []
+    td_v, td_j, mid_j, peaks, spread_lo, spread_pk = [], [], [], [], [], []
     for n in range(N):
         alive = ~dd[:, n]
         for s in range(2):
@@ -91,6 +93,8 @@ def main():
                     break
                 if c[t - 1] and not c[t]:
                     up_at, pk = t, 0.0
+                    if t > k0:            # round 21: legs apart (hip roll L - R) at the real lift-off (late shifters)
+                        spread_lo.append(abs(np.degrees(hr[t, n, 0] - hr[t, n, 1])))
                 elif not c[t]:
                     pk = max(pk, low[t, n, s])
                 if not c[t - 1] and c[t] and up_at is not None and t > k0:
@@ -99,6 +103,7 @@ def main():
                     if t - up_at > 12:
                         mid_j.append(np.sqrt(np.mean(jolt[up_at + 5:up_at + 15, n] ** 2)))
                     peaks.append(pk * 1000)
+                    spread_pk.append(np.degrees(np.abs(hr[up_at:t, n, 0] - hr[up_at:t, n, 1])).max())
                     up_at = None
     up = ~dd[-1]
     dist = np.linalg.norm(xy[-1] - xy[k0], axis=1)
@@ -111,6 +116,9 @@ def main():
           f"(deg/s per tick)  clearance p10 {np.percentile(peaks, 10):4.1f} p50 {np.median(peaks):4.1f} mm")
     alive = ~dd[k0:]
     print(f"  gate holding (clock stopped) {100 * (gh[k0:] & alive).sum() / max(alive.sum(), 1):.1f} % of the walking time")
+    if spread_lo:
+        print(f"  legs apart at lift-off (hip roll L - R): p10 {np.percentile(spread_lo, 10):.1f} p50 {np.median(spread_lo):.1f} deg"
+              + (f"; peak in the swing p50 {np.median(spread_pk):.1f} (lift-off / peak {np.median(spread_lo) / np.median(spread_pk):.0%})" if spread_pk else ""))
     if a.profile:
         profile(cfg, low, ph, dd, k0)
 

@@ -1,0 +1,28 @@
+gait w2_g10 (params_0030M.pkl) sim robot vx 0.015 n 48 20s | c_G10
+  up  94%  walked  38.9 cm (median of up)  touchdowns 733  |  landing speed p50  264 p90  291 mm/s  jolt after td p50  16.7 p90  23.1  mid-swing   3.8 (deg/s per tick)  clearance p10 26.2 p50 34.3 mm
+  gate holding (clock stopped) 2.0 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 18.8 p50 22.7 deg
+gait w2_g10 (params_0030M.pkl) sim robot vx 0.025 n 48 20s | c_G10
+  up  79%  walked  40.3 cm (median of up)  touchdowns 649  |  landing speed p50  265 p90  295 mm/s  jolt after td p50  17.5 p90  24.0  mid-swing   3.7 (deg/s per tick)  clearance p10 26.4 p50 34.7 mm
+  gate holding (clock stopped) 2.3 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 18.8 p50 22.6 deg
+gait w2_g10 (params_0030M.pkl) sim robot vx 0.035 n 48 20s | c_G10
+  up  81%  walked  41.7 cm (median of up)  touchdowns 686  |  landing speed p50  275 p90  305 mm/s  jolt after td p50  18.7 p90  24.2  mid-swing   3.9 (deg/s per tick)  clearance p10 17.9 p50 35.3 mm
+  gate holding (clock stopped) 1.9 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 17.4 p50 21.6 deg
+gait w2_g10 (params_0030M.pkl) sim loose vx 0.025 n 48 20s | c_G10
+  up  42%  walked  37.4 cm (median of up)  touchdowns 408  |  landing speed p50  263 p90  291 mm/s  jolt after td p50  17.2 p90  22.7  mid-swing   3.1 (deg/s per tick)  clearance p10 29.5 p50 34.6 mm
+  gate holding (clock stopped) 4.5 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 22.5 p50 26.2 deg
+gait w2_g10 (params_0030M.pkl) sim robot vx 0.025 n 48 20s | c_G10 prof_acc=[6.0,60.0,25.0]
+  up  56%  walked  37.6 cm (median of up)  touchdowns 557  |  landing speed p50  251 p90  283 mm/s  jolt after td p50  16.9 p90  21.1  mid-swing   3.6 (deg/s per tick)  clearance p10 20.5 p50 31.0 mm
+  gate holding (clock stopped) 2.7 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 18.2 p50 22.2 deg
+(of those up: both pads down 48%, joints within 6 deg 6% (median worst 22.5 deg), tilt < 5 deg 64%, still 0%)
+walk test, w2_g10 (runs/w2_g10/params_0030M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   81%  0.0  81% 17.2cm |   88%  0.0  88% 20.0cm |   94%  0.0  94% 19.5cm |   94%  0.0  94% 19.8cm |  89% /  89%
+  0.10 |   81%  0.0  81% 18.2cm |   94%  0.0  94% 19.9cm |   69%  0.0  69% 15.2cm |   88%  0.0  88% 19.2cm |  83% /  83%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 6.9
+overall up 86%, resumed 86%, supervisor triggers per run 0.00

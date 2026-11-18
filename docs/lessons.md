@@ -22,6 +22,22 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 21 on the robot (2026-11-18)
+
+- **A big weight shift amplifies a small sideways bias.** x1 opened its legs 17-19 deg on one side and 12-13 on the
+  other; the rock grew ~1 deg a cycle until it fell. More sway is more to get wrong.
+- **Keep the hard requirement in view.** Rounds 19-21 bought smoothness with hip sway and gave up stride; the robot
+  steps every 1.2 s whatever the policy, so stride is speed.
+- **Shove training on the robot means reacting to normal flex** (x3): it fell on step 3 every time.
+
+## Round 21 (2026-11-17, simulation)
+
+- **A reference with less weight shift trains into a policy that shifts later.** The simulator keeps those up, and
+  the robot doesn't (q7). Check the shift timing at lift-off against the robot-tested policies before trusting the
+  simulator on the amount of shift.
+- **A constant-speed pelvis in the reference adds distance but not stability by itself.** The stop-and-go table was
+  ugly but forgiving.
+
 ## Round 20 on the robot (2026-11-17)
 
 - **Check what a log column means before averaging it.** `gate_held` counts ticks into a hold; averaging it inflated

@@ -1,0 +1,4 @@
+gait p4_gate (params_0020M.pkl) sim robot vx 0.025 n 48 20s | c_P1s13
+  up  90%  walked  34.0 cm (median of up)  touchdowns 663  |  landing speed p50  265 p90  303 mm/s  jolt after td p50  19.4 p90  24.8  mid-swing   3.0 (deg/s per tick)  clearance p10 30.9 p50 36.0 mm
+  gate holding (clock stopped) 4.9 % of the walking time
+  legs apart at lift-off (hip roll L - R): p10 28.1 p50 30.1 deg; peak in the swing p50 33.0 (lift-off / peak 91%)

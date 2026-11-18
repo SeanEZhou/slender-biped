@@ -178,6 +178,7 @@ above), with p4's shift kept.
 All three reach the same ~21-25 deg. p4 is nearly there when the foot lifts; q7 gets there 0.3-0.4 s later, with
 the foot already in the air (the swing lasts 0.55 s); q2 is ~0.1 s late. The commands show the same lag, so it is
 the policy, not the servos. The CPU simulator shows the same ordering (commanded spread at lift-off: p4 22.6, q2
-20.4, q7 14.6 deg) and still keeps q7 up: there the hip roll answers in ~60 ms, on the robot in 120-140 ms, so a
-just-in-time shift works in simulation and arrives too late on the robot. They also bought almost no speed with it
-on the robot (q7 18 mm/s, q2 15, p4 17).
+20.4, q7 14.6 deg) and still keeps q7 up, also with the robot's slow hip ramps (slow-hip simulation: 81 % up). So the
+simulator's hip-roll speed doesn't explain it (an earlier version of this note said it did); why the simulator
+tolerates a late shift is open. They also bought almost no speed with it on the robot (q7 18 mm/s, q2 15, p4 17).
+`gait_eval.py` now prints the legs' spread at the real lift-off (simulation: p4 30 deg, q7 22.5).
