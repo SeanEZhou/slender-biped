@@ -293,3 +293,9 @@ robotvid/
 !runs/x2_g10L/params_0030M.pkl
 !runs/x3_g13Ls/params_0020M.pkl
 !runs/f6_g07/params_0030M.pkl
+# round 22 (2026-11-18): z0 (working on the robot), z0b and y7 (tested), and their starting points y2, y2b
+!runs/z0_y2c/params_0020M.pkl
+!runs/z0b_y2bc/params_0020M.pkl
+!runs/y7_z1/params_0025M.pkl
+!runs/y2_k2/params_0025M.pkl
+!runs/y2b_k2s1/params_0025M.pkl

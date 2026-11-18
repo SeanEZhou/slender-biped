@@ -22,6 +22,23 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 22 on the robot (2026-11-18)
+
+- **Check the servos can follow the reference.** The knee and hip pitch run ~100 ms behind the command, so a
+  reference's slow final approach shorter than that never reaches the foot. Landing softness has to be built into the
+  last ~150 ms or more of the reference, or the descent commanded early.
+- **Separate commanded lean from frame lean** with the body roll each foot's joint geometry asks for, against the IMU.
+  z0's start lean was its own standing pose, not a loose frame.
+
+## Round 22 (2026-11-18, simulation)
+
+- **Where the reference moves the weight during the swing matters more than how much it moves.** k5's table
+  releases its shift from lift-off; holding the same shift until touchdown gave 20-35 % more distance at the same
+  stride, with no more sway. Neither a smaller shift nor a continuous pelvis alone did that.
+- **Compare reference gaits from the same starting policy.** A policy moved from one table to another loses more
+  than the tables differ: z1 looked bad, and the same table trained from k5 (y7) was one of the best.
+- **Run a same-table control for every fine-tune.** Without z0, every table change looked like a loss.
+
 ## Round 21 on the robot (2026-11-18)
 
 - **A big weight shift amplifies a small sideways bias.** x1 opened its legs 17-19 deg on one side and 12-13 on the

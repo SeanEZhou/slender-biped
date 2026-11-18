@@ -1318,6 +1318,7 @@ follows the robot; "lands" marks each scheduled touchdown. k5 lands and settles;
 | **`l9_s18 --act-lpf 0.7`** | 41 s and 48 s (2026-11-16): the softest, quietest steps so far (peak landing jolt 30 % below k5); the swing ends skimming the rug |
 | **`p1_s13 --act-lpf 0.7`** | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps; even smoother than l9 (body roll 9° per cycle against 13°, the gate pausing 2.5 % of the time against 4.3 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s |
 | **`p4_gate --vx 0.03 --act-lpf 0.7`** | the most stable, smooth and continuous gait so far. At `--vx 0.015` (2026-11-16): 115 steps without a fall, but the slowest (34 mm strides, 14 mm/s). At `--vx 0.03` (2026-11-17): 42 mm strides at 17 mm/s, 78 steps without a fall |
+| **`z0_y2c --vx 0.02 --act-lpf 0.7`** | 2026-11-18: k5's steps (52 mm strides, 22 mm/s), steadier: 140 steps over 8 trials with 2 falls (k5 3 in 52), walks up to 40 s, less lean and shake. Its reference holds the weight over the standing foot until the swing foot is down. Lands as hard as k5 |
 
 **Now: recovering from pushes.** Training standing policies with shoves only made their planted balance firmer: on
 the robot they barely moved while falling. The current approach treats recovery like walking: IK-built recovery

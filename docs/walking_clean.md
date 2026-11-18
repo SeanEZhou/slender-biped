@@ -27,6 +27,7 @@ cables hang slack above and slightly behind the robot instead of pulling, §18):
 | **`l9_s18` + `--act-lpf 0.7`** | full body, round 17 (§37): c_S9mid18, a 0.6 s soft swing with the weight held over the stance foot (shift 0.18), from k5 via m2, l4, l7 | **the softest, quietest steps so far** (2026-11-16): 41 s (33 steps, fell back) and 48 s (37 steps, stopped standing); peak landing jolt 30 % below k5 / m2. The swing ends skimming the rug, so steps feel like small trips (§37.1). `python policy_stand.py run --run l9_s18 --enable --vx 0.015 --act-lpf 0.7 --video` | §37 |
 | **`p1_s13` + `--act-lpf 0.7`** | full body, round 19 (§39): c_P1s13, n15's swing with the weight shift cut from 0.18 to 0.13, from n15 | 2026-11-16: 2 × 50 s walks, 5 falls in 152 steps. Even smoother than l9 (body roll 9° per cycle against 13°; the gate pauses 2.5 % of the time against 4.3 %) but slower: 34 mm strides at 14 mm/s against l9's 42 mm / 17 mm/s. `python policy_stand.py run --run p1_s13 --enable --vx 0.015 --act-lpf 0.7 --video` | §39.1 |
 | **`p4_gate` + `--vx 0.03 --act-lpf 0.7`** | full body, round 19 (§39): p1 with the settle gate's lean limits relaxed to 5 / 8° (from 3 / 6°) | **the most stable, smooth and continuous gait so far**. At `--vx 0.015` (2026-11-16): 115 steps without a fall, 3 of 4 trials stopped upright after 45 s, but the slowest (34 mm strides, 14 mm/s). At `--vx 0.03` (2026-11-17): 42 mm strides at 17 mm/s, 78 steps without a fall. A small balance loss at lift-off can escalate to a fall within one step (§41). `python policy_stand.py run --run p4_gate --enable --vx 0.03 --act-lpf 0.7 --video` | §39.1, §40.1, §41 |
+| **`z0_y2c` + `--vx 0.02 --act-lpf 0.7`** | full body, round 22 (§42): c_K2gr, k5's steps with the weight shift held until touchdown and a continuous pelvis, from k5 via y2 (+20M) | **k5's steps, steadier** (2026-11-18): 8 trials, 140 steps, 2 falls (1.4 % of steps against k5's 5.8 %); walks of 40, 28, 27, 24, 24 and 22 s. k5's stride and speed (52 mm, 22 mm/s), less lean and shake (body roll 11° per cycle against k5's 12° and l9's 16°, and it doesn't grow). Lands as hard as k5 (servo lag, §42.1). `python policy_stand.py run --run z0_y2c --enable --vx 0.02 --act-lpf 0.7 --video` | §42 |
 
 All three round-4 policies walk from the first step; their falls now come after 15-28 s and are mostly backward (§16).
 Tried on the robot and failed (the bar for this table: 10+ steps in every trial): `fb2_lean`, `fb4_soft` (full body: step, but
@@ -2393,3 +2394,60 @@ Details in [results/robot21/NOTES.md](../results/robot21/NOTES.md).
   gives up too much speed and the sway itself costs stability. Back to k5, with k5's speed and step size as a hard
   requirement (§42).
 
+## 42. Round 22: back to k5, its steps made continuous and steadier (2026-11-18 00:55-08:47, simulation)
+
+Details: [results/robot22/NOTES.md](../results/robot22/NOTES.md).
+
+**Constraints from the operator:**
+- k5's speed and step size are a hard requirement; l9 is the benchmark.
+- Change the reference gait, not only the rewards: a continuous gait on k5's steps, landing timing, and hip-sway
+  timing with less sway than p4.
+- The swing must not get longer than k5's 0.45 s.
+
+**Tables:** every one keeps k5's c_T12HH timing (1.2 s steps, 0.45 s swing, the same lift and stride). Policies
+train from k5.
+
+- **Holding k5's shift until touchdown (c_K2gr, with a continuous pelvis) is the change that works.**
+  - k5's table moves the weight back toward the swing foot from lift-off, so the body falls onto the landing foot.
+  - Held, two seeds walk 20-35 % farther than k5 in simulation, as robustly or more.
+  - The legs open no more than k5's (15 deg at lift-off; l9 31).
+- **20M more on the same table:** z0_y2c 94-96 % up, 69 % with slow hips, 95 % through shoves; z0b_y2bc 90-92 %.
+  Both stay at or above k5's distance.
+- **A slower descent within the 0.45 s swing (c_Z1soft):** y7_z1 has the best loose-hip result and k5's landing
+  speed.
+- **What failed:**
+  - a continuous pelvis alone changes little;
+  - less shift than k5's is less robust;
+  - a release before touchdown falls;
+  - 1.1 s steps fail;
+  - placing the foot early and setting it straight down fails.
+- **Compare tables from the same start.** z1 (y2's policy moved to c_Z1soft) looked bad; the same table trained
+  from k5 (y7) is one of the best.
+
+- **Longer training can flatten the stride:** z7 (y7 + 20M) is the most robust to loose hips but walks 32-34 cm
+  whatever the command.
+
+**For the robot:** z0_y2c, z0b_y2bc and y7_z1 at `--vx 0.02`, against k5 at 0.015.
+
+### 42.1 On the robot (2026-11-18 10:10-11:39)
+
+Details and tables: [results/robot22/NOTES.md](../results/robot22/NOTES.md#on-the-robot-2026-11-18-1010-1139).
+
+- **z0_y2c works and goes on the working list:**
+  - 8 trials, 140 steps, 2 falls; k5 had 3 falls in 52 steps that session.
+  - k5's stride and speed (52 mm, 22 mm/s at `--vx 0.02`).
+  - The body stays more upright: roll 11° per cycle against k5's 12° and l9's 16°, and it doesn't build up before a fall.
+  - The operator: "similar steps, but z0's body stays upright with less lean and shake, so this direction is
+    workable".
+- **z0b_y2bc and y7_z1 failed:** they fell within 1-3 steps (z0b 3 falls in 8 steps, y7 2 in 4).
+- **l9's direction is dropped:** its hip movement looks unnatural even though it works.
+- **z0 lands as hard as k5 (220 against 228 deg/s at the knee; l9 57) because of servo lag:**
+  - The knee and hip pitch run ~100 ms behind the command.
+  - At the scheduled touchdown the knee is still 12-14° more bent than commanded, so the servos are catching up at
+    ~210 deg/s as the foot lands.
+  - The table's slow final 60 ms is shorter than the lag and never reaches the foot. l9's 0.6 s table is nearly
+    still for its last 240 ms, so the servos keep up.
+- **The start lean is z0's own standing pose:** its action at clock 0 rolls the feet 7° apart, and the robot stands on
+  the left foot.
+- **A fixed ~1.5° left lean between the torso and the legs:** it shows in every policy since 11-15 and hasn't grown;
+  the left leg's flex under load hasn't changed. Check the torso mount and the IMU board.
