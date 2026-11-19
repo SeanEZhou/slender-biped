@@ -119,9 +119,19 @@ def step_pose(t, T, d, p):
         stance[leg] = False
         lift = p["swing_h"] * b
     # weight shift: in over shift_t before the swing, out over the swing plus release_t
-    if d > 0:
+    if d > 0 and p.get("xfer", 0.0) > 0:
+        # round 23: one continuous transfer from over the other foot (-1) to over this step's stance foot (+1). The half
+        # starts at the middle of the double support (the body centred, so the clock-0 standing pose is level): set
+        # settle0 0, shift_t = release_t = half the double support. The transfer is centred there and passes the centre
+        # at speed (no stop). xfer > the double support starts it before the previous touchdown and ends it after this
+        # lift-off (a dynamic sway); the next transfer (+1 -> -1 in this half's terms) is centred on tau = T.
+        X = p["xfer"]
+        a = -1.0 + 2.0 * _ease(tau / X + 0.5) - 2.0 * _ease((tau - T) / X + 0.5)
+        q[4 * st_leg + 1] -= p["shift"] * a          # a < 0: over the swing foot (the stance hip outward)
+        q[4 * leg + 1] += p["shift"] * a
+    elif d > 0:
         sh_t = p["shift_t"] - p.get("shift_lead", 0.0)   # round 22: the shift is complete shift_lead s before lift-off
-        if p.get("hold_shift"):                  # 2026-11-09 slow step: stay over the stance foot until touchdown
+        if p.get("hold_shift"):                # 2026-11-09 slow step: stay over the stance foot until touchdown
             a = _ease((tau - t_sh0) / sh_t) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
         elif p.get("rel0", 0.0) > 0:             # round 17: the release starts at rel0 of the swing (1 = touchdown)
             t_r = t_sw0 + p["rel0"] * p["swing_t"]
@@ -312,6 +322,9 @@ def main():
                     "sweep back all cycle) instead of moving the body only during the swing")
     ap.add_argument("--shift-lead", type=float, default=0.0, help="round 22 step: s, the weight shift is complete this "
                     "long before lift-off (the robot's hip roll trails its command by 120-140 ms)")
+    ap.add_argument("--xfer", type=float, default=0.0, help="round 23 step: s, one continuous side-to-side transfer "
+                    "centred on the double support (set --settle0 0 and --shift-t = --release-t = half of it); longer "
+                    "than the double support = a dynamic sway that starts before touchdown and ends after lift-off")
     ap.add_argument("--leg", default="", help="round 20: THIGH,SHIN for the planar IK (m, hip pitch -> knee -> board "
                     "centre), e.g. the flat-hip leg's 0.1782,0.17625 (models/hw_flathip*.json leg_ik); default today's leg")
     ap.add_argument("--splay", type=float, default=0.0, help="rad, both hip rolls abducted throughout: a wider stance "
@@ -333,6 +346,8 @@ def main():
         p["glide"] = True
     if a.shift_lead > 0:
         p["shift_lead"] = a.shift_lead
+    if a.xfer > 0:
+        p["xfer"] = a.xfer
     if a.ik_h > 0:
         p.update(ik_swing=True, ik_h=a.ik_h, ik_rise=a.ik_rise, ik_drop=a.ik_drop)
         if a.ik_reach > 0:

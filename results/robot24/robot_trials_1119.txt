@@ -1,0 +1,20 @@
+g0g_gate  20261119_102759   6.6s   6 steps FELL R    roll p2p/step: 9 8 11 5 14
+g0g_gate  20261119_102820   9.0s   8 steps FELL R    roll p2p/step: 8 7 12 7 11 5 13
+g0g_gate  20261119_102919  11.8s  10 steps FELL R    roll p2p/step: 8 8 10 5 11 7 9 8 13
+g7g_t11   20261119_102944   2.3s   2 steps FELL fwd  roll p2p/step: 10
+g7g_t11   20261119_102956  11.7s  10 steps stopped   roll p2p/step: 9 9 10 8 12 7 12 11 11
+h4s2_t10  20261119_102524   9.5s  10 steps FELL R    roll p2p/step: 5 9 8 10 7 8 8 9 14
+h4s2_t10  20261119_102557   9.5s  10 steps FELL R    roll p2p/step: 5 9 9 7 6 8 6 5 11
+h4s2_t10  20261119_102845   5.6s   5 steps stopped   roll p2p/step: 4 8 8 11
+h4s2_t10  20261119_102903   3.0s   2 steps stopped   roll p2p/step: 7
+h4s2_t10  20261119_103224   8.2s   8 steps stopped   roll p2p/step: 4 7 8 6 7 9 9
+h4s2_t10  20261119_103242   9.0s   9 steps stopped   roll p2p/step: 3 4 7 7 7 8 13 13
+h4s2_t10  20261119_103302  11.6s  12 steps FELL R    roll p2p/step: 5 7 9 8 8 13 8 14 9 8 9
+h4s2_t10  20261119_103326   5.1s   5 steps FELL R    roll p2p/step: 2 7 7 7
+h4x2_t10  20261119_102627   9.8s  10 steps FELL R    roll p2p/step: 7 9 10 8 9 5 7 8 18
+h4x2_t10  20261119_102646   6.7s   7 steps FELL L    roll p2p/step: 7 10 13 14 10 16
+h9s_t09   20261119_102718   7.1s   8 steps stopped   roll p2p/step: 6 6 7 10 10 11 11
+h9s_t09   20261119_102739   5.0s   6 steps FELL R    roll p2p/step: 6 5 6 7 14
+k5_high2  20261119_103157  11.2s   9 steps FELL L    roll p2p/step: 8 8 7 6 10 6 9 12
+z0_y2c    20261119_103024  18.3s  15 steps FELL fwd  roll p2p/step: 8 10 7 5 9 6 7 7 7 8 7 8 9 8
+z0_y2c    20261119_103055  21.0s  17 steps FELL R    roll p2p/step: 8 11 6 5 8 8 6 8 6 10 7 10 5 8

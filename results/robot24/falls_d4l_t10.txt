@@ -1,0 +1,8 @@
+gait d4l_t10 (params_0020M.pkl) sim robot vx 0.03 n 48 20s | c_D4t10
+  up   0%  walked   0.0 cm  touchdowns 0 (too few for landing stats)
+  falls 48: tilt past 10 deg at t p50 1.8 s
+    left     3: gait phase u 0.02 0.02 0.88 | feet: both down 3
+    right    3: gait phase u 0.02 0.88 0.88 | feet: L up 1, both down 2
+    forward  7: gait phase u 0.02 0.02 0.02 0.02 0.02 0.87 0.87 | feet: L up 1, R up 1, both down 5
+    back    35: gait phase u 0.09 0.88 0.89 0.89 0.90 0.90 0.90 0.91 0.91 0.91 0.91 0.91 0.91 0.92 0.92 0.92 0.92 0.93 0.93 0.93 0.93 0.93 0.93 0.93 0.93 0.94 0.94 0.94 0.94 0.94 0.94 0.94 0.95 0.95 0.95 | feet: both down 35
+    shake (fell): strongest above 2.5 Hz at 2.6 Hz, 4.5x the 2.5-12 Hz mean; step rate 1.00 Hz

@@ -1,0 +1,8 @@
+gait u8s_z0 (params_0020M.pkl) sim robot vx 0.0375 n 48 20s | u8s_stride
+  up   0%  walked   0.0 cm  touchdowns 0 (too few for landing stats)
+  falls 48: tilt past 10 deg at t p50 0.0 s
+    left     9: gait phase u 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.46 0.61 | feet: L up 1, R up 4, both down 4
+    right   24: gait phase u 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.36 0.43 | feet: L up 2, R up 3, both down 19
+    forward  8: gait phase u 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 | feet: R up 2, both down 6
+    back     7: gait phase u 0.48 0.51 0.53 0.85 0.88 0.88 0.89 | feet: L up 7
+    shake (fell): strongest above 2.5 Hz at 2.6 Hz, 6.7x the 2.5-12 Hz mean; step rate 1.25 Hz

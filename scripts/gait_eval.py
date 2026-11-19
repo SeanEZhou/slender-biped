@@ -40,6 +40,9 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--zero", action="store_true", help="zero action: the reference played open loop")
     ap.add_argument("--set", nargs="*", default=[])
+    ap.add_argument("--falls", action="store_true", help="round 23: why it falls. Per fall: when the tilt passed 10 deg "
+                    "(gait phase, which foot was up, roll or pitch, which way), the sideways rock per cycle before it, and "
+                    "the body's shake spectrum (dominant frequency) in walkers that stay up and in those that fall")
     ap.add_argument("--profile", action="store_true", help="round 18: the swinging board's height over the swing (by the "
                     "gait clock, 12 bins from lift-off to touchdown), and when it really lands (s after the scheduled touchdown)")
     a = ap.parse_args()
@@ -72,11 +75,11 @@ def main():
         low, centre = jax.vmap(env._tip_low)(st2.pipeline_state)
         return (st2, dead), (low, centre[..., 2], st2.pipeline_state.qvel[:, 3:5], dead, st2.pipeline_state.qpos[:, 0:2],
                              st2.info["phase"], st2.info.get("gate_held", jp.zeros(N, jp.int32)) > 0,
-                             st2.pipeline_state.qpos[:, jnp_roll])
+                             st2.pipeline_state.qpos[:, jnp_roll], st2.pipeline_state.qpos[:, 3:7])
 
     jnp_roll = jp.array([7 + env.joints.index("L_hip_roll"), 7 + env.joints.index("R_hip_roll")])
-    (st, dead), (low, cz, w, dd, xy, ph, gh, hr) = jax.jit(lambda c: jax.lax.scan(body, c, jp.arange(nst)))((st, jp.zeros(N, bool)))
-    low, cz, w, dd, xy, ph, gh, hr = map(np.asarray, (low, cz, w, dd, xy, ph, gh, hr))
+    (st, dead), (low, cz, w, dd, xy, ph, gh, hr, quat) = jax.jit(lambda c: jax.lax.scan(body, c, jp.arange(nst)))((st, jp.zeros(N, bool)))
+    low, cz, w, dd, xy, ph, gh, hr, quat = map(np.asarray, (low, cz, w, dd, xy, ph, gh, hr, quat))
     w = np.degrees(w)
     jolt = np.r_[np.zeros((1, N)), np.linalg.norm(np.diff(w, axis=0), axis=2)]       # (T, N)
     contact = low < 0.0015
@@ -110,17 +113,93 @@ def main():
     td_v, td_j, mid_j, peaks = map(np.array, (td_v, td_j, mid_j, peaks))
     tag = (cfg.ref_table + ("" if not a.set else " " + " ".join(a.set)))
     print(f"gait {a.run} ({p.name}{', ZERO ACTION' if a.zero else ''}) sim {a.sim} vx {a.vx} n {N} {a.T:.0f}s | {tag}")
+    if len(td_v) == 0 or len(peaks) == 0 or len(mid_j) == 0:     # round 23: e.g. the table played open loop falls at once
+        print(f"  up {up.mean():4.0%}  walked {100 * np.median(dist[up]) if up.any() else 0:5.1f} cm  touchdowns {len(td_v)} (too few for landing stats)")
+        if a.falls:
+            falls(cfg, quat, w, low, ph, dd, k0)
+        return
     print(f"  up {up.mean():4.0%}  walked {100 * np.median(dist[up]) if up.any() else 0:5.1f} cm (median of up)  "
           f"touchdowns {len(td_v)}  |  landing speed p50 {np.median(td_v):4.0f} p90 {np.percentile(td_v, 90):4.0f} mm/s  "
           f"jolt after td p50 {np.median(td_j):5.1f} p90 {np.percentile(td_j, 90):5.1f}  mid-swing {np.median(mid_j):5.1f} "
           f"(deg/s per tick)  clearance p10 {np.percentile(peaks, 10):4.1f} p50 {np.median(peaks):4.1f} mm")
     alive = ~dd[k0:]
     print(f"  gate holding (clock stopped) {100 * (gh[k0:] & alive).sum() / max(alive.sum(), 1):.1f} % of the walking time")
+    # round 23: double support from the simulated contacts (both boards within 1.5 mm of the floor), per touchdown
+    both = contact[k0:, :, 0] & contact[k0:, :, 1] & alive
+    none = ~contact[k0:, :, 0] & ~contact[k0:, :, 1] & alive
+    n_td = sum(int(((~contact[k0:-1, n, s]) & contact[k0 + 1:, n, s] & alive[1:, n]).sum()) for n in range(N) for s in range(2))
+    ds = [run_len for n in range(N) for run_len in _runs(both[:, n])]
+    print(f"  both feet down {100 * both.sum() / max(alive.sum(), 1):.0f} % of the time: {both.sum() * cfg.ctrl_dt / max(n_td, 1):.2f} s "
+          f"per step (stretches p50 {np.median(ds) * cfg.ctrl_dt if ds else 0:.2f} s); a step every "
+          f"{alive.sum() * cfg.ctrl_dt / max(n_td, 1):.2f} s; neither down {100 * none.sum() / max(alive.sum(), 1):.0f} %")
     if spread_lo:
         print(f"  legs apart at lift-off (hip roll L - R): p10 {np.percentile(spread_lo, 10):.1f} p50 {np.median(spread_lo):.1f} deg"
               + (f"; peak in the swing p50 {np.median(spread_pk):.1f} (lift-off / peak {np.median(spread_lo) / np.median(spread_pk):.0%})" if spread_pk else ""))
     if a.profile:
         profile(cfg, low, ph, dd, k0)
+    if a.falls:
+        falls(cfg, quat, w, low, ph, dd, k0)
+
+
+def falls(cfg, quat, w, low, ph, dd, k0):
+    """Round 23: where the falls start. Body roll (+ = toward the right) / pitch (+ = forward) from the base quaternion."""
+    qw, qx, qy, qz = (quat[..., i] for i in range(4))
+    roll = np.degrees(np.arctan2(2 * (qw * qx + qy * qz), 1 - 2 * (qx * qx + qy * qy)))
+    pitch = np.degrees(np.arcsin(np.clip(2 * (qw * qy - qz * qx), -1, 1)))
+    T, N = roll.shape
+    dt = cfg.ctrl_dt; u = ph / (2 * np.pi) % 1.0; contact = low < 0.0015
+    cyc = int(round(1.0 / (cfg.gait_hz * dt)))
+    rows = []
+    for n in range(N):
+        if not dd[-1, n]:
+            continue
+        kd = int(np.argmax(dd[:, n]))
+        tilt = np.hypot(roll[:, n] - roll[k0 - 25:k0, n].mean(), pitch[:, n] - pitch[k0 - 25:k0, n].mean())
+        ks = kd
+        while ks > 1 and tilt[ks - 1] > 10:
+            ks -= 1
+        r0, p0 = roll[ks, n] - roll[k0 - 25:k0, n].mean(), pitch[ks, n] - pitch[k0 - 25:k0, n].mean()
+        dirn = ("right" if r0 > 0 else "left") if abs(r0) > abs(p0) else ("forward" if p0 > 0 else "back")
+        up = "both down" if contact[ks, n].all() else ("L up" if not contact[ks, n, 0] else ("R up" if not contact[ks, n, 1] else "both up"))
+        rock = [np.ptp(roll[max(k, 0):k + cyc, n]) for k in range(ks - 4 * cyc, ks, cyc) if k > k0]
+        rows.append((ks * dt, u[ks, n], dirn, up, rock))
+    if rows:
+        print(f"  falls {len(rows)}: tilt past 10 deg at t p50 {np.median([r[0] for r in rows]):.1f} s")
+        for d_ in ("left", "right", "forward", "back"):
+            sel = [r for r in rows if r[2] == d_]
+            if sel:
+                print(f"    {d_:7s} {len(sel):2d}: gait phase u " + " ".join(f"{r[1]:.2f}" for r in sorted(sel, key=lambda r: r[1]))
+                      + " | feet: " + ", ".join(f"{k} {sum(r[3] == k for r in sel)}" for k in ("L up", "R up", "both down", "both up") if any(r[3] == k for r in sel)))
+        g = [r[4] for r in rows if len(r[4]) == 4]
+        if g:
+            g = np.array(g)
+            print("    roll p2p per cycle, the 4 cycles before the tilt (median): " + " ".join(f"{x:.1f}" for x in np.median(g, 0)) + " deg")
+    # shake: body angular rate spectrum after the first 2 s (alive stretch only), roll and pitch
+    for lab, sel in (("up", ~dd[-1]), ("fell", dd[-1])):
+        if not sel.any():
+            continue
+        S = 0
+        for n in np.flatnonzero(sel):
+            kd = int(np.argmax(dd[:, n])) if dd[-1, n] else T
+            x = w[k0:max(kd - 25, k0 + 64), n]
+            if len(x) < 64:
+                continue
+            x = x - x.mean(0)
+            f = np.fft.rfftfreq(len(x), dt)
+            P = (np.abs(np.fft.rfft(x, axis=0)) ** 2).sum(1) / len(x)
+            S = S + np.interp(np.linspace(0, 25, 251), f, P)
+        if np.ndim(S):
+            fq = np.linspace(0, 25, 251); gait = cfg.gait_hz
+            band = (fq > 2.5) & (fq < 12)
+            k = np.argmax(np.where(band, S, 0))
+            print(f"    shake ({lab}): strongest above 2.5 Hz at {fq[k]:.1f} Hz, {S[k] / S[band].mean():.1f}x the 2.5-12 Hz mean; "
+                  f"step rate {2 * gait:.2f} Hz")
+
+
+def _runs(m):
+    """Lengths (ticks) of the True stretches of a 1-D mask."""
+    d = np.diff(np.r_[0, m.astype(np.int8), 0])
+    return list(np.flatnonzero(d == -1) - np.flatnonzero(d == 1))
 
 
 def profile(cfg, low, ph, dd, k0, B=12):

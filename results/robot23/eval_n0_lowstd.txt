@@ -1,0 +1,5 @@
+gait n0_lowstd (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_D0x75
+  up  40%  walked  37.8 cm (median of up)  touchdowns 550  |  landing speed p50  250 p90  360 mm/s  jolt after td p50  12.5 p90  19.9  mid-swing   7.2 (deg/s per tick)  clearance p10  3.2 p50 37.9 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 64 % of the time: 0.59 s per step (stretches p50 0.68 s); a step every 0.93 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 10.8 p50 18.1 deg; peak in the swing p50 26.7 (lift-off / peak 68%)

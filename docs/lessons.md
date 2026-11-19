@@ -22,6 +22,31 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 24 and the robot (2026-11-19)
+
+- **Compare the robot's body motion with the simulator's, not only its joints.** The joints matched the simulator to
+  within 1-2° while the body rolled half as far toward one side; only the body showed the robot wasn't the one
+  trained on ([walking_clean.md §45](walking_clean.md)).
+- **Run the exercises on both sides, and repeat them after every hardware change.** E6 on the right as well as the
+  left showed a 2° lopsidedness. Lifting the cable, re-zeroing a hip roll and tightening loose ankle screws then moved
+  the left tip from 3-4° to 7.9°, and z0 went from 15-17 steps to 31-37 steps a walk.
+- **A policy that follows the gait clock can't catch itself.** On the robot, the commands moved 1-3° for 3-4° of
+  extra tilt, and the swing foot never stepped to catch a lean. Training has to put the body far off its path
+  (shoves, held starts, harder states) before the policy will learn to correct it.
+- **Train with the gate, run without it.** Every gate-off fine-tune degraded, while gated policies walk gate-free
+  ([§44](walking_clean.md)).
+
+## Round 23 (2026-11-18, simulation)
+
+- **Check what a training aid costs a new gait.** The settle gate (wait for the body to slow before lifting a foot)
+  is why our policies train steadily, and at a faster cadence it is also the wait between steps. Training without it
+  degraded every run, on any table.
+- **When training makes a policy worse than it started, look for the conflict, not more training.** Six fixes that
+  each addressed one reward or setting all collapsed the same way. The training curve (walk length and the tilt
+  penalty per step) showed it within 10M steps; the evaluation only confirmed it.
+- **Put a diagnosis tool in the evaluation, not alongside training.** A second simulator next to a 3.9 GB training
+  run ran the 7.9 GB WSL low; diagnostics run in the queue between runs.
+
 ## Round 22 on the robot (2026-11-18)
 
 - **Check the servos can follow the reference.** The knee and hip pitch run ~100 ms behind the command, so a

@@ -1,0 +1,31 @@
+gait s4h_z0 (params_0020M.pkl) sim robot vx 0.036 n 48 20s | s4h_relax
+  up   0%  walked   0.0 cm (median of up)  touchdowns 40  |  landing speed p50   30 p90   79 mm/s  jolt after td p50  14.6 p90  18.3  mid-swing   7.1 (deg/s per tick)  clearance p10  1.8 p50  2.6 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 72 % of the time: 0.48 s per step (stretches p50 0.24 s); a step every 0.67 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 0.7 p50 3.7 deg; peak in the swing p50 4.6 (lift-off / peak 80%)
+gait s4h_z0 (params_0020M.pkl) sim robot vx 0.06 n 48 20s | s4h_relax
+  up   0%  walked   0.0 cm (median of up)  touchdowns 43  |  landing speed p50   23 p90   87 mm/s  jolt after td p50  15.5 p90  19.2  mid-swing   7.4 (deg/s per tick)  clearance p10  1.6 p50  2.4 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 73 % of the time: 0.44 s per step (stretches p50 0.21 s); a step every 0.61 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 1.2 p50 3.8 deg; peak in the swing p50 4.6 (lift-off / peak 84%)
+gait s4h_z0 (params_0020M.pkl) sim robot vx 0.084 n 48 20s | s4h_relax
+  up   0%  walked   0.0 cm (median of up)  touchdowns 42  |  landing speed p50   29 p90   79 mm/s  jolt after td p50  14.8 p90  17.4  mid-swing   7.0 (deg/s per tick)  clearance p10  1.6 p50  2.5 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 74 % of the time: 0.46 s per step (stretches p50 0.22 s); a step every 0.63 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 1.1 p50 3.3 deg; peak in the swing p50 4.3 (lift-off / peak 77%)
+gait s4h_z0 (params_0020M.pkl) sim loose vx 0.06 n 48 20s | s4h_relax
+  up   0%  walked   0.0 cm  touchdowns 54 (too few for landing stats)
+gait s4h_z0 (params_0020M.pkl) sim robot vx 0.06 n 48 20s | s4h_relax prof_acc=[6.0,60.0,25.0]
+  up   0%  walked   0.0 cm  touchdowns 52 (too few for landing stats)
+  print(f"(of those up: both pads down {both[up].mean():.0%}, joints within 6 deg {(np.degrees(qerr) < 6)[up].mean():.0%} "
+  ret = ret.dtype.type(ret / rcount)
+  f"(median worst {np.degrees(np.median(qerr[up])) if up.any() else 0:.1f} deg), tilt < 5 deg {(tilt < 5)[up].mean():.0%}, "
+  f"still {still[up].mean():.0%})")
+(of those up: both pads down nan%, joints within 6 deg nan% (median worst 0.0 deg), tilt < 5 deg nan%, still nan%)
+walk test, s4h_z0 (runs/s4h_z0/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 0.0
+overall up 0%, resumed 0%, supervisor triggers per run 0.00

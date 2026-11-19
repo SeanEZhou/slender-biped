@@ -830,7 +830,9 @@ def cmd_run(a):
               f"ramps at {slew:.2f} m/s^2" if slew else f"ready pose first: {ready:.1f} s")
     if slew > 0:
         cmd_v[0] = 0.0
-    gate_u = tuple(env.get("settle_gate_u", ()))
+    gate_u = () if getattr(a, "no_gate", False) else tuple(env.get("settle_gate_u", ()))   # round 24: --no-gate, trained gated, run gate-free
+    if getattr(a, "no_gate", False) and env.get("settle_gate_u"):
+        print("settle gate OFF (--no-gate): the clock never holds; this run was trained with it")
     gate_w = float(env.get("settle_gate_w", 0.3))
     gate_n = int(float(env.get("settle_gate_max", 0.5)) / dt)
     hold_u = tuple(env.get("obs_hold_u", ()) or ())      # 2026-11-14 round 10: open loop within a step (as trained):
@@ -976,6 +978,16 @@ def cmd_run(a):
         hist = None                                     # past observation frames (n_hist)
         a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
+        # round 24 gait start (mjx_env start_u): the clock starts at start_u and holds while the reference shifts the
+        # weight onto the stance foot (the rolls, start_pre[0] s) and lifts the swing foot (the rest, start_pre[1] s)
+        start_u = float(env.get("start_u", -1.0) if env.get("start_u") is not None else -1.0)
+        start_pre = tuple(env.get("start_pre", (0.5, 0.3)))
+        pre_n1, pre_n2 = int(round(start_pre[0] / dt)), int(round(start_pre[1] / dt))
+        pre_t = 0
+        roll_mask = np.array([1.0 if n.endswith("_roll") else 0.0 for n in sv.names])
+        if start_u >= 0 and ref is not None:
+            phase = 2 * math.pi * start_u
+            print(f"gait start: the clock from u {start_u}, weight shift {start_pre[0]} s, then the lift {start_pre[1]} s")
         rec_done = False                                # round 15: a recovery step just ended (walking resumes)
         held, hold_upd = None, True                     # obs_hold_u: the held sensor inputs, sample on the next tick
         hold_on, wp_f = False, None                     # obs_hold_late: hold started; obs_hold_pitch_lpf: the pitch rate
@@ -1122,6 +1134,12 @@ def cmd_run(a):
                                     phase, yaw = 0.0, 0.0
                                     cmd_v[0] = 0.0 if slew > 0 else a.vx
                                     print(f"\n  RESUME at {t_run:.2f} s")
+                    elif ref is not None and start_u >= 0 and pre_t < pre_n1 + pre_n2:   # round 24 gait start
+                        e_ = lambda x: 0.5 - 0.5 * math.cos(math.pi * min(max(x, 0.0), 1.0))   # noqa: E731
+                        s1, s2 = e_((pre_t + 1) / max(pre_n1, 1)), e_((pre_t + 1 - pre_n1) / max(pre_n2, 1))
+                        dq_ = ref_lookup(ref, cmd_v[0], phase) - q_nom
+                        q_s = q_nom + s1 * roll_mask * dq_ + s2 * (1.0 - roll_mask) * dq_
+                        q_base = q_ready + ramp * (q_s - q_ready)
                     elif ref is not None:
                         q_base = q_ready + ramp * (ref_lookup(ref, cmd_v[0], phase + 2 * math.pi * hz * dt) - q_ready)
                     q_cmd = np.clip(q_base + ramp * scale * act, lo, hi)
@@ -1136,6 +1154,9 @@ def cmd_run(a):
                     phase = 0.0
                 elif t_run >= ready + a.ramp:              # the clock starts once the policy is fully engaged
                     ph_new = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
+                    if start_u >= 0 and ref is not None and pre_t < pre_n1 + pre_n2:
+                        ph_new = phase                      # round 24 gait start: the clock holds at start_u
+                        pre_t += 1
                     if gate_u:                          # settle gate (as trained): hold the clock at a lift-off
                         u0, u1 = phase / (2 * math.pi), ph_new / (2 * math.pi)   # while the body still rotates
                         cross = any(((u0 - gu) % 1.0) > ((u1 - gu) % 1.0) for gu in gate_u)
@@ -1335,6 +1356,8 @@ def main():
                     help="record the camera (Windows name, default W1; `python video_rec.py devices`) from the 'standing?' "
                          "prompt to 1.5 s after the stop: <log>.mkv + <log>_frames.csv with each frame's time on the log's "
                          "clock (video_rec.py: Windows ffmpeg, 1280x720 MJPEG 30 fps)")
+    sp.add_argument("--no-gate", action="store_true", help="round 24: run a policy trained with the settle gate without "
+                    "it (the clock never holds): gate-free continuous walking (round 24's simulator results: results/robot24/free_*.txt)")
     sp.add_argument("--gate-guard", dest="gate_guard", action="store_true", default=True,
                     help="(default on, 2026-11-14) the settle gate never holds the clock while the body rolls away from "
                          "centre (> 4 deg from the standing roll and growing faster than 10 deg/s) or a foot is already up "

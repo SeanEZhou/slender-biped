@@ -2451,3 +2451,99 @@ Details and tables: [results/robot22/NOTES.md](../results/robot22/NOTES.md#on-th
   the left foot.
 - **A fixed ~1.5° left lean between the torso and the legs:** it shows in every policy since 11-15 and hasn't grown;
   the left leg's flex under load hasn't changed. Check the torso mount and the IMU board.
+
+## 43. Round 23: less time on both feet (2026-11-18 12:14-19:14, simulation)
+
+Details: [results/robot23/NOTES.md](../results/robot23/NOTES.md).
+
+**The goal (the operator):**
+- continuous steps, the rear foot lifting as the front one lands, no visible wait;
+- the metric is the time with both feet down: 0.75 s of every 1.2 s step in z0's table, 0.85 s in the simulator;
+- halve it, and try a near-zero one;
+- soft landings are a stretch goal.
+
+**New tools:**
+- `shift_gait.py step --xfer`: the sideways transfer as one sweep through the centre at speed (z0's table stops the
+  body at the centre between steps);
+- `gait_eval.py` reports both feet down per step; `--falls` locates each fall (gait phase, direction, which foot is
+  up, the rock before it, the shake spectrum).
+
+**What happened:**
+- **No faster cadence trained to a walker:**
+  - 0.825 s steps (half the double support), 0.6 s and 1.0 s all fell in 2-3 s after training;
+  - this held with the gate on or off, falls cheap or dear, copying the table weighted 3 or 1, and fast or slow
+    walking.
+- **The conflict is the settle gate.**
+  - The gate holds each lift-off until the body turns slower than 0.3 rad/s. At faster cadences the body never gets
+    that slow, so it held the clock 38-66 % of the time: the wait between steps, back again.
+  - With the gate off, every run degraded during training: its walks got shorter and the body tilted more. That was
+    true even on the 1.2 s no-stop table (g0b 421 -> 272 steps per walk).
+  - With the gate on, the same table improved (g0g 428 -> 502).
+  - Untrained policies did better than trained ones at the faster cadences (z0 on 1.0 s steps 31 % up, 0 % after
+    training), as in round 18.
+- **What works:**
+  - **g0g_gate:** the no-stop sweep at 1.2 s, gate on. 85-90 % up, 33-47 cm (z0 34-42), 92 % through shoves. Both
+    feet down 0.82 s (barely below z0's), but the body never stops between steps.
+  - **g7g_t11:** 1.1 s steps from g0g, gate on. Both feet down 0.67 s (-21 %), landing 230 mm/s (z0 277). Only
+    35-62 % up: the first faster cadence that trains without collapsing, not yet robust.
+  - **g4r_t10:** 1.0 s steps with a relaxed gate (0.6 rad/s, at most 0.3 s) collapsed (460 -> 234).
+- **Next:** a faster cadence needs a gate that trains steady walking without stalling the gait. For example, the gate
+  in training only, eased off as training goes on, or a cadence curriculum through 1.1 s.
+
+**For the robot:**
+- g0g_gate at `--vx 0.02`;
+- g7g_t11 at `--vx 0.022` (k5's step length at 1.1 s steps);
+- z0 as the baseline.
+
+## 44. Round 24: continuous gaits from stride tables (2026-11-19 00:38-08:38, simulation)
+
+Details: [results/robot24/NOTES.md](../results/robot24/NOTES.md). The operator asked for a mix: safer gated policies
+and aggressive gate-free ones that meet the continuous-gait requirement (no pause between steps), the latter held by
+hand on the robot.
+
+- **The stride tables (`stride_gait.py`: constant pelvis speed, a LIPM sway) didn't train.** In order, the causes found
+  and fixed:
+  - the foot offset left the centre of mass 17-25 mm ahead of the boards;
+  - training learned to fall, because the tilt penalty outweighed every reward;
+  - the sway needs sideways speed at the first lift-off, which a start from rest can't give. A gait start
+    (`start_u` / `start_pre` in the env, the CPU simulator and the runner) now holds the clock while the weight
+    shifts;
+  - the sway was too small for the robot's compliant hip roll.
+
+  With all four fixed, open-loop playback walks 2-3 s in the ideal simulator, but every fine-tune from z0 still
+  degraded, gated or not.
+- **Every gate-off fine-tune degrades; gated ones improve.** It isn't the tilt penalty, the learning rate or the
+  exploration noise: each was tested. The cause is still unexplained.
+- **Train gated, run gate-free.** Policies trained with the gate also walk continuously without it
+  (`policy_stand.py --no-gate`). g0g is 96 % up gate-free against 85-90 % gated.
+- **Faster steps need a smaller weight shift.** At 1.0 s steps, z0's shift (13.8° between the legs at lift-off)
+  overshoots; 9.2° halves the falls (`h4s2_t10`: 81 % up gate-free, a step every 0.84 s). At 0.9 and 0.825 s the
+  smaller shifts tried were too little.
+
+## 45. Round 24 on the robot: the body isn't the simulator's, and the hardware fixes (2026-11-19 10:25-12:05)
+
+Details: [results/robot24/NOTES.md](../results/robot24/NOTES.md) (from "Robot trials").
+
+- **The gate-free candidates took 2-12 steps and fell**, 12 of 15 falls to the right during the right swing. The
+  gated ones held the clock only 0.1-0.8 s per trial.
+- **Joints like the simulator's, body not.**
+  - Each joint's motion per cycle matched the simulator to within 1-2°.
+  - The body rolled back toward the left only half as far as in the simulator (−2.4 to −5° against −6 to −8.5°), and
+    rocked fore-aft 2-3× more.
+  - Replayed through the logged inputs, the policy changes its commands by only 1-3° for the robot's 3-4° tilt
+    difference. Its commands mostly follow the gait clock, so the tilt has little effect on them.
+- **No catching step.** The swing foot's landing moves −4 to −8 mm per degree of lean, which is the leg carried along
+  with the body, never a step to catch it. The ankles react about 0.3° per degree of lean. A typical robot step strays
+  from the trained path as far as the simulator's worst ten percent. In the simulator the policy recovers from such
+  steps; on the robot the next step falls.
+- **E6 (the weight-shift exercise) on both sides found three hardware faults:**
+  - the robot tipped at 3-4° of shift to the left and 6° to the right; the simulator never tips;
+  - a resting cable pulled the robot left (lifting it gained the left side 0.8°);
+  - the left hip roll stood about 1° in. It is re-zeroed with the new `biped_bench.py trim --joints L_hip_roll`;
+  - the left-ankle screws were loose. Tightened, the left side tips only at 7.9°, and for the first time a board
+    unloaded before the tip.
+  - The right side is still about 6°. The standing lean is now about 0.
+- **After the fixes, z0 walked 31-37 steps (37-44 s) in 6 of 7 trials**, against 15-17 steps the same morning.
+  k5 took 8-18 steps. h4s2 still fell within 4-7 steps.
+- **The cause is the robot, not training.** Measuring the robot (E6) and fixing it did more in an hour than a round of
+  training.

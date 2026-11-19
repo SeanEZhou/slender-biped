@@ -1,0 +1,27 @@
+gait g7g_t11 (params_0020M.pkl) sim robot vx 0.0164 n 48 20s | c_D7t11 settle_gate_u=[]
+  up  67%  walked  38.9 cm (median of up)  touchdowns 642  |  landing speed p50  241 p90  306 mm/s  jolt after td p50  15.0 p90  21.7  mid-swing   5.7 (deg/s per tick)  clearance p10 13.3 p50 34.9 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 66 % of the time: 0.69 s per step (stretches p50 0.72 s); a step every 1.05 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 15.9 p50 22.0 deg; peak in the swing p50 28.0 (lift-off / peak 79%)
+gait g7g_t11 (params_0020M.pkl) sim robot vx 0.0273 n 48 20s | c_D7t11 settle_gate_u=[]
+  up  50%  walked  41.3 cm (median of up)  touchdowns 582  |  landing speed p50  234 p90  303 mm/s  jolt after td p50  14.4 p90  21.6  mid-swing   5.6 (deg/s per tick)  clearance p10  5.8 p50 35.6 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 64 % of the time: 0.65 s per step (stretches p50 0.70 s); a step every 1.02 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 7.6 p50 20.5 deg; peak in the swing p50 27.5 (lift-off / peak 75%)
+gait g7g_t11 (params_0020M.pkl) sim robot vx 0.0382 n 48 20s | c_D7t11 settle_gate_u=[]
+  up  31%  walked  49.1 cm (median of up)  touchdowns 531  |  landing speed p50  235 p90  324 mm/s  jolt after td p50  14.3 p90  20.8  mid-swing   5.5 (deg/s per tick)  clearance p10  3.6 p50 35.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 63 % of the time: 0.61 s per step (stretches p50 0.66 s); a step every 0.97 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 6.1 p50 19.4 deg; peak in the swing p50 26.9 (lift-off / peak 72%)
+gait g7g_t11 (params_0020M.pkl) sim robot vx 0.0273 n 48 20s | c_D7t11 settle_gate_u=[]
+  up  52%  walked  42.7 cm (median of up)  touchdowns 621  |  landing speed p50  227 p90  312 mm/s  jolt after td p50  14.4 p90  21.6  mid-swing   5.4 (deg/s per tick)  clearance p10  6.6 p50 34.9 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 64 % of the time: 0.63 s per step (stretches p50 0.68 s); a step every 0.99 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 7.0 p50 20.7 deg; peak in the swing p50 27.7 (lift-off / peak 75%)
+  falls 23: tilt past 10 deg at t p50 7.5 s
+    left    13: gait phase u 0.01 0.87 0.87 0.90 0.91 0.91 0.95 0.95 0.95 0.96 0.97 0.98 0.98 | feet: R up 8, both down 5
+    right    4: gait phase u 0.19 0.20 0.27 0.68 | feet: L up 1, R up 2, both down 1
+    forward  6: gait phase u 0.06 0.09 0.25 0.35 0.42 0.47 | feet: R up 6
+    roll p2p per cycle, the 4 cycles before the tilt (median): 14.3 15.2 15.1 22.3 deg
+    shake (up): strongest above 2.5 Hz at 3.2 Hz, 14.1x the 2.5-12 Hz mean; step rate 0.91 Hz
+    shake (fell): strongest above 2.5 Hz at 2.7 Hz, 6.0x the 2.5-12 Hz mean; step rate 0.91 Hz

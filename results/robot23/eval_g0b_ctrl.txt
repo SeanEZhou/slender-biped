@@ -1,0 +1,33 @@
+gait g0b_ctrl (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_D0x75
+  up  19%  walked  46.4 cm (median of up)  touchdowns 343  |  landing speed p50  289 p90  367 mm/s  jolt after td p50  18.6 p90  27.4  mid-swing   6.1 (deg/s per tick)  clearance p10  3.1 p50 30.2 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 60 % of the time: 0.59 s per step (stretches p50 0.54 s); a step every 0.98 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 3.9 p50 17.0 deg; peak in the swing p50 25.6 (lift-off / peak 66%)
+gait g0b_ctrl (params_0020M.pkl) sim robot vx 0.025 n 48 20s | c_D0x75
+  up   8%  walked  49.6 cm (median of up)  touchdowns 205  |  landing speed p50  300 p90  371 mm/s  jolt after td p50  17.8 p90  27.1  mid-swing   6.2 (deg/s per tick)  clearance p10  3.8 p50 32.2 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 53 % of the time: 0.57 s per step (stretches p50 0.42 s); a step every 1.07 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 3.2 p50 16.8 deg; peak in the swing p50 25.2 (lift-off / peak 67%)
+gait g0b_ctrl (params_0020M.pkl) sim robot vx 0.035 n 48 20s | c_D0x75
+  up  10%  walked  56.7 cm (median of up)  touchdowns 252  |  landing speed p50  318 p90  398 mm/s  jolt after td p50  18.4 p90  25.9  mid-swing   6.1 (deg/s per tick)  clearance p10  3.1 p50 35.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 57 % of the time: 0.57 s per step (stretches p50 0.50 s); a step every 1.01 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 4.2 p50 15.8 deg; peak in the swing p50 24.5 (lift-off / peak 64%)
+gait g0b_ctrl (params_0020M.pkl) sim loose vx 0.025 n 48 20s | c_D0x75
+  up   2%  walked  52.7 cm (median of up)  touchdowns 159  |  landing speed p50  307 p90  389 mm/s  jolt after td p50  14.6 p90  23.1  mid-swing   5.9 (deg/s per tick)  clearance p10  2.7 p50 38.3 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 61 % of the time: 0.75 s per step (stretches p50 0.78 s); a step every 1.23 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 4.9 p50 22.0 deg; peak in the swing p50 29.5 (lift-off / peak 75%)
+gait g0b_ctrl (params_0020M.pkl) sim robot vx 0.025 n 48 20s | c_D0x75 prof_acc=[6.0,60.0,25.0]
+  up   4%  walked  70.0 cm (median of up)  touchdowns 178  |  landing speed p50  229 p90  358 mm/s  jolt after td p50  17.5 p90  25.0  mid-swing   6.0 (deg/s per tick)  clearance p10  3.1 p50 22.8 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 59 % of the time: 0.55 s per step (stretches p50 0.48 s); a step every 0.94 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 10.8 p50 18.0 deg; peak in the swing p50 23.8 (lift-off / peak 76%)
+(of those up: both pads down 60%, joints within 6 deg 4% (median worst 23.7 deg), tilt < 5 deg 4%, still 0%)
+walk test, g0b_ctrl (runs/g0b_ctrl/params_0020M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |   19%  0.0  19%  4.8cm |   25%  0.0  25%  6.5cm |   19%  0.0  19%  4.4cm |   25%  0.0  25%  6.2cm |  22% /  22%
+  0.10 |   25%  0.0  25%  7.8cm |   19%  0.0  19%  5.9cm |   25%  0.0  25%  6.3cm |    0%  0.0   0%  0.0cm |  17% /  17%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 2.6
+overall up 20%, resumed 20%, supervisor triggers per run 0.00

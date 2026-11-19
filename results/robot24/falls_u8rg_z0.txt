@@ -1,0 +1,13 @@
+gait u8rg_z0 (params_0020M.pkl) sim robot vx 0.0375 n 48 20s | u8r_stride
+  up   6%  walked  79.2 cm (median of up)  touchdowns 192  |  landing speed p50  189 p90  282 mm/s  jolt after td p50  14.6 p90  22.5  mid-swing   6.1 (deg/s per tick)  clearance p10  2.6 p50 14.5 mm
+  gate holding (clock stopped) 35.3 % of the walking time
+  both feet down 50 % of the time: 0.36 s per step (stretches p50 0.22 s); a step every 0.72 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 5.3 p50 10.7 deg; peak in the swing p50 16.0 (lift-off / peak 67%)
+  falls 45: tilt past 10 deg at t p50 2.2 s
+    left    13: gait phase u 0.05 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.73 0.93 | feet: R up 12, both down 1
+    right    2: gait phase u 0.08 0.58 | feet: L up 1, both down 1
+    forward 29: gait phase u 0.03 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.08 0.58 0.90 0.91 0.95 | feet: R up 8, both down 21
+    back     1: gait phase u 0.33 | feet: R up 1
+    roll p2p per cycle, the 4 cycles before the tilt (median): 8.3 7.4 8.0 8.7 deg
+    shake (up): strongest above 2.5 Hz at 4.8 Hz, 9.1x the 2.5-12 Hz mean; step rate 1.25 Hz
+    shake (fell): strongest above 2.5 Hz at 2.6 Hz, 6.1x the 2.5-12 Hz mean; step rate 1.25 Hz

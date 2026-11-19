@@ -239,6 +239,17 @@ class EnvConfig:
     cmd_vx_slew: float = 0.0           # m/s^2: the forward command the policy sees (and the reference uses) ramps toward
                                        # the sampled one at this rate (0 = jumps); from rest the first steps are short
     reset_ref_pose: bool = False       # start in the reference's zero-speed pose instead of the stance pose
+    # round 24 (2026-11-19), the gait start for pendulum-sway tables (stride_gait.py): from rest the body has none of
+    # the sideways speed the orbit needs at a lift-off, so the clock starts at start_u (mid single support, where the
+    # orbit's sideways speed is zero) and holds there for start_pre[0] + start_pre[1] s while the reference blends from
+    # the stance pose to the table's pose at start_u: the rolls first (the weight onto the stance foot, both feet
+    # down), then the rest (the swing foot up). -1 = off (the clock starts at 0).
+    start_u: float = -1.0
+    start_pre: tuple = (0.5, 0.3)
+    # round 25 (2026-11-19): the robot runner's start (policy_stand --ready-act): the policy acts for ~2 s with the clock
+    # held at 0 and a zero command (the table's zero-speed pose), then the clock and the command start together. Each
+    # episode holds for U(start_hold_s) s first. () = off (the clock and the command start at once).
+    start_hold_s: tuple = ()
     # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
     # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
     # IMU mounting / calibration error (2026-11-09: the robot reads ~+2 deg roll standing level): the observed gravity
@@ -458,6 +469,7 @@ class SlenderBipedEnv(Env):
         if cfg.reset_ref_pose and self.ref is not None:
             from .ref_gait import level_pitch, lookup
             self._reset_pitch = level_pitch(self.mj_model, self.joints, np.asarray(lookup(self.ref, 0.0, 0.0, jp)[0]))
+        self._roll_mask = jp.array([1.0 if j.endswith("_roll") else 0.0 for j in self.joints])
         self._cycle_n = int(round(1.0 / (cfg.gait_hz * cfg.ctrl_dt)))  # control steps per gait cycle
         W = np.zeros((3, self.nj))                                      # frame-mode drive (evaluation.ring_weights)
         for i, j in enumerate(self.joints):
@@ -624,6 +636,12 @@ class SlenderBipedEnv(Env):
         servo = dict(servo, ring_p=rp, ring_nd=nd)
         cmd_goal = self._sample_cmd(k5)
         cmd = cmd_goal.at[0].set(0.0) if c.cmd_vx_slew > 0 else cmd_goal
+        if c.start_hold_s:                                  # round 25: held start (zero command, clock at 0)
+            cmd = jp.zeros(3)
+            hold_n = jp.round(jax.random.uniform(jax.random.fold_in(k5, 11), (), minval=c.start_hold_s[0],
+                                                 maxval=c.start_hold_s[1]) / c.ctrl_dt).astype(jp.int32)
+        else:
+            hold_n = jp.array(0, jp.int32)
         low, centre = self._tip_low(data)
         rng, kb1, kb2, kb3, kb4 = jax.random.split(rng, 5)
         g0 = _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0]))
@@ -641,7 +659,8 @@ class SlenderBipedEnv(Env):
             flex=jp.zeros(self.nj), flex_v=jp.zeros(self.nj), prev_cmd=qe, q_tgt=qe, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qe, (self.max_delay + 1, 1)),
             q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
             drag_k=c.drag_back * jax.random.uniform(jax.random.fold_in(kb3, 9), ()),
-            phase=jp.array(0.0), air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
+            phase=jp.array(2 * np.pi * max(c.start_u, 0.0)), pre_t=jp.array(0, jp.int32), hold_n=hold_n,
+            air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
             # round 5: cycle-averaged heading-frame velocity (reward), odometry and accelerometer state, history
@@ -707,6 +726,22 @@ class SlenderBipedEnv(Env):
             q_ref = jp.where(mir, self._swap(q_ref), q_ref)
             z_ref = jp.where(mir, z_ref[::-1], z_ref)
             st_ref = jp.where(mir, st_ref[::-1], st_ref)
+        if c.start_u >= 0 and self.ref is not None:          # round 24: the gait start (see start_u)
+            n1, n2 = int(round(c.start_pre[0] / c.ctrl_dt)), int(round(c.start_pre[1] / c.ctrl_dt))
+            t_ = state.info["pre_t"]
+            pre = t_ < n1 + n2
+            phase_next = jp.where(pre, state.info["phase"], phase_next)
+            q_s, z_s, st_s = lookup(self.ref, jp.maximum(state.info["cmd"][0], 0.0), phase_next + jp.pi * mir, jp)
+            q_s = jp.where(mir, self._swap(q_s), q_s)
+            z_s = jp.where(mir, z_s[::-1], z_s)
+            st_s = jp.where(mir, st_s[::-1], st_s)
+            e = lambda x: 0.5 - 0.5 * jp.cos(jp.pi * jp.clip(x, 0.0, 1.0))   # noqa: E731
+            s1, s2 = e((t_ + 1) / max(n1, 1)), e((t_ + 1 - n1) / max(n2, 1))
+            dq = q_s - self.q_nom
+            q_pre = self.q_nom + s1 * self._roll_mask * dq + s2 * (1.0 - self._roll_mask) * dq
+            q_ref = jp.where(pre, q_pre, q_ref)
+            z_ref = jp.where(pre, s2 * z_s, z_ref)
+            st_ref = jp.where(pre, st_s | (s2 < 0.5), st_ref)
         if self.rec is not None:                 # round 14: the recovery step's reference while one runs
             from .rec_step import lookup as rec_lookup
             rec_on0 = state.info["rec_on"]
@@ -870,6 +905,8 @@ class SlenderBipedEnv(Env):
         air = info["air_time"] + c.ctrl_dt
         air_rew = jp.sum(jp.where(touchdown, jp.clip(air - c.air_time_target, -0.3, 0.3), 0.0))
         air = jp.where(contact, 0.0, air)
+        if c.start_hold_s:                      # round 25: the clock stays at 0 during the held start
+            phase_next = jp.where(state.info["pre_t"] < state.info["hold_n"], state.info["phase"], phase_next)
         if c.settle_gate_u:
             u0, u1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
             cross = jp.zeros((), bool)
@@ -909,6 +946,7 @@ class SlenderBipedEnv(Env):
                 info["hold_on"] = info["hold_on"] | (hcross & (jp.linalg.norm(info["cmd"]) > 1e-3))
             info["hold_upd"] = upd
         info["phase"] = phase_next
+        info["pre_t"] = state.info["pre_t"] + 1
         # left stance when sin(phase) >= 0, right when < 0
         s = jp.sin(info["phase"])
         want_contact = jp.array([s >= 0, s < 0])
@@ -1099,6 +1137,8 @@ class SlenderBipedEnv(Env):
             err = jp.mod(info["heading"] - yaw_now + jp.pi, 2 * jp.pi) - jp.pi
             info["cmd"] = info["cmd"].at[2].set(jp.clip(c.heading_gain * err, -0.3, 0.3))
         info["cmd_timer"] = jp.where(resample, self._steps(k_ct, c.cmd_resample_s), info["cmd_timer"])
+        if c.start_hold_s:                      # round 25: zero command until the held start ends
+            info["cmd"] = jp.where(state.info["pre_t"] + 1 < state.info["hold_n"], jp.zeros(3), info["cmd"])
         if self.rec is not None:                # round 14: start / advance / end recovery steps
             from .rec_step import capture
             g_s = _tilt_obs(info["g_est"] if c.imu_filter else g_body, info["imu_off"])

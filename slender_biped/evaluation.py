@@ -117,6 +117,8 @@ class EvalConfig:
     reset_ref_pose: bool = False
     imu_tilt_bias: tuple = (0.0, 0.0)  # see mjx_env.EnvConfig
     dr_imu_tilt: float = 0.0
+    start_u: float = -1.0              # round 24 gait start (mjx_env.EnvConfig.start_u)
+    start_pre: tuple = (0.5, 0.3)
     settle_gate_u: tuple = ()
     settle_gate_w: float = 0.3
     settle_gate_max: float = 0.5
@@ -203,6 +205,17 @@ class EvalConfig:
             if k in keep:
                 keep[k] = tuple(tuple(x) for x in keep[k])
         return cls(**keep)
+
+
+def start_blend(q_nom, q_s, t, c, joints):
+    """Round 24 gait start (mjx_env start_u): the reference at control tick t of the start, from the stance pose to the
+    table's pose q_s at start_u: the rolls over start_pre[0] s, then the rest over start_pre[1] s (raised cosine)."""
+    n1, n2 = int(round(c.start_pre[0] / c.ctrl_dt)), int(round(c.start_pre[1] / c.ctrl_dt))
+    e = lambda x: 0.5 - 0.5 * np.cos(np.pi * np.clip(x, 0.0, 1.0))   # noqa: E731
+    s1, s2 = e((t + 1) / max(n1, 1)), e((t + 1 - n1) / max(n2, 1))
+    roll = np.array([1.0 if j.endswith("_roll") else 0.0 for j in joints])
+    dq = np.asarray(q_s) - np.asarray(q_nom)
+    return np.asarray(q_nom) + s1 * roll * dq + s2 * (1.0 - roll) * dq
 
 
 class CpuBiped:
@@ -370,7 +383,8 @@ class CpuBiped:
         self.v_tgt = np.zeros(self.nj)
         self.cmd_buf = np.tile(qj, (self.max_delay + 1, 1))
         self.last_act = np.zeros(self.nj)
-        self.phase = 0.0
+        self.phase = 2 * np.pi * max(c.start_u, 0.0)
+        self.pre_t = 0
         self.gate_held = 0
         self.held, self.hold_upd = None, True
         self.imu_off = np.array(c.imu_tilt_bias, float) + (c.dr_imu_tilt * self.est_rng.uniform(-1, 1, 2) if c.dr_imu_tilt else 0.0)
@@ -402,6 +416,9 @@ class CpuBiped:
         self.obs()
         self.hist[:] = self._frame
         return self.obs()
+
+    def _n_pre(self):
+        return int(round(self.cfg.start_pre[0] / self.cfg.ctrl_dt)) + int(round(self.cfg.start_pre[1] / self.cfg.ctrl_dt))
 
     def _steps(self, lohi):
         return int(self.rng.integers(int(lohi[0] / self.cfg.ctrl_dt), int(lohi[1] / self.cfg.ctrl_dt) + 1))
@@ -564,6 +581,9 @@ class CpuBiped:
             from .ref_gait import lookup
             phase_next = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
             q_base = lookup(self.ref, max(self.cmd[0], 0.0), phase_next)[0]
+            if c.start_u >= 0 and self.pre_t < self._n_pre():        # round 24 gait start (mjx_env start_u)
+                q_s = lookup(self.ref, max(self.cmd[0], 0.0), self.phase)[0]
+                q_base = start_blend(self.q_nom, q_s, self.pre_t, c, self.joints)
         r = getattr(self, "ramp", 1.0)     # robot runner's start-up blend (policy_stand.py --ramp); 1 = off
         q_base = self.q_nom + r * (q_base - self.q_nom)
         q_cmd = np.clip(q_base + r * c.action_scale * action, self.q_lo, self.q_hi)
@@ -611,6 +631,9 @@ class CpuBiped:
         self.prev_cmd = q_cmd
         self.last_act = action
         ph_new = (self.phase + 2 * np.pi * c.gait_hz * c.ctrl_dt) % (2 * np.pi)
+        if c.start_u >= 0 and self.pre_t < self._n_pre():
+            ph_new = self.phase
+        self.pre_t += 1
         if c.settle_gate_u:                     # mjx_env settle gate: hold the clock at the lift-offs until still
             u0, u1 = self.phase / (2 * np.pi), ph_new / (2 * np.pi)
             cross = any(((u0 - g) % 1.0) > ((u1 - g) % 1.0) for g in c.settle_gate_u)

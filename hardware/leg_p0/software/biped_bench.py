@@ -171,47 +171,67 @@ def cmd_stand(bus, a):
     cmd_play(bus, a)
 
 
-TRIM_KEYS = {"a": ("L_hip_pitch", -0.5), "d": ("L_hip_pitch", +0.5), "A": ("L_hip_pitch", -0.1), "D": ("L_hip_pitch", +0.1),
-             "j": ("L_knee", -0.5), "l": ("L_knee", +0.5), "J": ("L_knee", -0.1), "L": ("L_knee", +0.1)}
+TRIM_KEYS = (("a", "d", "A", "D"), ("j", "l", "J", "L"))   # per trimmed joint: -0.5, +0.5, -0.1, +0.1 deg
+TRIM_HELP = {"L_hip_pitch": "THIGH back / forward", "L_knee": "SHIN forward / back (knee straightens / bends)",
+             "hip_roll": "leg IN / OUT (+ = abduction)", "ankle_roll": "foot's outer edge DOWN / UP (+ = outward)"}
+
+
+def _trim_help(n):
+    return TRIM_HELP.get(n) or TRIM_HELP.get(n[2:], "- / +")
 
 
 def cmd_trim(bus, a):
-    """2026-11-15: stand, nudge the LEFT hip pitch and knee until the robot stands evenly, then re-zero both so that
-    pose reads as the stance (hip 16, knee 32). The new zeros live in the servos (EEPROM) and apply to every tool."""
+    """2026-11-15: stand, nudge joints from the keyboard until the robot stands right, then re-zero them so that pose
+    reads as the stance. The new zeros live in the servos (EEPROM) and apply to every tool.
+    2026-11-19: --joints picks which (up to 2; default the left hip pitch and knee), e.g. --joints L_hip_roll."""
     a.name, a.stay, a.hold, a.speed = "stance", True, False, 1.0
     cmd_play(bus, a)                                     # both legs to the stance and hold
     joints = bus.cfg["joints"]
-    tgt = {n: float(STANCE[n[2:]]) for n in ("L_hip_pitch", "L_knee")}
-    print("\nTRIM the left leg (robot standing; torque on everywhere)\n"
-          "  a / d   left THIGH back / forward 0.5 deg   (A / D: 0.1 deg)\n"
-          "  j / l   left SHIN forward / back 0.5 deg    (J / L: 0.1 deg)   [shin forward = knee straightens]\n"
-          "  z       re-zero both: this pose becomes hip 16 / knee 32   (you'll be asked to hold the robot)\n"
+    names = list(a.joints)
+    for n in names:
+        if n not in joints:
+            sys.exit(f"unknown joint {n}; one of {sorted(joints)}")
+    if len(names) > len(TRIM_KEYS):
+        sys.exit(f"at most {len(TRIM_KEYS)} joints at a time")
+    home = {n: float(STANCE.get(n[2:], 0.0)) for n in names}          # the stance value each joint should read
+    tgt = dict(home)
+    keys = {}
+    print("\nTRIM (robot standing or held; torque on everywhere)")
+    for n, ks in zip(names, TRIM_KEYS):
+        keys.update({ks[0]: (n, -0.5), ks[1]: (n, +0.5), ks[2]: (n, -0.1), ks[3]: (n, +0.1)})
+        print(f"  {ks[0]} / {ks[1]}   {n}: {_trim_help(n)}, 0.5 deg   ({ks[2]} / {ks[3]}: 0.1 deg)")
+    print(f"  z       re-zero: this pose becomes the stance ({', '.join(f'{n} {home[n]:g}' for n in names)}); "
+          "you'll be asked to hold the robot\n"
           "  q       quit without re-zeroing (keeps holding; `off` releases)")
+    other = lambda n: ("R_" if n.startswith("L_") else "L_") + n[2:]          # noqa: E731
+    shown = names + [other(n) for n in names if other(n) in joints and other(n) not in names]
     while True:
-        rd = {n: fb.counts_to_deg(joints[n], bus.r2(joints[n]["id"], fb.ADDR["PRESENT_POS"]))
-              for n in ("L_hip_pitch", "L_knee", "R_hip_pitch", "R_knee")}
-        print(f"\r  trim: thigh {tgt['L_hip_pitch'] - 16:+5.1f}  shin(knee) {tgt['L_knee'] - 32:+5.1f} deg   |  "
-              f"L hip {rd['L_hip_pitch']:5.1f} knee {rd['L_knee']:5.1f}   R hip {rd['R_hip_pitch']:5.1f} knee {rd['R_knee']:5.1f}   ",
-              end="", flush=True)
+        rd = {n: fb.counts_to_deg(joints[n], bus.r2(joints[n]["id"], fb.ADDR["PRESENT_POS"])) for n in shown}
+        print("\r  trim: " + "  ".join(f"{n} {tgt[n] - home[n]:+5.1f}" for n in names) + " deg   |  reads: "
+              + "  ".join(f"{n} {rd[n]:+5.1f}" for n in shown) + "   ", end="", flush=True)
         k = fb.getch()
-        if k in TRIM_KEYS:
-            n, dd = TRIM_KEYS[k]
+        if k in keys:
+            n, dd = keys[k]
             new = tgt[n] + dd
-            if abs(new - STANCE[n[2:]]) > 8:
+            if abs(new - home[n]) > 8:
                 print("\n  trim limited to +-8 deg from the stance", end="")
                 continue
             tgt[n] = new
             fb.goto(bus, n, joints[n], new, speed=int(10 * fb.COUNTS_PER_DEG))
         elif k == "z":
-            print("\n\nHOLD THE ROBOT UP by the pelvis, legs unloaded and still, then press y "
-                  "(the two left servos go limp for ~0.5 s while the zero is written). Any other key: back.")
+            todo = [n for n in names if abs(tgt[n] - home[n]) > 1e-6]
+            if not todo:
+                print("\n  nothing trimmed yet", end="")
+                continue
+            print(f"\n\nHOLD THE ROBOT UP by the pelvis, legs unloaded and still, then press y "
+                  f"({', '.join(todo)} go limp for ~0.5 s while the zero is written). Any other key: back.")
             if fb.getch() != "y":
                 continue
-            for n in ("L_hip_pitch", "L_knee"):
+            for n in todo:
                 j = joints[n]
-                print(f"{n}: trimmed {tgt[n] - STANCE[n[2:]]:+.1f} deg")
+                print(f"{n}: trimmed {tgt[n] - home[n]:+.1f} deg")
                 try:
-                    fb.cmd_zero(bus, argparse.Namespace(id=j["id"], target=fb.deg_to_counts(j, STANCE[n[2:]]), reset=False))
+                    fb.cmd_zero(bus, argparse.Namespace(id=j["id"], target=fb.deg_to_counts(j, home[n]), reset=False))
                 except SystemExit as e:
                     # 2026-11-15: a (false) failure here used to exit with this joint limp and the robot dropped.
                     # Whatever happened, hold the joint where it is now, then stop.
@@ -222,8 +242,8 @@ def cmd_trim(bus, a):
                     print(f"\n{n}: {e}\nHOLDING it where it is (torque ON). Run `python feetech_bench.py info` and check its "
                           "offset before anything else moves; `off` releases.")
                     return
-                fb.goto(bus, n, j, float(STANCE[n[2:]]), speed=int(10 * fb.COUNTS_PER_DEG))   # torque back on, same pose
-            print("re-zeroed: the trimmed pose now reads hip 16 / knee 32. Holding the stance; `off` releases.\n"
+                fb.goto(bus, n, j, home[n], speed=int(10 * fb.COUNTS_PER_DEG))   # torque back on, same pose
+            print("re-zeroed: the trimmed pose now reads as the stance. Holding it; `off` releases.\n"
                   "Note the new offsets above (also in the servos' EEPROM).")
             return
         elif k in ("q", "\x03"):
@@ -285,8 +305,10 @@ def main():
     sp.add_argument("--hold", action="store_true", help="keep torque on at neutral afterwards")
     sp.add_argument("--stay", action="store_true", help="skip the return to neutral and hold the last pose")
     sp.add_argument("--enable", action="store_true")
-    sp = sub.add_parser("trim", help="stand, nudge the left hip pitch / knee from the keyboard, re-zero them (2026-11-15)")
+    sp = sub.add_parser("trim", help="stand, nudge joints from the keyboard, re-zero them (2026-11-15)")
     sp.add_argument("--enable", action="store_true")
+    sp.add_argument("--joints", nargs="+", default=["L_hip_pitch", "L_knee"],
+                    help="up to 2 joints to trim, e.g. --joints L_hip_roll (default: L_hip_pitch L_knee)")
     sp = sub.add_parser("shift-zero", help="apply a known trim (deg) to one joint's zero, e.g. `shift-zero L_knee --trim -2.5`")
     sp.add_argument("joint")
     sp.add_argument("--trim", type=float, required=True, help="the trim you dialled in (as `trim` printed it)")

@@ -1,0 +1,23 @@
+gait u8sg_z0 (params_0020M.pkl) sim robot vx 0.0225 n 48 20s | u8s_stride settle_gate_u=[]
+  up   0%  walked   0.0 cm (median of up)  touchdowns 2  |  landing speed p50  182 p90  199 mm/s  jolt after td p50  19.4 p90  22.3  mid-swing   5.0 (deg/s per tick)  clearance p10  5.8 p50  8.3 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 16 % of the time: 0.08 s per step (stretches p50 0.06 s); a step every 0.49 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 9.9 p50 22.0 deg; peak in the swing p50 20.1 (lift-off / peak 109%)
+gait u8sg_z0 (params_0020M.pkl) sim robot vx 0.0375 n 48 20s | u8s_stride settle_gate_u=[]
+  up   0%  walked   0.0 cm (median of up)  touchdowns 1  |  landing speed p50  304 p90  304 mm/s  jolt after td p50  12.9 p90  12.9  mid-swing   8.1 (deg/s per tick)  clearance p10 57.4 p50 57.4 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 43 % of the time: 0.38 s per step (stretches p50 0.19 s); a step every 0.88 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 15.4 p50 15.4 deg; peak in the swing p50 29.3 (lift-off / peak 53%)
+gait u8sg_z0 (params_0020M.pkl) sim robot vx 0.0525 n 48 20s | u8s_stride settle_gate_u=[]
+  up   0%  walked   0.0 cm (median of up)  touchdowns 2  |  landing speed p50  161 p90  262 mm/s  jolt after td p50  15.4 p90  19.5  mid-swing  15.6 (deg/s per tick)  clearance p10  8.4 p50 25.5 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 40 % of the time: 0.18 s per step (stretches p50 0.12 s); a step every 0.45 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 1.9 p50 8.7 deg; peak in the swing p50 18.2 (lift-off / peak 48%)
+gait u8sg_z0 (params_0020M.pkl) sim robot vx 0.0375 n 48 20s | u8s_stride settle_gate_u=[]
+  up   0%  walked   0.0 cm  touchdowns 1 (too few for landing stats)
+  falls 48: tilt past 10 deg at t p50 0.0 s
+    left    25: gait phase u 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 | feet: L up 1, R up 3, both down 21
+    right   16: gait phase u 0.18 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.25 0.41 0.94 0.94 0.95 0.96 | feet: L up 6, R up 1, both down 9
+    forward  4: gait phase u 0.25 0.25 0.25 0.25 | feet: R up 3, both down 1
+    back     3: gait phase u 0.25 0.31 0.44 | feet: R up 1, both down 2
+    shake (fell): strongest above 2.5 Hz at 2.6 Hz, 5.7x the 2.5-12 Hz mean; step rate 1.25 Hz

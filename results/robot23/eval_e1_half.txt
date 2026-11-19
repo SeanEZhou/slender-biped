@@ -1,0 +1,30 @@
+gait e1_half (params_0025M.pkl) sim robot vx 0.0218 n 48 20s | c_D1h
+  up   0%  walked   0.0 cm (median of up)  touchdowns 2  |  landing speed p50  303 p90  367 mm/s  jolt after td p50  19.1 p90  20.5  mid-swing   7.9 (deg/s per tick)  clearance p10 46.5 p50 52.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 31 % of the time: 0.28 s per step (stretches p50 0.28 s); a step every 0.89 s; neither down 0 %
+gait e1_half (params_0025M.pkl) sim robot vx 0.0364 n 48 20s | c_D1h
+  up   0%  walked   0.0 cm (median of up)  touchdowns 2  |  landing speed p50  303 p90  372 mm/s  jolt after td p50  20.7 p90  22.8  mid-swing   8.3 (deg/s per tick)  clearance p10 46.6 p50 52.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 36 % of the time: 0.29 s per step (stretches p50 0.29 s); a step every 0.81 s; neither down 0 %
+gait e1_half (params_0025M.pkl) sim robot vx 0.0509 n 48 20s | c_D1h
+  up   0%  walked   0.0 cm (median of up)  touchdowns 2  |  landing speed p50  300 p90  369 mm/s  jolt after td p50  19.8 p90  22.2  mid-swing   8.2 (deg/s per tick)  clearance p10 46.7 p50 52.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 38 % of the time: 0.28 s per step (stretches p50 0.28 s); a step every 0.73 s; neither down 0 %
+gait e1_half (params_0025M.pkl) sim loose vx 0.0364 n 48 20s | c_D1h
+  up   0%  walked   0.0 cm (median of up)  touchdowns 1  |  landing speed p50  133 p90  133 mm/s  jolt after td p50  22.3 p90  22.3  mid-swing  10.9 (deg/s per tick)  clearance p10 59.8 p50 59.8 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 11 % of the time: 0.10 s per step (stretches p50 0.10 s); a step every 0.90 s; neither down 0 %
+gait e1_half (params_0025M.pkl) sim robot vx 0.0364 n 48 20s | c_D1h prof_acc=[6.0,60.0,25.0]
+  up   0%  walked   0.0 cm  touchdowns 0 (too few for landing stats)
+  print(f"(of those up: both pads down {both[up].mean():.0%}, joints within 6 deg {(np.degrees(qerr) < 6)[up].mean():.0%} "
+  ret = ret.dtype.type(ret / rcount)
+  f"(median worst {np.degrees(np.median(qerr[up])) if up.any() else 0:.1f} deg), tilt < 5 deg {(tilt < 5)[up].mean():.0%}, "
+  f"still {still[up].mean():.0%})")
+(of those up: both pads down nan%, joints within 6 deg nan% (median worst 0.0 deg), tilt < 5 deg nan%, still nan%)
+walk test, e1_half (runs/e1_half/params_0025M.pkl), recovery self, supervisor off, sim robot, act-lpf 0.7, 16 per cell, shove 0.15 s
+dv m/s |                    fwd |                   back |                   left |                  right |  all up / resumed
+       |     up trig resum dist |     up trig resum dist |     up trig resum dist |     up trig resum dist
+  0.00 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+  0.10 |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |    0%  0.0   0%  0.0cm |   0% /   0%
+recovery steps started per run: 0.00 (up runs 0.00, fallen 0.00); touchdowns after the shove 0.0
+overall up 0%, resumed 0%, supervisor triggers per run 0.00
