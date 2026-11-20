@@ -22,6 +22,16 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Round 25 (2026-11-19)
+
+- **Shoves teach a policy to wait, not to walk better.** Shove-trained z0 fine-tunes were the steadiest in the
+  simulator, but on the robot they held the clock up to 4 s a trial, took fewer steps, and fell the same ways.
+- **Test the policy against its own bad steps.** Small random errors in the servo targets on half the steps (2° hip
+  roll) dropped z0 from 94 % to 25 % upright, matching what the robot does after one sub-par step. Shoves and tilted
+  starts don't reproduce that.
+- **A reward that demands the reference everywhere forbids recovery.** `late_shift` charged z0 for every lift-off
+  with less weight shift than the reference, even when the body already leaned that way.
+
 ## Round 24 and the robot (2026-11-19)
 
 - **Compare the robot's body motion with the simulator's, not only its joints.** The joints matched the simulator to

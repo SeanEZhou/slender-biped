@@ -1,0 +1,10 @@
+gait z5_shv (params_0020M.pkl) sim robot vx 0.025 n 48 20s | c_K2gr
+  up  90%  walked  35.5 cm (median of up)  touchdowns 629  |  landing speed p50  269 p90  313 mm/s  jolt after td p50  15.6 p90  21.3  mid-swing   5.9 (deg/s per tick)  clearance p10 21.8 p50 34.4 mm
+  gate holding (clock stopped) 10.5 % of the walking time
+  both feet down 74 % of the time: 0.95 s per step (stretches p50 0.88 s); a step every 1.27 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 14.1 p50 18.0 deg; peak in the swing p50 28.7 (lift-off / peak 63%)
+  falls 5: tilt past 10 deg at t p50 6.8 s
+    left     4: gait phase u 0.15 0.81 0.83 0.85 | feet: L up 3, R up 1
+    forward  1: gait phase u 0.08 | feet: both down 1
+    shake (up): strongest above 2.5 Hz at 2.9 Hz, 12.3x the 2.5-12 Hz mean; step rate 0.83 Hz
+    shake (fell): strongest above 2.5 Hz at 4.6 Hz, 6.7x the 2.5-12 Hz mean; step rate 0.83 Hz

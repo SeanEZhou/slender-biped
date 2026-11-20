@@ -2547,3 +2547,17 @@ Details: [results/robot24/NOTES.md](../results/robot24/NOTES.md) (from "Robot tr
   k5 took 8-18 steps. h4s2 still fell within 4-7 steps.
 - **The cause is the robot, not training.** Measuring the robot (E6) and fixing it did more in an hour than a round of
   training.
+
+## 46. Round 25: z0 made reliable? Shoves, held starts, mirroring (2026-11-19 12:30-22:01)
+
+Details: [results/robot25/NOTES.md](../results/robot25/NOTES.md).
+
+- **Training z0 further drifts by itself.** The control fine-tune (no changes) fell from 90-94 % to 75-88 % up.
+- **Only shoves beat the drift in the simulator.** z5_shv10 (to 0.10 m/s) stayed up 96-98 %, z5_shv2 98 % at all
+  speeds, with wider left landings. The held start, mirroring and harder starting states all came out worse.
+- **On the robot the shove-trained policies waited** (the clock held up to 4 s a trial) and took fewer steps. They fell
+  the same ways as z0.
+- **The opening decides many trials.** A first left step landing 103-106 mm from the right foot fell on the next step
+  every time (4 of 10 trials).
+- **z0 can't recover from a sub-par step.** With small random execution errors on half its steps (2° hip roll,
+  2.9° hip pitch, unseen by the policy) it stays up 25 % of the time instead of 94 %.

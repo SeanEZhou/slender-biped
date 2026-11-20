@@ -1,0 +1,12 @@
+opening z0_y2c (params_0020M.pkl) vx 0.025 hold 2.0s n 32 
+  end of hold: hip roll L +4.0 R +1.9 deg | first 3 s: roll excursion p50 8.7 p90 9.8 deg, fallen 0/32
+  step 1 (R): ahead +12 mm (p10 +7), spacing 127 mm
+  step 2 (L): ahead +24 mm (p10 +19), spacing 111 mm
+  step 3 (R): ahead +27 mm (p10 +21), spacing 133 mm
+  step 4 (L): ahead +26 mm (p10 +19), spacing 111 mm
+opening z0_y2c (params_0020M.pkl) vx 0.025 hold 0.5s n 32 
+  end of hold: hip roll L +4.2 R +1.7 deg | first 3 s: roll excursion p50 9.2 p90 10.0 deg, fallen 0/32
+  step 1 (R): ahead +13 mm (p10 +8), spacing 127 mm
+  step 2 (L): ahead +24 mm (p10 +15), spacing 113 mm
+  step 3 (R): ahead +31 mm (p10 +22), spacing 132 mm
+  step 4 (L): ahead +25 mm (p10 +19), spacing 109 mm

@@ -1,0 +1,12 @@
+opening z5_shv15 (params_0020M.pkl) vx 0.025 hold 2.0s n 32 
+  end of hold: hip roll L +0.4 R +2.3 deg | first 3 s: roll excursion p50 8.5 p90 9.1 deg, fallen 0/32
+  step 1 (R): ahead +14 mm (p10 +9), spacing 131 mm
+  step 2 (L): ahead +29 mm (p10 +20), spacing 109 mm
+  step 3 (R): ahead +33 mm (p10 +26), spacing 131 mm
+  step 4 (L): ahead +30 mm (p10 +23), spacing 115 mm
+opening z5_shv15 (params_0020M.pkl) vx 0.025 hold 0.5s n 32 
+  end of hold: hip roll L +2.6 R +1.2 deg | first 3 s: roll excursion p50 8.1 p90 9.9 deg, fallen 0/32
+  step 1 (R): ahead +13 mm (p10 +10), spacing 131 mm
+  step 2 (L): ahead +28 mm (p10 +19), spacing 109 mm
+  step 3 (R): ahead +35 mm (p10 +28), spacing 127 mm
+  step 4 (L): ahead +29 mm (p10 +22), spacing 113 mm

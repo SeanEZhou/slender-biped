@@ -250,6 +250,15 @@ class EnvConfig:
     # held at 0 and a zero command (the table's zero-speed pose), then the clock and the command start together. Each
     # episode holds for U(start_hold_s) s first. () = off (the clock and the command start at once).
     start_hold_s: tuple = ()
+    # round 26 (recovery): per-step execution errors. (prob, hip_roll_std, hip_pitch_std) rad: at each reference
+    # lift-off, with probability prob, a fresh random offset per hip roll / hip pitch joint is added to the servo
+    # targets (unseen by the policy) and held until the next reference lift-off; otherwise none. The simulator's steps
+    # then go wrong the way the robot's do (too little or too much shift, short / narrow landings). () = off.
+    step_err: tuple = ()
+    # round 26: off-nominal states relax the reference. (tilt0, tilt_scale, w0, w_scale): ref_q, ref_contact and
+    # late_shift are scaled by exp(-(relu(tilt - tilt0) / tilt_scale)^2 - (relu(|w_xy| - w0) / w_scale)^2) (rad, rad/s):
+    # far from the nominal gait the policy may leave the reference to recover. () = off.
+    ref_relax: tuple = ()
     # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
     # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
     # IMU mounting / calibration error (2026-11-09: the robot reads ~+2 deg roll standing level): the observed gravity
@@ -660,6 +669,7 @@ class SlenderBipedEnv(Env):
             q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
             drag_k=c.drag_back * jax.random.uniform(jax.random.fold_in(kb3, 9), ()),
             phase=jp.array(2 * np.pi * max(c.start_u, 0.0)), pre_t=jp.array(0, jp.int32), hold_n=hold_n,
+            serr=jp.zeros(self.nj), serr_st=jp.ones(2, bool),
             air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
             contact_prev=low < 0.0015, tip_prev=centre, lift_pos=centre, step=jp.array(0, jp.int32),
@@ -760,7 +770,16 @@ class SlenderBipedEnv(Env):
                 q_ref, z_ref, st_ref = q_r, z_r, st_r
                 phase_next = 2 * jp.pi * jp.minimum(rec_u_next, 1.0)
         q_base = q_ref if (self.ref is not None and c.ref_residual) else self.q_nom
-        q_cmd = jp.clip(q_base + c.action_scale * act_real, self.q_lo, self.q_hi)
+        serr, serr_st = state.info["serr"], state.info["serr_st"]
+        if c.step_err and self.ref is not None:              # round 26: per-step execution errors
+            p_, sr_, sp_ = c.step_err
+            std_ = jp.array([sr_ if j.endswith("hip_roll") else sp_ if j.endswith("hip_pitch") else 0.0 for j in self.joints])
+            st_b = st_ref.astype(bool)
+            ke = jax.random.split(jax.random.fold_in(state.info["rng"], 77), 2)
+            new_ = (jax.random.uniform(ke[0]) < p_) * std_ * jax.random.normal(ke[1], (self.nj,))
+            serr = jp.where(jp.any(serr_st & ~st_b), new_, serr)
+            serr_st = st_b
+        q_cmd = jp.clip(q_base + c.action_scale * act_real + serr, self.q_lo, self.q_hi)
         ts = self.ts * s_["strength"]
         w0 = self.w0 * s_["speed"]
         kp = c.kp * s_["kp"]
@@ -844,6 +863,7 @@ class SlenderBipedEnv(Env):
                   state.info["ring"]), jp.arange(self.n_sub))
 
         info = dict(state.info)
+        info.update(serr=serr, serr_st=serr_st)
         info["ring"] = rs
         info["flex"] = flex
         info["flex_v"] = flex_v
@@ -1039,6 +1059,11 @@ class SlenderBipedEnv(Env):
                     - jp.abs(data.qpos[7 + self._iroll[0]] - data.qpos[7 + self._iroll[1]]), 0.0) ** 2, 0.0))
         else:
             ref_terms = dict(ref_q=0.0, ref_tip=0.0, ref_contact=0.0, settle=0.0, ref_swing=0.0, late_shift=0.0)
+        if c.ref_relax:                                      # round 26: off-nominal states relax the reference
+            t0_, ts_, w0_, ws_ = c.ref_relax
+            f_nom = jp.exp(-(jp.maximum(jp.sqrt(tilt2) - t0_, 0.0) / ts_) ** 2
+                           - (jp.maximum(jp.linalg.norm(w_body[:2]) - w0_, 0.0) / ws_) ** 2)
+            ref_terms = {k: (v * f_nom if k in ("ref_q", "ref_contact", "late_shift") else v) for k, v in ref_terms.items()}
         capture, free = 0.0, jp.array(False)
         if c.capture_v > 0:
             vh = v_world[:2]
