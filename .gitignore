@@ -308,3 +308,5 @@ robotvid/
 # round 25 robot candidates (2026-11-19)
 !runs/z5_shv10/params_0020M.pkl
 !runs/z5_shv2/params_0020M.pkl
+# round 26 robot candidate (2026-11-19)
+!runs/z6_e/params_0015M.pkl

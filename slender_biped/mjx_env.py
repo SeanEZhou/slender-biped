@@ -259,6 +259,25 @@ class EnvConfig:
     # late_shift are scaled by exp(-(relu(tilt - tilt0) / tilt_scale)^2 - (relu(|w_xy| - w0) / w_scale)^2) (rad, rad/s):
     # far from the nominal gait the policy may leave the reference to recover. () = off.
     ref_relax: tuple = ()
+    # round 27 (start / stop): the gait clock runs only while walking. It starts from its rest point (u 0 or 0.5: both
+    # feet down, the body centred) when the (slewed) command becomes nonzero, and once the command is back to 0 it stops
+    # at the next rest point: the robot stands. With an in-place table (shift_gait --inplace: the zero-speed row steps in
+    # place with the full shift and lift) a ramped command starts and stops with steps that only grow or shrink.
+    # Episodes start standing at u 0 or 0.5 (either foot first). The reward's "moving" = walking.
+    walk_state: bool = False
+    # round 27: the reference re-anchored to the robot's own legs (joint-name suffixes, e.g. ("hip_pitch", "knee")). At
+    # each reference lift-off and at the walk's start, both legs' offsets (measured - reference, clipped to
+    # ref_anchor_max rad) are captured. A leg's offset fades out over its next swing (cosine) and is held while it stands;
+    # standing still they fade over 1 s. The reference (rewards and the action's base) = table + offset: every step goes
+    # from where the feet are to the table's landing pose. () = off.
+    ref_anchor: tuple = ()
+    ref_anchor_max: float = 0.35
+    # round 27: episodes start with the feet staggered front-back: the double-support pose of the table at a speed
+    # U(-reset_stagger, reset_stagger) m/s (negative: the other foot ahead, i.e. the next swing foot is already ahead).
+    reset_stagger: float = 0.0
+    # round 27: step-length variety (training only; the policy doesn't see it): at each reference lift-off the table's
+    # speed is the command x U(1 - j, 1 + j), held for the step. With ref_anchor the change is absorbed at the lift-off.
+    ref_v_jitter: float = 0.0
     # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
     # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
     # IMU mounting / calibration error (2026-11-09: the robot reads ~+2 deg roll standing level): the observed gravity
@@ -479,6 +498,10 @@ class SlenderBipedEnv(Env):
             from .ref_gait import level_pitch, lookup
             self._reset_pitch = level_pitch(self.mj_model, self.joints, np.asarray(lookup(self.ref, 0.0, 0.0, jp)[0]))
         self._roll_mask = jp.array([1.0 if j.endswith("_roll") else 0.0 for j in self.joints])
+        self._anc_mask = jp.array([1.0 if any(j.endswith(x) for x in cfg.ref_anchor) else 0.0 for j in self.joints])
+        self._leg_mask = jp.array([[1.0 if j.startswith(sd) else 0.0 for j in self.joints] for sd in ("L_", "R_")])
+        self._swing_frac = (float(np.mean(np.asarray(self.ref["stance"])[-1, :, 0] < 0.5))
+                            if self.ref is not None else 0.2) or 0.2
         self._cycle_n = int(round(1.0 / (cfg.gait_hz * cfg.ctrl_dt)))  # control steps per gait cycle
         W = np.zeros((3, self.nj))                                      # frame-mode drive (evaluation.ring_weights)
         for i, j in enumerate(self.joints):
@@ -587,9 +610,15 @@ class SlenderBipedEnv(Env):
         rng, k1, k2, k3, k4, k5, k6, k7 = jax.random.split(rng, 8)
         qpos = self.qpos0
         q0 = self.q_nom
+        ph0 = jp.array(2 * np.pi * max(c.start_u, 0.0))
+        if c.walk_state and c.start_u < 0:                   # round 27: either foot first
+            ph0 = jp.where(jax.random.uniform(jax.random.fold_in(k1, 301)) < 0.5, 0.0, jp.pi)
         if c.reset_ref_pose and self.ref is not None:
             from .ref_gait import lookup
             q0 = lookup(self.ref, jp.array(0.0), jp.array(0.0), jp)[0]
+            if c.reset_stagger > 0:                          # round 27: feet staggered front-back
+                vr = jax.random.uniform(jax.random.fold_in(k1, 302), minval=-c.reset_stagger, maxval=c.reset_stagger)
+                q0 = lookup(self.ref, jp.abs(vr), ph0 + jp.where(vr < 0, jp.pi, 0.0), jp)[0]
         q_off = jp.zeros(self.nj)
         for n_, (suf, lo, hi, spr) in enumerate(c.hidden_off):
             ko = jax.random.split(jax.random.fold_in(k1, 100 + n_), 2)
@@ -668,7 +697,8 @@ class SlenderBipedEnv(Env):
             flex=jp.zeros(self.nj), flex_v=jp.zeros(self.nj), prev_cmd=qe, q_tgt=qe, v_tgt=jp.zeros(self.nj), cmd_buf=jp.tile(qe, (self.max_delay + 1, 1)),
             q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
             drag_k=c.drag_back * jax.random.uniform(jax.random.fold_in(kb3, 9), ()),
-            phase=jp.array(2 * np.pi * max(c.start_u, 0.0)), pre_t=jp.array(0, jp.int32), hold_n=hold_n,
+            phase=ph0, pre_t=jp.array(0, jp.int32), hold_n=hold_n,
+            walking=jp.array(False), anc=jp.zeros(self.nj), anc_w=jp.zeros(2), anc_st=jp.ones(2, bool), vj=jp.array(1.0),
             serr=jp.zeros(self.nj), serr_st=jp.ones(2, bool),
             air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
@@ -728,14 +758,50 @@ class SlenderBipedEnv(Env):
         mir = state.info["mirror"]
         act_real = jp.where(mir, self._swap(action), action)
         phase_next = jp.mod(state.info["phase"] + 2 * jp.pi * c.gait_hz * c.ctrl_dt, 2 * jp.pi)
+        walking0 = state.info["walking"]
+        walking_next = walking0
+        if c.walk_state:                                     # round 27: the clock runs only while walking
+            go_ = jp.linalg.norm(state.info["cmd"][:2]) > 1e-3   # not the heading correction (cmd[2])
+            wu0, wu1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
+            r0_ = jp.mod(wu0, 1.0) > jp.mod(wu1, 1.0)
+            r5_ = jp.mod(wu0 - 0.5, 1.0) > jp.mod(wu1 - 0.5, 1.0)
+            stop_ = walking0 & ~go_ & (r0_ | r5_)
+            walking_next = (walking0 & ~stop_) | (~walking0 & go_)
+            phase_next = jp.where(walking_next, phase_next,
+                                  jp.where(stop_, jp.where(r5_, jp.pi, 0.0), state.info["phase"]))
         if self.ref is not None:
             from .ref_gait import lookup
             # mirrored episode: the mirror image of the reference half a cycle later (identical for symmetric tables)
-            q_ref, z_ref, st_ref = lookup(self.ref, jp.maximum(state.info["cmd"][0], 0.0),
-                                          phase_next + jp.pi * mir, jp)
+            v_ref = jp.maximum(state.info["cmd"][0], 0.0) * state.info["vj"]
+            q_ref, z_ref, st_ref = lookup(self.ref, v_ref, phase_next + jp.pi * mir, jp)
+            vj = state.info["vj"]
+            if c.ref_v_jitter > 0:                           # round 27: a new step length at each reference lift-off
+                lo_ = jp.any(state.info["anc_st"] & ~jp.where(mir, st_ref[::-1], st_ref).astype(bool))
+                vj = jp.where(lo_, jax.random.uniform(jax.random.fold_in(state.info["rng"], 91), minval=1.0 - c.ref_v_jitter,
+                                                      maxval=1.0 + c.ref_v_jitter), vj)
+                v_ref = jp.maximum(state.info["cmd"][0], 0.0) * vj
+                q_ref, z_ref, st_ref = lookup(self.ref, v_ref, phase_next + jp.pi * mir, jp)
             q_ref = jp.where(mir, self._swap(q_ref), q_ref)
             z_ref = jp.where(mir, z_ref[::-1], z_ref)
             st_ref = jp.where(mir, st_ref[::-1], st_ref)
+        anc, anc_w, anc_st = state.info["anc"], state.info["anc_w"], state.info["anc_st"]
+        if c.ref_anchor and self.ref is not None:            # round 27: the reference re-anchored to the legs
+            st_b = st_ref.astype(bool)
+            q_meas = state.pipeline_state.qpos[7:7 + self.nj] + state.info["q_off"]
+            ev_ = jp.any(anc_st & ~st_b) | (walking_next & ~walking0)
+            anc = jp.where(ev_, jp.clip(q_meas - q_ref, -c.ref_anchor_max, c.ref_anchor_max) * self._anc_mask, anc)
+            dfrac = jp.mod(phase_next - state.info["phase"], 2 * jp.pi) / (2 * jp.pi)
+            sw_frac = float(self._swing_frac)
+            w_ = jp.where(ev_, 1.0, anc_w)
+            w_ = jp.where(~st_b & ~ev_, w_ - dfrac / sw_frac, w_)      # fades over the leg's swing
+            if c.walk_state:
+                w_ = jp.where(walking_next, w_, w_ - c.ctrl_dt / 1.0)  # standing: over 1 s
+            anc_w = jp.clip(w_, 0.0, 1.0)
+            anc_st = st_b
+            eff = 0.5 - 0.5 * jp.cos(jp.pi * anc_w)
+            q_ref = q_ref + anc * (eff[0] * self._leg_mask[0] + eff[1] * self._leg_mask[1])
+        elif self.ref is not None:
+            anc_st = st_ref.astype(bool)
         if c.start_u >= 0 and self.ref is not None:          # round 24: the gait start (see start_u)
             n1, n2 = int(round(c.start_pre[0] / c.ctrl_dt)), int(round(c.start_pre[1] / c.ctrl_dt))
             t_ = state.info["pre_t"]
@@ -863,7 +929,9 @@ class SlenderBipedEnv(Env):
                   state.info["ring"]), jp.arange(self.n_sub))
 
         info = dict(state.info)
-        info.update(serr=serr, serr_st=serr_st)
+        info.update(serr=serr, serr_st=serr_st, walking=walking_next, anc=anc, anc_w=anc_w, anc_st=anc_st)
+        if self.ref is not None:
+            info["vj"] = vj
         info["ring"] = rs
         info["flex"] = flex
         info["flex_v"] = flex_v
@@ -933,6 +1001,8 @@ class SlenderBipedEnv(Env):
             for g in c.settle_gate_u:
                 cross = cross | (jp.mod(u0 - g, 1.0) > jp.mod(u1 - g, 1.0))
             moving_now = jp.linalg.norm(info["cmd"]) > 1e-3
+            if c.walk_state:
+                moving_now = info["walking"]
             if self.rec is not None:
                 moving_now = moving_now & ~state.info["rec_on"]
             busy = jp.sum(data.qvel[3:5] ** 2) > c.settle_gate_w ** 2
@@ -972,6 +1042,8 @@ class SlenderBipedEnv(Env):
         want_contact = jp.array([s >= 0, s < 0])
         cmd = info["cmd"]
         moving = jp.linalg.norm(cmd) > 1e-3
+        if c.walk_state:                                     # round 27: in-place steps to the stop count as walking
+            moving = info["walking"]
         stepping = moving | c.phase_when_still  # gait-phase shaping active
         swing_target = c.swing_height * jp.abs(s)
         swing_err = jp.sum(jp.where(~want_contact, (low - swing_target) ** 2, 0.0))

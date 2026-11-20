@@ -147,6 +147,19 @@ def ref_lookup(table, vx, phase):
     return a * (1 - wv) + b * wv
 
 
+def ref_stance(table, vx, phase):
+    """Reference stance flags (L, R) at (forward speed, phase), as slender_biped/ref_gait.py lookup (bilinear > 0.5)."""
+    v, nph = table["v"], table["stance"].shape[1]
+    fv = float(np.clip(vx / v[-1] * (len(v) - 1), 0.0, len(v) - 1.0))
+    i0 = int(np.clip(math.floor(fv), 0, len(v) - 2)); wv = fv - i0
+    fp = (phase % (2 * math.pi)) / (2 * math.pi) * nph
+    j0 = int(math.floor(fp)) % nph; j1 = (j0 + 1) % nph; wp = fp - math.floor(fp)
+    S = table["stance"]
+    a = S[i0, j0] * (1 - wp) + S[i0, j1] * wp
+    b = S[i0 + 1, j0] * (1 - wp) + S[i0 + 1, j1] * wp
+    return (a * (1 - wv) + b * wv) > 0.5
+
+
 DET_NAMES = ("lift", "sine", "cpg", "rock", "step", "shiftwalk", "refwalk")
 
 
@@ -791,7 +804,7 @@ def cmd_run(a):
     ref = None
     if env.get("ref_table") and env.get("ref_residual"):
         z = np.load(ROOT / "models" / "ref" / f"{env['ref_table']}.npz")
-        ref = {k: np.asarray(z[k]) for k in ("q", "v")}
+        ref = {k: np.asarray(z[k]) for k in ("q", "v", "stance")}
         print(f"reference gait {env['ref_table']} (residual), forward command {a.vx:.2f} m/s")
     elif a.vx:
         print(f"forward command {a.vx:.2f} m/s")
@@ -830,6 +843,17 @@ def cmd_run(a):
               f"ramps at {slew:.2f} m/s^2" if slew else f"ready pose first: {ready:.1f} s")
     if slew > 0:
         cmd_v[0] = 0.0
+    # round 27 (mjx_env walk_state): the clock runs only while walking; it starts from its rest point (u 0) once the
+    # command is nonzero and stops at the next rest point (u 0 or 0.5) once the ramped command is back to 0. Keys while
+    # running: p = stop walking (stand), g = walk again
+    walk_state = bool(env.get("walk_state", False)) and ref is not None
+    # round 27 (mjx_env ref_anchor): the reference re-anchored to the legs at each reference lift-off and at the start
+    anc_suf = tuple(env.get("ref_anchor", ()) or ()) if ref is not None else ()
+    anc_max = float(env.get("ref_anchor_max", 0.35))
+    if walk_state:
+        print("walk state ON: the clock waits at its rest point while the command is 0. Keys: p = stop walking, g = walk again")
+    if anc_suf:
+        print(f"reference re-anchored to the legs at each lift-off: {anc_suf}")
     gate_u = () if getattr(a, "no_gate", False) else tuple(env.get("settle_gate_u", ()))   # round 24: --no-gate, trained gated, run gate-free
     if getattr(a, "no_gate", False) and env.get("settle_gate_u"):
         print("settle gate OFF (--no-gate): the clock never holds; this run was trained with it")
@@ -978,6 +1002,12 @@ def cmd_run(a):
         hist = None                                     # past observation frames (n_hist)
         a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
+        walking, vx_goal = False, a.vx                  # round 27: walk state; p / g keys set the goal
+        anc, anc_w, anc_st = np.zeros(nj), np.zeros(2), np.ones(2, bool)
+        anc_mask = np.array([1.0 if any(n.endswith(x) for x in anc_suf) else 0.0 for n in sv.names])
+        leg_mask = np.array([[1.0 if n.startswith(sd) else 0.0 for n in sv.names] for sd in ("L_", "R_")])
+        sw_frac = float(np.mean(ref["stance"][-1, :, 0] < 0.5)) if ref is not None else 0.2
+        ph_look = phase
         # round 24 gait start (mjx_env start_u): the clock starts at start_u and holds while the reference shifts the
         # weight onto the stance foot (the rolls, start_pre[0] s) and lifts the swing foot (the rest, start_pre[1] s)
         start_u = float(env.get("start_u", -1.0) if env.get("start_u") is not None else -1.0)
@@ -1006,7 +1036,7 @@ def cmd_run(a):
                    + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
                    + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
                    + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch",
-                      "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side"])
+                      "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side", "walking", "vx_cmd"])
         v_min, v_start = 99.0, None
         t_start = time.perf_counter()
         try:
@@ -1051,7 +1081,7 @@ def cmd_run(a):
                     q_cmd = np.clip(q_nom + r * (q_goal - q_nom), lo, hi)
                 else:
                     if slew > 0:
-                        cmd_v[0] += float(np.clip(a.vx - cmd_v[0], -slew * dt, slew * dt))
+                        cmd_v[0] += float(np.clip(vx_goal - cmd_v[0], -slew * dt, slew * dt))
                     if a.vx:
                         cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
                     if sup is not None and t_run >= ready + a.ramp:
@@ -1141,7 +1171,36 @@ def cmd_run(a):
                         q_s = q_nom + s1 * roll_mask * dq_ + s2 * (1.0 - roll_mask) * dq_
                         q_base = q_ready + ramp * (q_s - q_ready)
                     elif ref is not None:
-                        q_base = q_ready + ramp * (ref_lookup(ref, cmd_v[0], phase + 2 * math.pi * hz * dt) - q_ready)
+                        ph_look = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
+                        walking_next = walking
+                        if walk_state and t_run >= ready + a.ramp:      # as mjx_env walk_state
+                            go = abs(cmd_v[0]) > 1e-3 or abs(cmd_v[1]) > 1e-3
+                            wu0, wu1 = phase / (2 * math.pi), ph_look / (2 * math.pi)
+                            r0_, r5_ = (wu0 % 1.0) > (wu1 % 1.0), ((wu0 - 0.5) % 1.0) > ((wu1 - 0.5) % 1.0)
+                            stop_ = walking and not go and (r0_ or r5_)
+                            walking_next = (walking and not stop_) or (not walking and go)
+                            if not walking_next:
+                                ph_look = (math.pi if r5_ else 0.0) if stop_ else phase
+                            if walking_next != walking:
+                                print(f"\n  {'WALK' if walking_next else 'STAND'} at {t_run:.2f} s (u {ph_look / (2 * math.pi):.2f})")
+                        q_r = ref_lookup(ref, cmd_v[0], ph_look)
+                        if anc_suf:                                     # as mjx_env ref_anchor
+                            st_r = ref_stance(ref, cmd_v[0], ph_look)
+                            ev_ = bool(np.any(anc_st & ~st_r)) or (walking_next and not walking)
+                            if ev_:
+                                anc = np.clip(q - q_r, -anc_max, anc_max) * anc_mask
+                            dfrac = ((ph_look - phase) % (2 * math.pi)) / (2 * math.pi)
+                            w_ = np.ones(2) if ev_ else anc_w.copy()
+                            if not ev_:
+                                w_ = np.where(~st_r, w_ - dfrac / sw_frac, w_)
+                            if walk_state and not walking_next:
+                                w_ = w_ - dt / 1.0
+                            anc_w, anc_st = np.clip(w_, 0.0, 1.0), st_r
+                            eff = 0.5 - 0.5 * np.cos(math.pi * anc_w)
+                            q_r = q_r + anc * (eff[0] * leg_mask[0] + eff[1] * leg_mask[1])
+                        if walk_state:
+                            walking = walking_next
+                        q_base = q_ready + ramp * (q_r - q_ready)
                     q_cmd = np.clip(q_base + ramp * scale * act, lo, hi)
                 if q_cmd[roll_idx[0]] < 0 and q_cmd[roll_idx[1]] < 0:       # pelvis rule: legs collide if both
                     q_cmd[roll_idx] = np.maximum(q_cmd[roll_idx], both_in)  # swing inward by more than ~5 deg
@@ -1154,6 +1213,8 @@ def cmd_run(a):
                     phase = 0.0
                 elif t_run >= ready + a.ramp:              # the clock starts once the policy is fully engaged
                     ph_new = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
+                    if walk_state:
+                        ph_new = ph_look
                     if start_u >= 0 and ref is not None and pre_t < pre_n1 + pre_n2:
                         ph_new = phase                      # round 24 gait start: the clock holds at start_u
                         pre_t += 1
@@ -1192,7 +1253,7 @@ def cmd_run(a):
                                 guard = 1                       # rolling away from centre: step now
                             if abs(q[knee_idx[0]] - q[knee_idx[1]]) > math.radians(12.0):
                                 guard = 2                       # a foot is already up (knees differ > 12 deg)
-                        hold = (cross and a.vx and not (sup is not None and sup.on) and busy and not guard and gate_held < gate_n)
+                        hold = (cross and (walking if walk_state else a.vx) and not (sup is not None and sup.on) and busy and not guard and gate_held < gate_n)
                         gate_held = gate_held + 1 if hold else 0
                         if hold:
                             ph_new = phase
@@ -1211,7 +1272,7 @@ def cmd_run(a):
                            + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard]
                            + ([int(sup.on), round(math.degrees(sup.pred[0]), 2), round(math.degrees(sup.pred[1]), 2)]
                               if sup is not None else [0, 0.0, 0.0])
-                           + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)))
+                           + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)) + [int(walking), round(float(cmd_v[0]), 4)])
                 v_min = min(v_min, float(sv.volt.min()))
                 if v_start is None:
                     v_start = float(np.median(sv.volt))
@@ -1224,7 +1285,10 @@ def cmd_run(a):
                 k += 1
                 kc = keys.get()
                 if kc is not None:
-                    if rtab is not None and kc in "wsadx":       # round 14: commanded recovery step
+                    if walk_state and kc in "pg":                # round 27: stop walking / walk again
+                        vx_goal = 0.0 if kc == "p" else a.vx
+                        print(f"\n  goal {vx_goal:.3f} m/s ({'stop' if kc == 'p' else 'go'}) at {t_run:.2f} s")
+                    elif rtab is not None and kc in "wsadx":       # round 14: commanded recovery step
                         st_ = a.rec_key_step
                         rec_pending = np.array({"w": (st_, 0.0, 1.0), "s": (-st_, 0.0, 1.0), "a": (0.0, st_, 1.0),
                                                 "d": (0.0, st_, -1.0), "x": (0.0, 0.0, 1.0)}[kc])

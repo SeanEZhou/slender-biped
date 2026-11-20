@@ -25,7 +25,7 @@ ap.add_argument("run"); ap.add_argument("--vx", type=float, default=0.025); ap.a
 ap.add_argument("--n", type=int, default=32); ap.add_argument("--T", type=float, default=8.0); ap.add_argument("--set", nargs="*", default=[])
 a = ap.parse_args()
 W, p, d = load_policy(a.run)
-over = dict(push_dv=(0.0, 0.0), push_interval_s=(1000.0, 1000.0), push_vel=0.0, act_lpf=0.7, cmd_resample_s=(1000.0, 1000.0),
+over = dict(step_err=(), reset_stagger=0.0, push_dv=(0.0, 0.0), push_interval_s=(1000.0, 1000.0), push_vel=0.0, act_lpf=0.7, cmd_resample_s=(1000.0, 1000.0),
             reset_hard_prob=0.0, reset_joint_noise=0.02, reset_tilt=0.02, cmd_vx=(a.vx, a.vx), cmd_zero_prob=0.0,
             cmd_wz=(0.0, 0.0), sup=False, start_hold_s=(a.hold, a.hold))
 over.update(ROBOT)

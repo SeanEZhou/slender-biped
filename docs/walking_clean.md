@@ -2561,3 +2561,24 @@ Details: [results/robot25/NOTES.md](../results/robot25/NOTES.md).
   every time (4 of 10 trials).
 - **z0 can't recover from a sub-par step.** With small random execution errors on half its steps (2° hip roll,
   2.9° hip pitch, unseen by the policy) it stays up 25 % of the time instead of 94 %.
+
+## 47. Round 26: recovery from bad states, a pilot (2026-11-19 22:16-23:34)
+
+Details: [results/robot26/NOTES.md](../results/robot26/NOTES.md).
+
+- **The simulator can make the robot's bad steps.** `step_err` adds random servo-target errors to half the steps (2°
+  hip roll, 2.9° hip pitch, unseen by the policy). z0 stays up 25 % of the time with them, 94 % without.
+- **10-15M of training with them taught no recovery** (29 % at best). Relaxing the reference once the body tilts
+  past 8° cost 15-20 points of normal walking.
+- On the robot z6_e (step errors only) started worse than z0 (first left step 79-87 mm from the right foot).
+
+## 48. Round 27: start, stop, and steps from where the feet are (2026-11-20 01:30-)
+
+Details: [results/robot27/NOTES.md](../results/robot27/NOTES.md).
+
+- **The start fails because the table's zero-speed row stands.** While the command ramps up from 0, the reference
+  blends standing and walking: at the first lift-off it asks for half the weight shift with half the lift. The robot
+  lifts its right foot with the weight centred (hip-roll spread +1.5°, table -13.8°) and the left step over-corrects.
+- New: an in-place zero-speed row (c_K2ip), a clock that runs only while walking (stops at a centred double support,
+  so the robot can be told to stop), a reference re-anchored to the legs at each lift-off, staggered starts, and
+  step-length variety.

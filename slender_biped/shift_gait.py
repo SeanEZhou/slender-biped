@@ -91,7 +91,8 @@ def step_pose(t, T, d, p):
     q[4 * leg + 2:4 * leg + 4] = foot_q(x_sw)
     q[4 * st_leg + 2:4 * st_leg + 4] = foot_q(x_st)
     lift = 0.0
-    if t_sw0 <= tau < t_sw1 and d > 0:
+    go = d > 0 or p.get("inplace", False)    # round 27: zero stride steps in place (full shift and lift)
+    if t_sw0 <= tau < t_sw1 and go:
         x = (tau - t_sw0) / p["swing_t"]
         r = p.get("rise_frac", 0.5)              # 2026-11-09: rise over r of the swing, lower over the rest (slow touchdown)
         sf, hv = p.get("set_frac", 0.0), p.get("hover", 0.0)
@@ -119,7 +120,7 @@ def step_pose(t, T, d, p):
         stance[leg] = False
         lift = p["swing_h"] * b
     # weight shift: in over shift_t before the swing, out over the swing plus release_t
-    if d > 0 and p.get("xfer", 0.0) > 0:
+    if go and p.get("xfer", 0.0) > 0:
         # round 23: one continuous transfer from over the other foot (-1) to over this step's stance foot (+1). The half
         # starts at the middle of the double support (the body centred, so the clock-0 standing pose is level): set
         # settle0 0, shift_t = release_t = half the double support. The transfer is centred there and passes the centre
@@ -129,7 +130,7 @@ def step_pose(t, T, d, p):
         a = -1.0 + 2.0 * _ease(tau / X + 0.5) - 2.0 * _ease((tau - T) / X + 0.5)
         q[4 * st_leg + 1] -= p["shift"] * a          # a < 0: over the swing foot (the stance hip outward)
         q[4 * leg + 1] += p["shift"] * a
-    elif d > 0:
+    elif go:
         sh_t = p["shift_t"] - p.get("shift_lead", 0.0)   # round 22: the shift is complete shift_lead s before lift-off
         if p.get("hold_shift"):                # 2026-11-09 slow step: stay over the stance foot until touchdown
             a = _ease((tau - t_sh0) / sh_t) * (1.0 - _ease((tau - t_sw1) / p["release_t"]))
@@ -317,6 +318,7 @@ def main():
     ap.add_argument("--sway-ds", action="store_true", help="round 18b walk: transfer in double support, held through the swing")
     ap.add_argument("--ds-margin", type=float, default=0.0, help="s: the held shift extends this long past lift-off / touchdown")
     ap.add_argument("--drop-frac", type=float, default=0.4, help="round 18 walk: last fraction of the swing spent lowering")
+    ap.add_argument("--inplace", action="store_true", help="round 27 step: the zero-speed row steps in place (full weight shift and lift, zero stride) instead of standing, so starting and stopping change only the step length")
     ap.add_argument("--ankle", action="store_true", help="10 joints: ankle rolls keep the boards flat during the shift")
     ap.add_argument("--glide", action="store_true", help="round 21 step: constant pelvis speed (feet on the floor "
                     "sweep back all cycle) instead of moving the body only during the swing")
@@ -344,6 +346,8 @@ def main():
         p["leg"] = a.leg
     if a.glide:
         p["glide"] = True
+    if a.inplace:
+        p["inplace"] = True
     if a.shift_lead > 0:
         p["shift_lead"] = a.shift_lead
     if a.xfer > 0:

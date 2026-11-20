@@ -84,7 +84,7 @@ def main():
     steps = a.test == "steps"           # round 14: recovery-step policies stepping on command (random targets), no shoves
     stand = a.test in ("stand", "steps")
     dvs = a.dv or ([0.1, 0.15, 0.2, 0.25, 0.3, 0.4] if stand else [0.0, 0.1, 0.15, 0.2, 0.25])
-    over = dict(push_dv=(0.0, 0.0), push_interval_s=(1000.0, 1000.0), push_vel=0.0, act_lpf=a.act_lpf,
+    over = dict(step_err=(), reset_stagger=0.0, push_dv=(0.0, 0.0), push_interval_s=(1000.0, 1000.0), push_vel=0.0, act_lpf=a.act_lpf,
                 cmd_resample_s=(1000.0, 1000.0), reset_hard_prob=0.0,
                 reset_joint_noise=0.02, reset_tilt=0.02)          # a hardware-like start (training: 0.08 / 0.04)
     if stand:

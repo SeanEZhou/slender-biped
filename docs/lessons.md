@@ -22,6 +22,14 @@ policies' indifference to the sideways sway, a live slow pitch channel, and lift
 h4 per step; slightly less reliable. Remaining fault: in some trials the left step grows wider and the robot drifts
 left ([walking_clean.md §31](walking_clean.md)).
 
+## Rounds 26-27 (2026-11-20)
+
+- **Read the reference where the robot actually uses it.** The start looked like a policy problem for days. The table
+  blended its standing row with its walking rows at the low speeds a ramped start passes through, and asked for half
+  a weight shift with half a lift.
+- **Training against your own bad steps isn't enough by itself.** Random step errors reproduced the robot's falls,
+  but 15M of training with them taught no recovery.
+
 ## Round 25 (2026-11-19)
 
 - **Shoves teach a policy to wait, not to walk better.** Shove-trained z0 fine-tunes were the steadiest in the

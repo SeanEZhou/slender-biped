@@ -1,0 +1,6 @@
+opening z6_es (params_0010M.pkl) vx 0.025 hold 2.0s n 32 
+  end of hold: hip roll L +3.7 R +0.5 deg | first 3 s: roll excursion p50 9.1 p90 9.9 deg, fallen 0/32
+  step 1 (R): ahead +7 mm (p10 +5), spacing 126 mm
+  step 2 (L): ahead +30 mm (p10 +22), spacing 109 mm
+  step 3 (R): ahead +19 mm (p10 +11), spacing 148 mm
+  step 4 (L): ahead +30 mm (p10 +19), spacing 111 mm
