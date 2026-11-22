@@ -1,0 +1,37 @@
+gait z7_free (params_0025M.pkl) sim robot vx 0.015 n 48 20s | c_K2ip
+  up  94%  walked  21.3 cm (median of up)  touchdowns 537  |  landing speed p50  271 p90  323 mm/s  jolt after td p50  17.2 p90  23.8  mid-swing   6.3 (deg/s per tick)  clearance p10  5.0 p50 23.1 mm
+  gate holding (clock stopped) 31.2 % of the walking time
+  both feet down 82 % of the time: 1.27 s per step (stretches p50 1.07 s); a step every 1.54 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 9.2 p50 17.1 deg; peak in the swing p50 29.4 (lift-off / peak 58%)
+gait z7_free (params_0025M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip
+  up  83%  walked  25.3 cm (median of up)  touchdowns 530  |  landing speed p50  268 p90  323 mm/s  jolt after td p50  16.4 p90  23.3  mid-swing   7.3 (deg/s per tick)  clearance p10  4.3 p50 23.9 mm
+  gate holding (clock stopped) 31.8 % of the walking time
+  both feet down 82 % of the time: 1.25 s per step (stretches p50 1.08 s); a step every 1.51 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 8.5 p50 14.7 deg; peak in the swing p50 28.9 (lift-off / peak 51%)
+gait z7_free (params_0025M.pkl) sim robot vx 0.035 n 48 20s | c_K2ip
+  up  73%  walked  30.0 cm (median of up)  touchdowns 502  |  landing speed p50  269 p90  335 mm/s  jolt after td p50  16.2 p90  22.9  mid-swing   8.3 (deg/s per tick)  clearance p10  3.8 p50 24.6 mm
+  gate holding (clock stopped) 31.3 % of the walking time
+  both feet down 82 % of the time: 1.19 s per step (stretches p50 1.00 s); a step every 1.45 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 7.8 p50 13.4 deg; peak in the swing p50 28.1 (lift-off / peak 48%)
+gait z7_free (params_0025M.pkl) sim loose vx 0.025 n 48 20s | c_K2ip
+  up  67%  walked  24.1 cm (median of up)  touchdowns 452  |  landing speed p50  265 p90  322 mm/s  jolt after td p50  15.0 p90  20.7  mid-swing   6.2 (deg/s per tick)  clearance p10  3.0 p50 20.9 mm
+  gate holding (clock stopped) 31.8 % of the walking time
+  both feet down 82 % of the time: 1.23 s per step (stretches p50 1.06 s); a step every 1.49 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 9.7 p50 16.8 deg; peak in the swing p50 31.0 (lift-off / peak 54%)
+gait z7_free (params_0025M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip step_err=[0.5,0.02,0.03]
+  up  40%  walked  25.1 cm (median of up)  touchdowns 391  |  landing speed p50  265 p90  331 mm/s  jolt after td p50  16.2 p90  22.8  mid-swing   7.3 (deg/s per tick)  clearance p10  4.3 p50 23.2 mm
+  gate holding (clock stopped) 32.8 % of the walking time
+  both feet down 81 % of the time: 1.24 s per step (stretches p50 1.04 s); a step every 1.53 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 7.7 p50 14.2 deg; peak in the swing p50 28.5 (lift-off / peak 50%)
+startstop z7_free (params_0025M.pkl) vx 0.025 stop 8.0s go 13.0s T 19.0s n 32 
+  up: after 3 s 30, at the stop command 28, at the restart 27, at the end 24 of 32
+  start: step 1: dx +31 (p10 +23) / dy 116 mm, step 2: dx +11 (p10 +2) / dy 123 mm, shift at 1st lift-off +14.2 deg (p10 +13.0; table +13.8)
+  stop: clock stopped 2.44 s after the command (p90 2.84), never 0 of 27
+  standing (before the restart): feet stagger |dx| p50 6 p90 14 mm, tilt wobble std p50 0.15 deg
+  restart: step 1: dx +25 (p10 +12) / dy 116 mm, step 2: dx +19 (p10 +4) / dy 122 mm, shift at 1st lift-off +11.6 deg (p10 +6.8; table +13.8)
+startstop z7_free (params_0025M.pkl) vx 0.025 stop 8.0s go 13.0s T 19.0s n 32 reset_stagger=0.025
+  up: after 3 s 31, at the stop command 25, at the restart 25, at the end 21 of 32
+  start: step 1: dx +32 (p10 +22) / dy 117 mm, step 2: dx +13 (p10 -2) / dy 124 mm, shift at 1st lift-off +13.8 deg (p10 +12.0; table +13.8)
+  stop: clock stopped 2.28 s after the command (p90 2.66), never 0 of 25
+  standing (before the restart): feet stagger |dx| p50 7 p90 16 mm, tilt wobble std p50 0.14 deg
+  restart: step 1: dx +26 (p10 +5) / dy 118 mm, step 2: dx +21 (p10 +1) / dy 122 mm, shift at 1st lift-off +11.2 deg (p10 +6.2; table +13.8)

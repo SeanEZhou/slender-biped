@@ -1,0 +1,55 @@
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait z7_anc2:params_0012M.pkl (params_0012M.pkl) sim robot vx 0.015 n 48 20s | c_K2ip settle_gate_u=[]
+  up  96%  walked  39.2 cm (median of up)  touchdowns 757  |  landing speed p50  260 p90  311 mm/s  jolt after td p50  15.6 p90  20.6  mid-swing   6.9 (deg/s per tick)  clearance p10 12.5 p50 27.5 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 73 % of the time: 0.79 s per step (stretches p50 0.88 s); a step every 1.10 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 14.7 p50 18.4 deg; peak in the swing p50 29.3 (lift-off / peak 63%)
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait z7_anc2:params_0012M.pkl (params_0012M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip settle_gate_u=[]
+  up  94%  walked  42.9 cm (median of up)  touchdowns 747  |  landing speed p50  259 p90  317 mm/s  jolt after td p50  15.3 p90  21.5  mid-swing   7.3 (deg/s per tick)  clearance p10 10.4 p50 26.9 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 73 % of the time: 0.80 s per step (stretches p50 0.88 s); a step every 1.09 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 12.3 p50 16.8 deg; peak in the swing p50 28.8 (lift-off / peak 58%)
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait z7_anc2:params_0012M.pkl (params_0012M.pkl) sim robot vx 0.035 n 48 20s | c_K2ip settle_gate_u=[]
+  up  98%  walked  47.7 cm (median of up)  touchdowns 788  |  landing speed p50  268 p90  318 mm/s  jolt after td p50  16.2 p90  21.2  mid-swing   8.1 (deg/s per tick)  clearance p10  7.8 p50 27.1 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 75 % of the time: 0.80 s per step (stretches p50 0.90 s); a step every 1.07 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 10.3 p50 14.6 deg; peak in the swing p50 28.5 (lift-off / peak 51%)
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait z7_anc2:params_0012M.pkl (params_0012M.pkl) sim loose vx 0.025 n 48 20s | c_K2ip settle_gate_u=[]
+  up  81%  walked  41.5 cm (median of up)  touchdowns 679  |  landing speed p50  258 p90  313 mm/s  jolt after td p50  15.3 p90  19.8  mid-swing   7.4 (deg/s per tick)  clearance p10 15.6 p50 25.2 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 75 % of the time: 0.84 s per step (stretches p50 0.90 s); a step every 1.13 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 13.3 p50 19.4 deg; peak in the swing p50 31.5 (lift-off / peak 62%)
+Failed to import warp: No module named 'warp'
+Failed to import mujoco_warp: No module named 'warp'
+gait z7_anc2:params_0012M.pkl (params_0012M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip settle_gate_u=[] step_err=[0.5,0.02,0.03]
+  up  73%  walked  42.4 cm (median of up)  touchdowns 637  |  landing speed p50  254 p90  315 mm/s  jolt after td p50  15.6 p90  20.9  mid-swing   7.6 (deg/s per tick)  clearance p10  6.8 p50 26.6 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 73 % of the time: 0.77 s per step (stretches p50 0.88 s); a step every 1.06 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 11.5 p50 16.9 deg; peak in the swing p50 28.7 (lift-off / peak 59%)
+Traceback (most recent call last):
+  File "/home/sean/slender-biped/scripts/robot27_analysis/startstop.py", line 54, in <module>
+    tab, zz, ev = sc.table(a.run); stn = zz["stance"][-1]; n = len(stn)
+                  ~~~~~~~~^^^^^^^
+  File "/home/sean/slender-biped/scripts/robot18_analysis/swing_clear.py", line 33, in table
+    cfg = json.loads((ROOT / "runs" / run / "config.json").read_text())["env"]
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 788, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors, newline=newline) as f:
+         ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 772, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/home/sean/slender-biped/runs/z7_anc2:params_0012M.pkl/config.json'
+startstop z7_anc2:params_0012M.pkl (params_0012M.pkl) vx 0.025 stop 8.0s go 13.0s T 19.0s n 32 settle_gate_u=[]
+  up: after 3 s 31, at the stop command 29, at the restart 29, at the end 28 of 32
+  start: step 1: dx +30 (p10 +24) / dy 154 mm, step 2: dx +20 (p10 +12) / dy 126 mm, shift at 1st lift-off +10.4 deg (p10 +8.5; table +13.8)
+  stop: clock stopped 1.62 s after the command (p90 1.62), never 0 of 29
+  standing (before the restart): feet stagger |dx| p50 7 p90 17 mm, tilt wobble std p50 0.14 deg
+  restart: step 1: dx +29 (p10 +18) / dy 145 mm, step 2: dx +18 (p10 +8) / dy 120 mm, shift at 1st lift-off +10.4 deg (p10 +8.8; table +13.8)

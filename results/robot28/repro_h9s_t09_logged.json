@@ -1,0 +1,245 @@
+[
+ {
+  "file": "stand_h9s_t09_20261119_102718.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 8.6206,
+  "u": 0.6666682256233312,
+  "roll": 8.795156769598755,
+  "fall": 0.40625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.03125,
+   "forward": 0.375,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.8,
+  "V": [
+   -0.04999999999999999,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 1.3740902902068224,
+  "fit_err_v0": 2.8511329045220637,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102718.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 8.2206,
+  "u": 0.4444401785841177,
+  "roll": 4.547325913884655,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.050000000000000044,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 1.747790874848822,
+  "fit_err_v0": 2.7975302603064875,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102718.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 7.8206,
+  "u": 0.22222804703921348,
+  "roll": -3.7732362453026953,
+  "fall": 0.25,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.25,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.6500000000000001,
+  "V": [
+   -0.15,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 1.2918044301697327,
+  "fit_err_v0": 4.753086877441958,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102718.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 7.0206,
+  "u": 0.7777742913957834,
+  "roll": 6.730988224674311,
+  "fall": 0.28125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.28125,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.4000000000000001,
+  "V": [
+   -0.25,
+   0.0,
+   0.0
+  ],
+  "fit_err": 1.6368104810525468,
+  "fit_err_v0": 4.050689895819668,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102739.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 6.9007,
+  "u": 0.7111042857345884,
+  "roll": 16.56951690721218,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.2,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.6917650439398932,
+  "fit_err_v0": 4.378657736556334,
+  "repro": true
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102739.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 6.6007,
+  "u": 0.5444372293287556,
+  "roll": 7.968021373451836,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.59375,
+   "forward": 0.40625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.38,
+  "V": [
+   0.25,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 1.4834107308093993,
+  "fit_err_v0": 6.1116553513659495,
+  "repro": true
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102739.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 6.2007,
+  "u": 0.3222250977838513,
+  "roll": 2.3313650867346074,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.69,
+  "V": [
+   -0.15,
+   0.3,
+   0.0
+  ],
+  "fit_err": 2.2601578741680513,
+  "fit_err_v0": 4.497319553776411,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102739.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 5.8007,
+  "u": 0.09999705074463784,
+  "roll": -2.2950210712598462,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.10000000000000003,
+   0.14999999999999997,
+   0.0
+  ],
+  "fit_err": 1.033962825024502,
+  "fit_err_v0": 3.0119604738255203,
+  "repro": false
+ },
+ {
+  "file": "stand_h9s_t09_20261119_102739.csv",
+  "policy": "h9s_t09:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 5.0007,
+  "u": 0.6555592105955169,
+  "roll": 4.331340854550079,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.03125,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.78,
+  "V": [
+   -0.15,
+   -0.15,
+   0.0
+  ],
+  "fit_err": 1.2888037297252584,
+  "fit_err_v0": 4.350426975142364,
+  "repro": false
+ }
+]

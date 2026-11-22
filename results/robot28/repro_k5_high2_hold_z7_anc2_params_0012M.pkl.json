@@ -1,0 +1,110 @@
+[
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z7_anc2:params_0012M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 11.5007,
+  "u": 0.9249926137557865,
+  "roll": 8.647409364729596,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.32,
+  "V": [
+   -0.09999999999999998,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.894149808895246,
+  "fit_err_v0": 6.148218303983119,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z7_anc2:params_0012M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 11.1007,
+  "u": 0.7583414728442629,
+  "roll": 9.68837332892203,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.46,
+  "V": [
+   0.10000000000000003,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 0.715361405377031,
+  "fit_err_v0": 4.134762799999559,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z7_anc2:params_0012M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 10.7007,
+  "u": 0.5916744164384301,
+  "roll": 8.51572168590199,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.63,
+  "V": [
+   -0.04999999999999999,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 0.9071609356875181,
+  "fit_err_v0": 2.5169342225884788,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z7_anc2:params_0012M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 9.9007,
+  "u": 0.2583403036267645,
+  "roll": -0.8542418267483141,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.050000000000000044,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.0009770800255406,
+  "fit_err_v0": 3.544183415809915,
+  "repro": false
+ }
+]

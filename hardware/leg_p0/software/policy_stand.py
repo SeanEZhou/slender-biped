@@ -49,10 +49,53 @@ from scservo_sdk import COMM_SUCCESS, GroupSyncRead, GroupSyncWrite
 HERE = Path(__file__).resolve().parent
 
 
+class _Videos:
+    """The cameras of one run, stopped together."""
+
+    def __init__(self, recs):
+        self.recs = recs                             # [(label, VideoRecorder)]
+
+    def stop(self, t_ref, tail=0.0):
+        if tail > 0:
+            time.sleep(tail)
+        out = []
+        for lab, r in self.recs:
+            try:
+                out.append((lab, r, r.stop(t_ref)))
+            except Exception as e:                   # one camera's failure must not lose the others
+                print(f"  video {lab}: {e}")
+        return out
+
+    def report(self, out):
+        for lab, r, vf in out:
+            print(f"video{' ' + lab if lab else ''}: {r.stem.with_suffix('.mkv')} ({len(r.stamps)} frames; times on the "
+                  f"log's clock in {vf})")
+
+
 def start_video(a, log_path):
-    """--video: start the camera recorder next to the log (None when off or the camera won't open)."""
+    """--video [CAMERA[=label] ...]: start the camera recorders next to the log (None when off or none opens). One
+    camera: <log>.mkv. Several (2026-11-21, front + side for marker tracking): <log>_<label>.mkv, labels front, side,
+    cam3... unless given as CAMERA=label."""
     if a.video is None:
         return None
+    cams = list(a.video) or ["W1"]
+    from video_rec import VideoRecorder
+    recs = []
+    for k, c in enumerate(cams):
+        head, *mode = c.split("@")                  # CAMERA[=label][@WxH[@fps]]: a mode per camera
+        dev, _, lab = head.partition("=")
+        if len(cams) > 1:
+            lab = lab or (["front", "side"][k] if k < 2 else f"cam{k + 1}")
+        stem = log_path.with_suffix("") if not lab else log_path.with_name(log_path.stem + f"_{lab}")
+        try:
+            w_, h_ = (int(x) for x in (mode[0] if mode else a.video_size).split("x"))
+            fps_ = int(mode[1]) if len(mode) > 1 else a.video_fps
+            r = VideoRecorder(stem, dev, w_, h_, fps_)
+            print(f"recording video{' ' + lab if lab else ''} from {dev} ({r.size[0]}x{r.size[1]}, {fps_} fps)")
+            recs.append((lab, r))
+        except Exception as e:                       # never let a camera stop a run
+            print(f"(no video from {dev}: {e})")
+    return _Videos(recs) if recs else None
     try:
         from video_rec import VideoRecorder
         rec = VideoRecorder(log_path.with_suffix(""), a.video)
@@ -226,7 +269,10 @@ class Imu:
         self.ser = serial.Serial(port, 115200, timeout=0.05)
         self.R = np.eye(3) if R is None else np.asarray(R, float)
         self.g_s = self.w_s = None
+        self.a_s = np.full(3, np.nan)                # raw accelerometer (g, sensor axes; firmware of 2026-11-21 on)
         self.t = 0.0
+        self.t_perf = 0.0                            # the sample's arrival on the log's clock (time.perf_counter)
+        self.samples = None                          # record(): every sample, for <log>_imu.csv
         self.seq = None
         self.gaps = 0
         self.i2c_errors = 0                          # firmware's count of retried I2C transfers (W lines)
@@ -267,16 +313,22 @@ class Imu:
             *lines, self._buf = self._buf.split(b"\n")
             for ln in lines:
                 p = ln.decode(errors="ignore").split()
-                if len(p) == 8 and p[0] == "I":
+                if len(p) in (8, 12) and p[0] == "I":   # 12: with the raw accelerometer and the board clock
                     try:
                         v = [float(x) for x in p[1:7]]
                         seq = int(p[7])
+                        acc = [float(x) for x in p[8:11]] if len(p) == 12 else None
+                        t_us = int(p[11]) if len(p) == 12 else -1
                     except ValueError:
                         continue
                     if self.seq is not None and seq != self.seq + 1:
                         self.gaps += 1
                     self.seq = seq
-                    self.g_s, self.w_s, self.t = np.array(v[:3]), np.array(v[3:]), time.time()
+                    self.g_s, self.w_s, self.t, self.t_perf = np.array(v[:3]), np.array(v[3:]), time.time(), time.perf_counter()
+                    if acc is not None:
+                        self.a_s = np.array(acc)
+                    if self.samples is not None:
+                        self.samples.append((self.t_perf, seq, t_us, *v, *(acc or (math.nan,) * 3)))
                 elif p and p[0] in ("B", "E"):
                     self.msgs.append(" ".join(p))
                 elif len(p) == 3 and p[:2] == ["W", "i2c"]:
@@ -285,6 +337,37 @@ class Imu:
     def latest(self):
         """(gravity unit vector, angular rate rad/s) in the pelvis frame, and the sample's age in s."""
         return self.R @ self.g_s, self.R @ self.w_s, time.time() - self.t
+
+    def accel(self):
+        """The latest raw accelerometer reading in the pelvis frame (g; reads 1 g UP at rest), its sequence number."""
+        return self.R @ self.a_s, self.seq
+
+    def record(self):
+        """Keep every sample from now on (save() writes them)."""
+        self.samples = []
+
+    def save(self, path, t_ref):
+        """<log>_imu.csv: every sample since record(), pelvis frame. t = arrival on the log's clock (s after t_ref),
+        t_board = the board's clock (s, unwrapped, from the first sample), g = the board's gravity estimate, w = gyro
+        (rad/s), a = raw accelerometer (g; at rest 1 g UP, i.e. a = -g). Returns the number of samples."""
+        S = list(self.samples or [])
+        if not S:
+            return 0
+        A = np.array(S, float)
+        tb = np.full(len(A), np.nan)
+        ok = A[:, 2] >= 0                             # old firmware: no board clock (-1)
+        if ok.any():
+            d = np.diff(A[ok, 2])
+            d[d < 0] += 2 ** 30                       # ticks_us wraps at 2^30
+            tb[ok] = np.concatenate([[0.0], np.cumsum(d)]) * 1e-6
+        g, w, a_ = A[:, 3:6] @ self.R.T, A[:, 6:9] @ self.R.T, A[:, 9:12] @ self.R.T
+        with Path(path).open("w", newline="") as f:
+            wr = csv.writer(f)
+            wr.writerow(["t", "seq", "t_board", "gx", "gy", "gz", "wx", "wy", "wz", "ax", "ay", "az"])
+            for i in range(len(A)):
+                wr.writerow([round(A[i, 0] - t_ref, 5), int(A[i, 1]), round(tb[i], 6)] + list(np.round(g[i], 5))
+                            + list(np.round(w[i], 5)) + list(np.round(a_[i], 5)))
+        return len(A)
 
     def rebias(self):
         """Re-zero the gyro (hold still). Waits for the board's B reply, not a fixed time."""
@@ -324,15 +407,18 @@ def tilt_deg(g):
 class Servos:
     """One sync read (position + speed of all 8) and one sync write (goal positions) per control step."""
 
-    def __init__(self, bus):
+    def __init__(self, bus, current=True):
         self.bus = bus
         self.joints = bus.cfg["joints"]
         self.names = list(self.joints)
         self.ids = [j["id"] for j in self.joints.values()]
         # position, speed, load, voltage, temperature (registers 56-63) in the same sync read (2026-11-11: voltage and
-        # temperature logged per servo, to check for supply sag)
-        self.rd = GroupSyncRead(bus.port, bus.pk, fb.ADDR["PRESENT_POS"], 8)
+        # temperature logged per servo, to check for supply sag). current: up to register 70 (2026-11-21): + the error
+        # status (65) and the present current (69-70), 7 more bytes per servo (~0.7 ms per read at 1 Mbps)
+        self.current = current
+        self.rd = GroupSyncRead(bus.port, bus.pk, fb.ADDR["PRESENT_POS"], 15 if current else 8)
         self.load = np.zeros(len(self.joints)); self.volt = np.zeros(len(self.joints)); self.temp = np.zeros(len(self.joints))
+        self.cur = np.zeros(len(self.joints)); self.status = np.zeros(len(self.joints), int)
         for i in self.ids:
             self.rd.addParam(i)
         self.set_accel(None)
@@ -367,6 +453,10 @@ class Servos:
             self.load[k] = -(ld & 0x3FF) if ld & 0x400 else ld          # sign-magnitude, 0.1 % of max torque
             self.volt[k] = self.rd.getData(j["id"], fb.ADDR["PRESENT_VOLT"], 1) / 10.0
             self.temp[k] = self.rd.getData(j["id"], fb.ADDR["PRESENT_TEMP"], 1)
+            if self.current:
+                c = self.rd.getData(j["id"], fb.ADDR["PRESENT_CURRENT"], 2)
+                self.cur[k] = (-(c & 0x7FFF) if c & 0x8000 else c) * fb.CURRENT_MA_PER_LSB    # mA
+                self.status[k] = self.rd.getData(j["id"], fb.ADDR["STATUS"], 1)
         return q, qd
 
     def write(self, q_rad):
@@ -776,7 +866,7 @@ def cmd_run(a):
         R = np.array([[1.0, 0.0, 0.0], [0.0, c, s], [0.0, -s, c]]) @ R
         print(f"roll trim {a.roll_trim:+.1f} deg: the policy sees roll (+ = leaning left) reduced by that much")
     bus = open_bus(a.servo_port)
-    sv = Servos(bus)
+    sv = Servos(bus, current=not a.no_current)
     if list(sv.joints) != meta["joints"]:
         sys.exit(f"bench joint order {list(sv.joints)} != policy joint order {meta['joints']}"
                  + ("\n  (10-joint policies need the ankle_roll entries in bench_config*.yaml; 8-joint policies need them "
@@ -850,6 +940,8 @@ def cmd_run(a):
     # round 27 (mjx_env ref_anchor): the reference re-anchored to the legs at each reference lift-off and at the start
     anc_suf = tuple(env.get("ref_anchor", ()) or ()) if ref is not None else ()
     anc_max = float(env.get("ref_anchor_max", 0.35))
+    if anc_suf and not env.get("ref_anchor_base", True):
+        anc_suf = ()                                     # anchored reward only: the action's base is the table
     if walk_state:
         print("walk state ON: the clock waits at its rest point while the command is 0. Keys: p = stop walking, g = walk again")
     if anc_suf:
@@ -1036,9 +1128,16 @@ def cmd_run(a):
                    + [f"a_{n}" for n in sv.names] + [f"cmd_{n}" for n in sv.names]
                    + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
                    + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch",
-                      "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side", "walking", "vx_cmd"])
+                      "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side", "walking", "vx_cmd",
+                      # 2026-11-21, for reconstructing the robot's state: the bus timing (ms after the tick's start), the
+                      # IMU sample used (its number and age; every sample is in <log>_imu.csv), the raw accelerometer
+                      # (g, pelvis frame, 1 g UP at rest), each servo's current (mA) and error status byte
+                      "t_read_ms", "t_write_ms", "imu_seq", "imu_age_ms", "ax", "ay", "az"]
+                   + ([f"cur_{n}" for n in sv.names] + [f"err_{n}" for n in sv.names] if sv.current else []))
         v_min, v_start = 99.0, None
         t_start = time.perf_counter()
+        imu.record()
+        t_rd_ms = t_wr_ms = float("nan")
         try:
             while True:
                 t0 = time.perf_counter()
@@ -1052,7 +1151,9 @@ def cmd_run(a):
                         raise
                     q, qd = q_last, qd_last
                 q_last, qd_last = q, qd
+                t_rd_ms, t_wr_ms = (time.perf_counter() - t0) * 1000, float("nan")
                 g, wv, age = imu.latest()
+                acc_p, imu_seq = imu.accel()
                 if age > 0.03:
                     stale += 1                          # run on the last sample through a short dropout
                 if age > a.imu_timeout:
@@ -1206,6 +1307,7 @@ def cmd_run(a):
                     q_cmd[roll_idx] = np.maximum(q_cmd[roll_idx], both_in)  # swing inward by more than ~5 deg
                 if a.enable:
                     sv.write(q_cmd)
+                    t_wr_ms = (time.perf_counter() - t0) * 1000
                 last_a = act
                 if rtab is not None and (rec_on or not rec_walk):   # round 14: the clock is the recovery step's
                     phase = 2 * math.pi * rec_u
@@ -1272,7 +1374,9 @@ def cmd_run(a):
                            + list(sv.load.astype(int)) + [round(phase, 4), gate_held, round(math.degrees(roll_pred), 2), guard]
                            + ([int(sup.on), round(math.degrees(sup.pred[0]), 2), round(math.degrees(sup.pred[1]), 2)]
                               if sup is not None else [0, 0.0, 0.0])
-                           + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)) + [int(walking), round(float(cmd_v[0]), 4)])
+                           + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)) + [int(walking), round(float(cmd_v[0]), 4)]
+                           + [round(t_rd_ms, 2), round(t_wr_ms, 2), imu_seq, round(age * 1000, 1)] + list(np.round(acc_p, 4))
+                           + (list(np.round(sv.cur).astype(int)) + list(sv.status) if sv.current else []))
                 v_min = min(v_min, float(sv.volt.min()))
                 if v_start is None:
                     v_start = float(np.median(sv.volt))
@@ -1309,8 +1413,7 @@ def cmd_run(a):
             f.close()
             print()
             if rec:                                     # 1.5 s more, so the end of a fall is on the video
-                vf = rec.stop(t_start, tail=1.5)
-                print(f"video: {log_path.with_suffix('.mkv')} ({len(rec.stamps)} frames; times on the log's clock in {vf})")
+                rec.report(rec.stop(t_start, tail=1.5))
             if a.enable:
                 if stop_reason in ("user", "Ctrl-C") or not a.limp_on_fault:
                     # 2026-11-11: faults (tilt, IMU silence, bus errors) also hold the stance pose with torque on, so
@@ -1339,6 +1442,11 @@ def cmd_run(a):
                 else:
                     sv.torque(False)
                     print("SAFETY STOP: torque OFF (the robot goes limp).")
+            if not rec:
+                time.sleep(1.0)                         # the IMU through the fall's end (with video: its 1.5 s tail)
+            imu_path = log_path.with_name(log_path.stem + "_imu.csv")
+            n_imu = imu.save(imu_path, t_start)
+            print(f"IMU: {n_imu} samples -> {imu_path}")
             imu.close()
     n = len(loop_ms)
     secs = n * dt
@@ -1416,10 +1524,17 @@ def main():
                     help="Hz: first-order low-pass on the gyro the policy sees (default: the run's gyro_lpf, else off). 2026-11-13: the "
                          "full-body shake is a loop: the frame rings at 4.5-5 Hz, the gyro sees it and the policy "
                          "answers it at the knees and hip rolls. 2-3 Hz cuts that loop's gain at 4.5 Hz to 0.4-0.55")
-    sp.add_argument("--video", nargs="?", const="W1", default=None, metavar="CAMERA",
-                    help="record the camera (Windows name, default W1; `python video_rec.py devices`) from the 'standing?' "
-                         "prompt to 1.5 s after the stop: <log>.mkv + <log>_frames.csv with each frame's time on the log's "
-                         "clock (video_rec.py: Windows ffmpeg, 1280x720 MJPEG 30 fps)")
+    sp.add_argument("--video", nargs="*", default=None, metavar="CAMERA",
+                    help="record the camera(s) (Windows names, default W1; `python video_rec.py devices`) from the "
+                         "'standing?' prompt to 1.5 s after the stop: <log>.mkv + <log>_frames.csv with each frame's time on "
+                         "the log's clock (video_rec.py: Windows ffmpeg, 1280x720 MJPEG 30 fps). Two cameras (front first, "
+                         "then side): <log>_front.mkv / <log>_side.mkv, each with its _frames.csv. Per camera: CAMERA[=label][@WxH[@fps]], "
+                         "e.g. W2@1920x1080@60")
+    sp.add_argument("--video-fps", type=int, default=30, help="camera frame rate (`python video_rec.py modes --device W1`)")
+    sp.add_argument("--video-size", default="1280x720", help="camera resolution, WxH")
+    sp.add_argument("--no-current", action="store_true",
+                    help="2026-11-21: leave the servo current and error status out of the sync read (8 bytes per servo, "
+                         "as before, instead of 15)")
     sp.add_argument("--no-gate", action="store_true", help="round 24: run a policy trained with the settle gate without "
                     "it (the clock never holds): gate-free continuous walking (round 24's simulator results: results/robot24/free_*.txt)")
     sp.add_argument("--gate-guard", dest="gate_guard", action="store_true", default=True,

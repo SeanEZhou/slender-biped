@@ -1,0 +1,326 @@
+[
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 12.9199,
+  "u": 0.7750049953859844,
+  "roll": 8.39619124941037,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.375,
+   "forward": 0.625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.36,
+  "V": [
+   0.050000000000000044,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 1.1295448127386547,
+  "fit_err_v0": 4.5348401867510155,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 12.5199,
+  "u": 0.6999952707067741,
+  "roll": 2.429203797212104,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.0,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 0.8517366065938196,
+  "fit_err_v0": 1.4565573629281923,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 12.1199,
+  "u": 0.6583285066053159,
+  "roll": -1.0088927535026977,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.03125,
+   "forward": 0.03125,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.3,
+  "V": [
+   -0.25,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 0.8519838897386635,
+  "fit_err_v0": 2.828309980877391,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 11.3199,
+  "u": 0.32499439379365025,
+  "roll": -2.7380468427547324,
+  "fall": 1.0,
+  "sides": {
+   "left": 1.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.64,
+  "V": [
+   -0.04999999999999999,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.3115334037408461,
+  "fit_err_v0": 6.1531597554667865,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.3399,
+  "u": 0.2500005846087492,
+  "roll": 1.6511988857213658,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.0,
+   0.3,
+   0.0
+  ],
+  "fit_err": 2.7261755214325136,
+  "fit_err_v0": 4.4449324581055025,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.1399,
+  "u": 0.19167029796556956,
+  "roll": -5.027739725901318,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.0,
+   0.0
+  ],
+  "fit_err": 2.120983809023389,
+  "fit_err_v0": 3.545144828363203,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 27.8416,
+  "u": 0.008339719018015316,
+  "roll": -8.157651516297062,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.3125,
+   "right": 0.0,
+   "forward": 0.6875,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.62,
+  "V": [
+   0.10000000000000003,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.0567572003319166,
+  "fit_err_v0": 6.234886083497872,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 27.4416,
+  "u": 0.8416750010471794,
+  "roll": -5.066879566115815,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.10000000000000003,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.0680535414601635,
+  "fit_err_v0": 3.654724583564755,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 27.0416,
+  "u": 0.6999952707067741,
+  "roll": 1.1428481853208905,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.2,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.5471952676546188,
+  "fit_err_v0": 4.467944653147895,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 26.2407,
+  "u": 0.5333282143009412,
+  "roll": 6.092258437381388,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.0,
+   "forward": 0.03125,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 1.7,
+  "V": [
+   0.050000000000000044,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 1.2548378277241163,
+  "fit_err_v0": 2.329126541988891,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.6399,
+  "u": 0.34999763535338707,
+  "roll": 1.7745167935941484,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.15,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 1.259312575784226,
+  "fit_err_v0": 2.8234137319381327,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215842.csv",
+  "policy": "z5_shv2:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.2599,
+  "u": 0.19999410148927568,
+  "roll": -3.3282072875384894,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.688961588582252,
+  "fit_err_v0": 4.199323304684216,
+  "repro": false
+ }
+]

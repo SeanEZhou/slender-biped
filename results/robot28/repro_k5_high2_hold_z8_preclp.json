@@ -1,0 +1,110 @@
+[
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_preclp",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 11.5007,
+  "u": 0.9249926137557865,
+  "roll": 8.647409364729596,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.38,
+  "V": [
+   -0.15,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 2.0305600493829776,
+  "fit_err_v0": 6.535970428447307,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_preclp",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 11.1007,
+  "u": 0.7583414728442629,
+  "roll": 9.68837332892203,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.45,
+  "V": [
+   0.10000000000000003,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 0.820242554417553,
+  "fit_err_v0": 4.27923904895017,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_preclp",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 10.7007,
+  "u": 0.5916744164384301,
+  "roll": 8.51572168590199,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.62,
+  "V": [
+   -0.04999999999999999,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 0.8889375791328794,
+  "fit_err_v0": 2.543479594502101,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_preclp",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 9.9007,
+  "u": 0.2583403036267645,
+  "roll": -0.8542418267483141,
+  "fall": 0.375,
+  "sides": {
+   "left": 0.34375,
+   "right": 0.03125,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 2.0100000000000002,
+  "V": [
+   0.050000000000000044,
+   0.3,
+   0.0
+  ],
+  "fit_err": 0.9871026776146623,
+  "fit_err_v0": 4.148960431532813,
+  "repro": false
+ }
+]

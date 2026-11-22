@@ -1,0 +1,56 @@
+z7_anc2_20261120_101412      pre +0.6s  t  32.0 u 0.44 roll  +0.6 | V -0.10,-0.10 fit 1.58 (v0 2.95) | fell 100% f100  robot left
+z7_anc2_20261120_101412      pre +0.3s  t  31.7 u 0.32 roll  -0.5 | V -0.25,+0.20 fit 0.94 (v0 3.51) | fell  50% r34 f12 b3  robot left
+z7_anc2_20261120_101412      pre -0.0s  t  31.4 u 0.20 roll  -2.3 | V +0.05,+0.25 fit 0.61 (v0 2.68) | fell 100% f100  robot left
+z7_anc2_20261120_101412      pre -0.4s  t  31.0 u 0.03 roll  -6.7 | V +0.10,-0.05 fit 1.39 (v0 2.89) | fell   6% r3 b3  robot left
+z7_anc2_20261120_101412      pre -0.8s  t  30.6 u 0.87 roll  -6.8 | V -0.05,+0.30 fit 1.38 (v0 4.69) | fell   9% r6 f3  robot left
+z7_anc2_20261120_101412      pre -1.6s  t  29.8 u 0.54 roll  +2.6 | V +0.10,-0.20 fit 1.97 (v0 2.98) | fell  16% l9 r3 f3  robot left
+z7_anc2_20261120_110908      pre -0.0s  t  11.8 u 0.03 roll  -7.8 | V +0.10,+0.30 fit 2.50 (v0 5.93) | fell 100% l91 f9  robot left  REPRO
+z7_anc2_20261120_110908      pre -0.4s  t  11.4 u 0.87 roll  -4.1 | V +0.10,+0.00 fit 1.83 (v0 2.88) | fell   0%   robot left
+z7_anc2_20261120_110908      pre -0.8s  t  11.0 u 0.71 roll  -0.9 | V +0.05,-0.30 fit 1.44 (v0 5.71) | fell   0%   robot left
+z7_anc2_20261120_110908      pre -1.6s  t  10.2 u 0.38 roll  +1.8 | V +0.20,+0.05 fit 1.37 (v0 3.58) | fell   0%   robot left
+z0_y2c_20261119_103055       pre -0.0s  t  22.6 u 0.54 roll  +8.7 | V -0.05,-0.10 fit 0.94 (v0 1.69) | fell  69% r69  robot right  REPRO
+z0_y2c_20261119_103055       pre -0.4s  t  22.2 u 0.38 roll  +3.8 | V +0.25,+0.15 fit 1.22 (v0 3.48) | fell   0%   robot right
+z0_y2c_20261119_103055       pre -0.8s  t  21.8 u 0.21 roll  +1.3 | V +0.05,+0.10 fit 1.01 (v0 2.01) | fell   0%   robot right
+z0_y2c_20261119_103055       pre -1.6s  t  21.0 u 0.88 roll  -0.0 | V -0.05,-0.15 fit 0.90 (v0 2.57) | fell  16% l9 r3 f3  robot right
+z0_y2c_20261119_120004       pre +0.6s  t   6.2 u 0.70 roll  -2.6 | V +0.00,-0.15 fit 0.58 (v0 3.40) | fell 100% f100  robot forward  REPRO
+z0_y2c_20261119_120004       pre +0.3s  t   5.9 u 0.63 roll  +1.2 | V +0.00,-0.10 fit 0.72 (v0 1.83) | fell 100% f100  robot forward  REPRO
+z0_y2c_20261119_120004       pre -0.0s  t   5.6 u 0.51 roll  -1.4 | V +0.05,-0.10 fit 0.98 (v0 2.53) | fell 100% f100  robot forward  REPRO
+z0_y2c_20261119_120004       pre -0.4s  t   5.2 u 0.34 roll  -4.2 | V +0.00,+0.20 fit 1.21 (v0 4.11) | fell  88% l16 r34 f34 b3  robot forward  REPRO
+z0_y2c_20261119_120004       pre -0.8s  t   4.8 u 0.18 roll  +1.5 | V -0.10,+0.30 fit 0.76 (v0 4.41) | fell  12% r3 b9  robot forward
+z0_y2c_20261119_120004       pre -1.6s  t   4.0 u 0.85 roll  -4.6 | V -0.05,+0.10 fit 2.31 (v0 3.39) | fell   0%   robot forward
+z0_y2c_20261119_220108       pre -0.0s  t   5.5 u 0.46 roll  -6.3 | V +0.00,+0.15 fit 0.34 (v0 2.34) | fell 100% f100  robot forward  REPRO
+z0_y2c_20261119_220108       pre -0.4s  t   5.1 u 0.29 roll  -0.5 | V -0.10,+0.25 fit 5.07 (v0 9.41) | fell   6% r6  robot forward
+z0_y2c_20261119_220108       pre -0.8s  t   4.7 u 0.13 roll  -4.9 | V -0.05,+0.00 fit 1.63 (v0 2.20) | fell   0%   robot forward
+z0_y2c_20261119_220108       pre -1.6s  t   3.9 u 0.79 roll  -1.9 | V -0.15,-0.20 fit 1.37 (v0 2.48) | fell   3% r3  robot forward
+z0_y2c_20261120_005142       pre +0.3s  t   5.9 u 0.62 roll  -0.3 | V -0.05,+0.00 fit 0.80 (v0 1.81) | fell 100% f100  robot left
+z0_y2c_20261120_005142       pre -0.0s  t   5.6 u 0.49 roll  -1.7 | V +0.10,-0.10 fit 0.70 (v0 2.60) | fell 100% f100  robot left
+z0_y2c_20261120_005142       pre -0.4s  t   5.2 u 0.32 roll  -5.3 | V +0.00,+0.30 fit 1.07 (v0 3.54) | fell 100% l100  robot left  REPRO
+z0_y2c_20261120_005142       pre -0.8s  t   4.8 u 0.17 roll  +0.3 | V +0.00,+0.20 fit 1.00 (v0 3.28) | fell   9% b9  robot left
+z0_y2c_20261120_005142       pre -1.6s  t   4.0 u 0.83 roll  -4.3 | V -0.05,-0.15 fit 2.23 (v0 2.35) | fell   3% b3  robot left
+z0_y2c_20261120_101936       pre -0.0s  t  40.4 u 0.83 roll  -7.5 | V +0.00,-0.20 fit 3.34 (v0 3.81) | fell   0%   robot left
+z0_y2c_20261120_101936       pre -0.4s  t  40.0 u 0.68 roll  -0.2 | V +0.05,-0.05 fit 1.34 (v0 1.55) | fell   0%   robot left
+z0_y2c_20261120_101936       pre -0.8s  t  39.6 u 0.51 roll  +4.3 | V -0.05,+0.00 fit 1.15 (v0 1.38) | fell   3% f3  robot left
+z0_y2c_20261120_101936       pre -1.6s  t  38.8 u 0.18 roll  +1.5 | V -0.05,+0.20 fit 1.56 (v0 3.39) | fell  22% l3 r12 b6  robot left
+z6_e_20261120_004937         pre -0.0s  t   5.8 u 0.45 roll  -7.0 | V -0.05,+0.20 fit 1.07 (v0 3.14) | fell  75% f75  robot left
+z6_e_20261120_004937         pre -0.4s  t   5.4 u 0.28 roll  -2.6 | V +0.00,+0.30 fit 3.44 (v0 8.10) | fell  47% l28 f19  robot left
+z6_e_20261120_004937         pre -0.8s  t   5.0 u 0.12 roll  -2.2 | V -0.05,+0.15 fit 2.10 (v0 2.90) | fell   0%   robot left
+z6_e_20261120_004937         pre -1.6s  t   4.2 u 0.78 roll  -4.2 | V -0.10,-0.30 fit 2.09 (v0 2.99) | fell   3% l3  robot left
+z6_e_20261120_005210         pre +0.6s  t  36.3 u 0.14 roll -11.7 | V +0.15,+0.20 fit 0.75 (v0 4.31) | fell 100% l97 f3  robot left  REPRO
+z6_e_20261120_005210         pre +0.3s  t  36.0 u 0.02 roll  -9.5 | V -0.10,+0.00 fit 1.41 (v0 3.23) | fell   0%   robot left
+z6_e_20261120_005210         pre -0.0s  t  35.7 u 0.89 roll  -7.1 | V +0.10,+0.15 fit 1.40 (v0 4.84) | fell   0%   robot left
+z6_e_20261120_005210         pre -0.4s  t  35.3 u 0.72 roll  -1.7 | V +0.10,-0.10 fit 1.01 (v0 3.90) | fell   3% l3  robot left
+z6_e_20261120_005210         pre -0.8s  t  34.9 u 0.56 roll  +1.6 | V -0.05,+0.00 fit 1.14 (v0 1.71) | fell   0%   robot left
+z6_e_20261120_005210         pre -1.6s  t  34.1 u 0.22 roll  +0.5 | V +0.05,+0.30 fit 0.94 (v0 3.95) | fell   6% l3 r3  robot left
+z7_rgq_20261120_100648       pre +0.3s  t  16.6 u 0.66 roll +10.1 | V +0.05,-0.30 fit 2.61 (v0 4.60) | fell 100% r100  robot right  REPRO
+z7_rgq_20261120_100648       pre -0.0s  t  16.3 u 0.53 roll  +8.3 | V -0.05,-0.25 fit 1.59 (v0 2.65) | fell 100% r100  robot right  REPRO
+z7_rgq_20261120_100648       pre -0.4s  t  15.9 u 0.37 roll  +4.4 | V +0.15,+0.30 fit 1.79 (v0 5.45) | fell   3% f3  robot right
+z7_rgq_20261120_100648       pre -0.8s  t  15.5 u 0.20 roll  +2.6 | V -0.15,+0.30 fit 1.09 (v0 6.43) | fell  50% r41 f3 b6  robot right
+z7_rgq_20261120_100648       pre -1.6s  t  14.7 u 0.92 roll  -3.5 | V -0.05,+0.05 fit 1.82 (v0 2.19) | fell  16% l3 r12  robot right
+z5_shv2_20261119_215805      pre -0.0s  t  12.9 u 0.78 roll  +8.4 | V +0.10,-0.30 fit 1.23 (v0 5.00) | fell 100% r66 f34  robot right  REPRO
+z5_shv2_20261119_215805      pre -0.4s  t  12.5 u 0.70 roll  +2.4 | V +0.05,-0.30 fit 0.99 (v0 4.80) | fell 100% r100  robot right  REPRO
+z5_shv2_20261119_215805      pre -0.8s  t  12.1 u 0.66 roll  -1.0 | V -0.20,-0.10 fit 1.04 (v0 2.90) | fell   0%   robot right
+z5_shv2_20261119_215805      pre -1.6s  t  11.3 u 0.32 roll  -2.7 | V -0.05,+0.30 fit 1.40 (v0 6.96) | fell 100% l100  robot right
+k5_high2_20261119_115735     pre -0.0s  t  11.5 u 0.92 roll  +8.6 | V -0.15,-0.20 fit 2.21 (v0 6.36) | fell 100% r100  robot right  REPRO
+k5_high2_20261119_115735     pre -0.4s  t  11.1 u 0.76 roll  +9.7 | V +0.10,-0.30 fit 0.54 (v0 4.28) | fell 100% r100  robot right  REPRO
+k5_high2_20261119_115735     pre -0.8s  t  10.7 u 0.59 roll  +8.5 | V -0.05,-0.30 fit 0.87 (v0 2.48) | fell 100% r100  robot right  REPRO
+k5_high2_20261119_115735     pre -1.6s  t   9.9 u 0.26 roll  -0.9 | V +0.05,+0.30 fit 0.99 (v0 4.42) | fell  25% r22 f3  robot right

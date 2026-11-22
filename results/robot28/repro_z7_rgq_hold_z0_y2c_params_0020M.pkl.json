@@ -1,0 +1,137 @@
+[
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 16.6013,
+  "u": 0.6583285066053159,
+  "roll": 10.09038720349425,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.4,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.958960338107317,
+  "fit_err_v0": 4.68607392106428,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 16.3013,
+  "u": 0.5333282143009412,
+  "roll": 8.298095988431367,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 1.4986923927168165,
+  "fit_err_v0": 2.921529002437273,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 15.9013,
+  "u": 0.36666115789510845,
+  "roll": 4.389034142611259,
+  "fall": 0.28125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.28125,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.0,
+  "V": [
+   0.2,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.5787701384735473,
+  "fit_err_v0": 3.6720471312359693,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 15.5013,
+  "u": 0.19999410148927568,
+  "roll": 2.582325074561576,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.03125
+  },
+  "robot_side": "right",
+  "t_fall_sim": 2.24,
+  "V": [
+   -0.15,
+   0.3,
+   0.0
+  ],
+  "fit_err": 0.7836317958488314,
+  "fit_err_v0": 5.8179194863314905,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 14.7013,
+  "u": 0.9166688102320804,
+  "roll": -3.5452221883035624,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.04999999999999999,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 2.029783989797926,
+  "fit_err_v0": 2.1677029011950584,
+  "repro": false
+ }
+]

@@ -1,0 +1,110 @@
+[
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_pre3ng",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 11.5007,
+  "u": 0.9249926137557865,
+  "roll": 8.647409364729596,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.3,
+  "V": [
+   -0.15,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.7904193163683102,
+  "fit_err_v0": 7.584736516105973,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_pre3ng",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 11.1007,
+  "u": 0.7583414728442629,
+  "roll": 9.68837332892203,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.44,
+  "V": [
+   0.10000000000000003,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.2342283417459237,
+  "fit_err_v0": 4.122435774327596,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_pre3ng",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 10.7007,
+  "u": 0.5916744164384301,
+  "roll": 8.51572168590199,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.6,
+  "V": [
+   -0.04999999999999999,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 0.9607756319999826,
+  "fit_err_v0": 3.005019250229138,
+  "repro": true
+ },
+ {
+  "file": "stand_k5_high2_20261119_115735.csv",
+  "policy": "z8_pre3ng",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 9.9007,
+  "u": 0.2583403036267645,
+  "roll": -0.8542418267483141,
+  "fall": 0.3125,
+  "sides": {
+   "left": 0.125,
+   "right": 0.03125,
+   "forward": 0.15625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.97,
+  "V": [
+   0.050000000000000044,
+   0.3,
+   0.0
+  ],
+  "fit_err": 0.9912442940261461,
+  "fit_err_v0": 4.239399182985979,
+  "repro": false
+ }
+]

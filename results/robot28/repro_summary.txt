@@ -1,0 +1,57 @@
+g0g_gate_20261119_102759     robot right    | sim falls (>50 %) yes from +1.6 s  before the onset | max 100 % | controls nan %
+g0g_gate_20261119_102820     robot right    | sim falls (>50 %) yes from -0.6 s  before the onset | max 100 % | controls nan %
+g0g_gate_20261119_102919     robot right    | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls   3 %
+g7g_t11_20261119_102944      robot right    | sim falls (>50 %) no  from -       before the onset | max  34 % | controls nan %
+g7g_t11_20261119_102956      robot left     | sim falls (>50 %) no  from -       before the onset | max   6 % | controls   0 %
+h4s2_t10_20261119_102524     robot right    | sim falls (>50 %) yes from +0.8 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_102557     robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_102845     robot left     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_102903     robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max  78 % | controls nan %
+h4s2_t10_20261119_103224     robot forward  | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_103302     robot right    | sim falls (>50 %) no  from -       before the onset | max  34 % | controls  12 %
+h4s2_t10_20261119_103326     robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_115542     robot right    | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_115559     robot right    | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls nan %
+h4s2_t10_20261119_120531     robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+h4x2_t10_20261119_102627     robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+h4x2_t10_20261119_102646     robot left     | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls nan %
+h9s_t09_20261119_102718      robot right    | sim falls (>50 %) no  from -       before the onset | max  41 % | controls nan %
+h9s_t09_20261119_102739      robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+k5_high2_20261119_103157     robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+k5_high2_20261119_115735     robot right    | sim falls (>50 %) yes from +0.8 s  before the onset | max 100 % | controls nan %
+k5_high2_20261119_115756     robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls  34 %
+z0_y2c_20261119_103024       robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max  91 % | controls   3 %
+z0_y2c_20261119_103055       robot right    | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls   0 %
+z0_y2c_20261119_115616       robot left     | sim falls (>50 %) no  from -       before the onset | max   3 % | controls   2 %
+z0_y2c_20261119_115858       robot left     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls   3 %
+z0_y2c_20261119_120004       robot forward  | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+z0_y2c_20261119_120019       robot left     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls   0 %
+z0_y2c_20261119_220052       robot forward  | sim falls (>50 %) yes from +0.0 s  before the onset | max  91 % | controls nan %
+z0_y2c_20261119_220108       robot forward  | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z0_y2c_20261119_220125       robot forward  | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z0_y2c_20261119_220139       robot left     | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls   2 %
+z0_y2c_20261120_005142       robot left     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+z0_y2c_20261120_101817       robot left     | sim falls (>50 %) no  from -       before the onset | max  25 % | controls   2 %
+z0_y2c_20261120_101919       robot forward  | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z0_y2c_20261120_101936       robot left     | sim falls (>50 %) no  from -       before the onset | max   0 % | controls   5 %
+z5_shv10_20261119_215409     robot back     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls   0 %
+z5_shv10_20261119_215434     robot left     | sim falls (>50 %) no  from -       before the onset | max   0 % | controls nan %
+z5_shv2_20261119_215805      robot right    | sim falls (>50 %) yes from +1.6 s  before the onset | max 100 % | controls   0 %
+z5_shv2_20261119_215842      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls   0 %
+z6_e_20261120_004923         robot forward  | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+z6_e_20261120_004937         robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z6_e_20261120_004954         robot right    | sim falls (>50 %) no  from -       before the onset | max   0 % | controls   5 %
+z6_e_20261120_005157         robot left     | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls nan %
+z6_e_20261120_005210         robot left     | sim falls (>50 %) yes from -0.6 s  before the onset | max 100 % | controls   0 %
+z7_anc2_20261120_100914      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z7_anc2_20261120_100933      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls   9 %
+z7_anc2_20261120_101412      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls   2 %
+z7_anc2_20261120_101501      robot left     | sim falls (>50 %) yes from +0.4 s  before the onset | max 100 % | controls nan %
+z7_anc2_20261120_101522      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z7_anc2_20261120_110908      robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls nan %
+z7_anc2_20261120_110940      robot left     | sim falls (>50 %) yes from -0.3 s  before the onset | max  69 % | controls nan %
+z7_anc2_20261120_110958      robot left     | sim falls (>50 %) yes from -0.6 s  before the onset | max 100 % | controls nan %
+z7_rgq_20261120_100648       robot right    | sim falls (>50 %) yes from -0.3 s  before the onset | max 100 % | controls   0 %
+z7_rgq_20261120_100719       robot left     | sim falls (>50 %) yes from +0.8 s  before the onset | max 100 % | controls   5 %
+z7_var_20261120_101312       robot left     | sim falls (>50 %) yes from +0.0 s  before the onset | max 100 % | controls   2 %
+47 of 56 falls reproduced (> 50 % of the sim robots falling from some start); from >= 0.4 s before the onset: 15

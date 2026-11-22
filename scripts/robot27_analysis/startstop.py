@@ -51,7 +51,7 @@ quat, ph, q, dd, wk = map(np.asarray, (quat, ph, q, dd, wk))
 w, x, y, z = [quat[..., i] for i in range(4)]
 G = -np.stack([2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)], -1)
 tilt = np.degrees(np.arccos(np.clip(-G[..., 2], -1, 1)))
-tab, zz, ev = sc.table(a.run); stn = zz["stance"][-1]; n = len(stn)
+tab, zz, ev = sc.table(a.run.split(":")[0]); stn = zz["stance"][-1]; n = len(stn)
 m, dm, tid = sc._m, sc._d, sc._tid
 def feet(qq, g):
     dm.qpos[:] = 0; dm.qpos[2] = 0.3; dm.qpos[3:7] = sc.gap_fit._quat_from_g(g); dm.qpos[7:] = qq; mujoco.mj_kinematics(m, dm)

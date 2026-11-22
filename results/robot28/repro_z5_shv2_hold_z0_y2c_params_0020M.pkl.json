@@ -1,0 +1,110 @@
+[
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 12.9199,
+  "u": 0.7750049953859844,
+  "roll": 8.39619124941037,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.44,
+  "V": [
+   0.050000000000000044,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 1.845295502980104,
+  "fit_err_v0": 4.935155622896941,
+  "repro": true
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 12.5199,
+  "u": 0.6999952707067741,
+  "roll": 2.429203797212104,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.72,
+  "V": [
+   -0.04999999999999999,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 0.9268690167721116,
+  "fit_err_v0": 1.9863798219320907,
+  "repro": true
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 12.1199,
+  "u": 0.6583285066053159,
+  "roll": -1.0088927535026977,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0625
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.5,
+  "V": [
+   -0.25,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 0.6562812886829976,
+  "fit_err_v0": 3.1873678813779276,
+  "repro": false
+ },
+ {
+  "file": "stand_z5_shv2_20261119_215805.csv",
+  "policy": "z0_y2c:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 11.3199,
+  "u": 0.32499439379365025,
+  "roll": -2.7380468427547324,
+  "fall": 1.0,
+  "sides": {
+   "left": 1.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.64,
+  "V": [
+   -0.04999999999999999,
+   0.3,
+   0.0
+  ],
+  "fit_err": 0.8773755890222369,
+  "fit_err_v0": 6.679017170649287,
+  "repro": false
+ }
+]

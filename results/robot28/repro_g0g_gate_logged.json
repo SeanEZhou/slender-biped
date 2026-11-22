@@ -1,0 +1,461 @@
+[
+ {
+  "file": "stand_g0g_gate_20261119_102759.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 8.1999,
+  "u": 0.5833346974204148,
+  "roll": 10.449058145772764,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.5,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.5351729714101403,
+  "fit_err_v0": 3.3616482029663586,
+  "repro": true
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102759.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 7.8999,
+  "u": 0.4583344051160402,
+  "roll": 8.47720698560303,
+  "fall": 0.4375,
+  "sides": {
+   "left": 0.0,
+   "right": 0.4375,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.96,
+  "V": [
+   -0.09999999999999998,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 1.3545458945349564,
+  "fit_err_v0": 3.5458519412046425,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102759.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 7.4999,
+  "u": 0.2916673487102074,
+  "roll": 3.8529716438471597,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.0,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 1.7346123487647045,
+  "fit_err_v0": 2.0323963148059656,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102759.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 7.0999,
+  "u": 0.1250002923043746,
+  "roll": -2.9412609976251614,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 0.6552100892042034,
+  "fit_err_v0": 2.2674058691237278,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102759.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 6.2999,
+  "u": 0.7916685179277058,
+  "roll": -1.0414163352198977,
+  "fall": 0.5625,
+  "sides": {
+   "left": 0.375,
+   "right": 0.09375,
+   "forward": 0.09375,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.83,
+  "V": [
+   -0.15,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.4792412103723582,
+  "fit_err_v0": 4.902699968802186,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.6,
+  "t0": 10.6006,
+  "u": 0.5916744164384301,
+  "roll": 10.011980018764323,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.46,
+  "V": [
+   0.10000000000000003,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.5687502820330443,
+  "fit_err_v0": 3.851389636634657,
+  "repro": true
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 10.3006,
+  "u": 0.4666741241340555,
+  "roll": 11.70144867175713,
+  "fall": 0.46875,
+  "sides": {
+   "left": 0.0,
+   "right": 0.46875,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.0,
+  "V": [
+   -0.04999999999999999,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 1.281200005117921,
+  "fit_err_v0": 2.511986207269842,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 10.0006,
+  "u": 0.3416738318296809,
+  "roll": 7.371809310085036,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.04999999999999999,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.9438239874019192,
+  "fit_err_v0": 2.9804334087000335,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 9.6006,
+  "u": 0.1750067754238481,
+  "roll": 0.6674711015822596,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.050000000000000044,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.1611020580501512,
+  "fit_err_v0": 2.71245236558837,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 9.2006,
+  "u": 0.008339719018015316,
+  "roll": -4.434635256070963,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.04999999999999999,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 0.9858688260360569,
+  "fit_err_v0": 2.2833497288950637,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102820.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 8.4006,
+  "u": 0.6750079446413465,
+  "roll": -2.939664782651973,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.03125
+  },
+  "robot_side": "right",
+  "t_fall_sim": 2.1,
+  "V": [
+   -0.04999999999999999,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 1.4014020700263017,
+  "fit_err_v0": 6.633051579071798,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 13.6006,
+  "u": 0.6583285066053159,
+  "roll": 10.50195416549481,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.34,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.1917568295462213,
+  "fit_err_v0": 3.839972841602646,
+  "repro": true
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 13.2006,
+  "u": 0.5666711748786935,
+  "roll": 10.445054216858201,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.52,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 0.6826496933060499,
+  "fit_err_v0": 2.2563851379335618,
+  "repro": true
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 12.8006,
+  "u": 0.4000041184728606,
+  "roll": 8.3444976256395,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.44,
+  "V": [
+   0.10000000000000003,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 1.212861319935384,
+  "fit_err_v0": 4.04986876489495,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 11.9999,
+  "u": 0.07499380918490109,
+  "roll": -2.601512531265176,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.04999999999999999,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 1.4176278404931755,
+  "fit_err_v0": 3.374725094282997,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.7599,
+  "u": 0.5500076523369719,
+  "roll": 2.676829462099422,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0625,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.36,
+  "V": [
+   -0.09999999999999998,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 1.158590140377467,
+  "fit_err_v0": 2.7302955649138414,
+  "repro": false
+ },
+ {
+  "file": "stand_g0g_gate_20261119_102919.csv",
+  "policy": "g0g_gate:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.3199,
+  "u": 0.36666115789510845,
+  "roll": 4.818623438235296,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.15,
+   0.19999999999999996,
+   0.0
+  ],
+  "fit_err": 3.303169592110289,
+  "fit_err_v0": 3.9781018552465146,
+  "repro": false
+ }
+]

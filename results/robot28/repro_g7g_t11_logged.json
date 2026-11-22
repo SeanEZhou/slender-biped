@@ -1,0 +1,218 @@
+[
+ {
+  "file": "stand_g7g_t11_20261119_102944.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 3.7199,
+  "u": 0.7181866807021777,
+  "roll": 5.219485369481396,
+  "fall": 0.34375,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0625,
+   "forward": 0.28125,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.06,
+  "V": [
+   -0.15,
+   -0.15,
+   0.0
+  ],
+  "fit_err": 1.812100509742659,
+  "fit_err_v0": 5.912544302124484,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102944.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 3.3199,
+  "u": 0.5999982199621362,
+  "roll": -6.291032751649002,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 1.1067563336770052,
+  "fit_err_v0": 3.895570690205863,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 13.2799,
+  "u": 0.9909145911844496,
+  "roll": -9.308266097134316,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.0,
+   0.14999999999999997,
+   0.0
+  ],
+  "fit_err": 2.896416964432825,
+  "fit_err_v0": 4.908853536410069,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 12.8799,
+  "u": 0.8090959841962684,
+  "roll": -5.618518271143004,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.2,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 1.5391706996836587,
+  "fit_err_v0": 4.707857807431747,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 12.4799,
+  "u": 0.6454528717091816,
+  "roll": -2.6741949137049965,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.15000000000000002,
+   0.19999999999999996,
+   0.0
+  ],
+  "fit_err": 1.101563753839695,
+  "fit_err_v0": 3.7307261175094584,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 11.6799,
+  "u": 0.2909034049833663,
+  "roll": 1.314792092090025,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.0,
+   "forward": 0.03125,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 2.15,
+  "V": [
+   -0.09999999999999998,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.4409690584264536,
+  "fit_err_v0": 3.757982420028479,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.5599,
+  "u": 0.5999982199621362,
+  "roll": 3.917224688310339,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.04999999999999999,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 1.2160832121692637,
+  "fit_err_v0": 1.3816971227258743,
+  "repro": false
+ },
+ {
+  "file": "stand_g7g_t11_20261119_102956.csv",
+  "policy": "g7g_t11:params_0020M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.24,
+  "u": 0.45454651747045305,
+  "roll": 6.647491408726017,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.25,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 1.5684726924854326,
+  "fit_err_v0": 5.865204051137994,
+  "repro": false
+ }
+]

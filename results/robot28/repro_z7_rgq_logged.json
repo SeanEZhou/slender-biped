@@ -1,0 +1,380 @@
+[
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 16.6013,
+  "u": 0.6583285066053159,
+  "roll": 10.09038720349425,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 1.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.36,
+  "V": [
+   0.050000000000000044,
+   -0.3,
+   0.0
+  ],
+  "fit_err": 2.8018541868159654,
+  "fit_err_v0": 3.9174675966631782,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 16.3013,
+  "u": 0.5333282143009412,
+  "roll": 8.298095988431367,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   -0.05000000000000002,
+   0.0
+  ],
+  "fit_err": 1.224819406622794,
+  "fit_err_v0": 3.5152982970752147,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 15.9013,
+  "u": 0.36666115789510845,
+  "roll": 4.389034142611259,
+  "fall": 0.0625,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.03,
+  "V": [
+   0.15000000000000002,
+   0.3,
+   0.0
+  ],
+  "fit_err": 1.5465654176812893,
+  "fit_err_v0": 4.990071018005984,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 15.5013,
+  "u": 0.19999410148927568,
+  "roll": 2.582325074561576,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 0.8682670404626428,
+  "fit_err_v0": 5.076859754352049,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 14.7013,
+  "u": 0.9166688102320804,
+  "roll": -3.5452221883035624,
+  "fall": 0.40625,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.21875,
+   "forward": 0.15625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.76,
+  "V": [
+   -0.04999999999999999,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 2.1317870537039716,
+  "fit_err_v0": 2.684631924540629,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 7.5013,
+  "u": 0.19999410148927568,
+  "roll": 0.6952457990418011,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 0.5348776117816677,
+  "fit_err_v0": 3.6416532799950057,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100648.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 6.0613,
+  "u": 0.6083379389801515,
+  "roll": 4.549087633067125,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.04999999999999999,
+   0.0
+  ],
+  "fit_err": 1.8216699611811034,
+  "fit_err_v0": 3.3381155184657776,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 38.7208,
+  "u": 0.5166646917592199,
+  "roll": -12.054692906552157,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.90625,
+   "right": 0.0,
+   "forward": 0.09375,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.42,
+  "V": [
+   0.0,
+   0.09999999999999998,
+   0.0
+  ],
+  "fit_err": 0.7056186311209041,
+  "fit_err_v0": 1.4529261570721632,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 38.4208,
+  "u": 0.39166439945484527,
+  "roll": -7.53819135681474,
+  "fall": 1.0,
+  "sides": {
+   "left": 1.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.53,
+  "V": [
+   0.0,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 0.6873064744772612,
+  "fit_err_v0": 2.9543238903485696,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 38.0208,
+  "u": 0.22499734304901245,
+  "roll": -9.144577732156156,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.96875,
+   "right": 0.0,
+   "forward": 0.03125,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.55,
+  "V": [
+   0.0,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 0.9079559762628472,
+  "fit_err_v0": 4.780100134595385,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 37.6208,
+  "u": 0.058330286643179644,
+  "roll": -8.835901254597754,
+  "fall": 1.0,
+  "sides": {
+   "left": 1.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.5,
+  "V": [
+   0.15000000000000002,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 1.4112705942370825,
+  "fit_err_v0": 4.760869493744966,
+  "repro": true
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 36.8208,
+  "u": 0.7249985122665108,
+  "roll": 1.0938061190521857,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 1.9000000000000001,
+  "V": [
+   0.050000000000000044,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 2.194435203995369,
+  "fit_err_v0": 4.8580270992874794,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 6.0608,
+  "u": 0.5999982199621362,
+  "roll": 4.5845001592564465,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.14999999999999997,
+   0.0
+  ],
+  "fit_err": 1.7778367815027147,
+  "fit_err_v0": 4.329233681439182,
+  "repro": false
+ },
+ {
+  "file": "stand_z7_rgq_20261120_100719.csv",
+  "policy": "z7_rgq:params_0025M.pkl",
+  "gate": true,
+  "kind": "ctl",
+  "dt": null,
+  "t0": 5.4408,
+  "u": 0.3416738318296809,
+  "roll": -0.7864758303113201,
+  "fall": 0.09375,
+  "sides": {
+   "left": 0.03125,
+   "right": 0.0625,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 2.08,
+  "V": [
+   0.050000000000000044,
+   0.3,
+   0.0
+  ],
+  "fit_err": 0.9873093919998603,
+  "fit_err_v0": 4.183283818786176,
+  "repro": false
+ }
+]

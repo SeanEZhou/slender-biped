@@ -10,6 +10,8 @@ after t_ref, the log's t = 0; negative before engaging). Frames arrive some tens
 
     python video_rec.py devices                 # the cameras Windows sees
     python video_rec.py test [--seconds 5]      # a test clip + the frame rate it reached
+    python video_rec.py modes --device W1 W2    # the sizes / frame rates each camera offers
+    python video_rec.py test --device W1 W2 --fps 60    # both cameras at once
 """
 from __future__ import annotations
 
@@ -18,6 +20,8 @@ import glob
 import shutil
 import subprocess
 import time
+
+import numpy as np
 from pathlib import Path, PurePosixPath
 
 
@@ -83,7 +87,12 @@ class VideoRecorder:
             print(f"  video: ffmpeg {'stopped early' if early else 'reported'}: " + " | ".join(msg.splitlines()[-3:]))
         self.errlog.unlink(missing_ok=True)
         mkv = self.stem.with_suffix(".mkv")
-        shutil.move(str(self.tmp), mkv)
+        if not self.tmp.exists():
+            raise RuntimeError(f"no video file: the camera did not record ({msg.splitlines()[-1] if msg else 'no message'})")
+        try:
+            shutil.move(str(self.tmp), mkv)
+        except OSError as e:                          # still locked by a camera that hung
+            raise RuntimeError(f"could not move {self.tmp.name}: {e}")
         pts = subprocess.run([_ffmpeg("ffprobe"), "-v", "error", "-select_streams", "v", "-show_entries",
                               "packet=pts_time", "-of", "csv=p=0", _winpath(mkv)],
                              capture_output=True, text=True, cwd=str(self.tmp_dir)).stdout.split()
@@ -101,23 +110,46 @@ class VideoRecorder:
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["test", "devices"])
-    ap.add_argument("--device", default="W1")
+    ap.add_argument("cmd", choices=["test", "devices", "modes"])
+    ap.add_argument("--device", nargs="+", default=["W1"], help="one or more cameras (test: all record at once)")
     ap.add_argument("--seconds", type=float, default=5.0)
+    ap.add_argument("--fps", type=int, default=30)
+    ap.add_argument("--size", default="1280x720")
     a = ap.parse_args()
     if a.cmd == "devices":
         r = subprocess.run([_ffmpeg(), "-hide_banner", "-list_devices", "true", "-f", "dshow", "-i", "dummy"],
                            capture_output=True, text=True, cwd=str(_win_home()))
         print("\n".join(l for l in r.stderr.splitlines() if "(video)" in l))
         return
+    if a.cmd == "modes":                          # 2026-11-21: the sizes and frame rates each camera offers (MJPEG)
+        for dev in a.device:
+            r = subprocess.run([_ffmpeg(), "-hide_banner", "-list_options", "true", "-f", "dshow", "-i", f"video={dev}"],
+                               capture_output=True, text=True, cwd=str(_win_home()))
+            print(f"{dev}:")
+            print("\n".join(l for l in r.stderr.splitlines() if "vcodec=mjpeg" in l) or r.stderr[-500:])
+        return
+    w, h = (int(x) for x in a.size.split("x"))
     t0 = time.perf_counter()
-    rec = VideoRecorder(f"video_test_{time.strftime('%Y%m%d_%H%M%S')}", a.device)
+    stamp = time.strftime('%Y%m%d_%H%M%S')
+    recs = []
+    for k, c in enumerate(a.device):                # DEVICE[@WxH[@fps]]: a mode per camera
+        dev, *mode = c.split("@")
+        w_, h_ = (int(x) for x in mode[0].split("x")) if mode else (w, h)
+        recs.append(VideoRecorder(f"video_test_{stamp}" + (f"_{k}" if len(a.device) > 1 else ""), dev, w_, h_,
+                                  int(mode[1]) if len(mode) > 1 else a.fps))
+    a.device = [c.split("@")[0] for c in a.device]
     time.sleep(a.seconds)
-    out = rec.stop(t0)
-    s = rec.stamps
-    rate = (len(s) - 1) / (s[-1] - s[0]) if len(s) > 1 else 0.0
-    print(f"{len(s)} frames {rec.size[0]}x{rec.size[1]}, {rate:.1f} fps; first frame at t = {s[0] - (t0 + rec.off0):.2f} s "
-          f"after start -> {rec.stem.with_suffix('.mkv')}, {out}")
+    for dev, rec in zip(a.device, recs):
+        try:
+            out = rec.stop(t0)
+        except RuntimeError as e:
+            print(f"{dev}: FAILED: {e}")
+            continue
+        s = rec.stamps
+        rate = (len(s) - 1) / (s[-1] - s[0]) if len(s) > 1 else 0.0
+        gaps = max(np.diff(s)) * 1000 if len(s) > 2 else float("nan")
+        print(f"{dev}: {len(s)} frames {rec.size[0]}x{rec.size[1]}, {rate:.1f} fps (longest gap {gaps:.0f} ms); first frame "
+              f"at t = {s[0] - (t0 + rec.off0):.2f} s after start -> {rec.stem.with_suffix('.mkv')}, {out}")
 
 
 if __name__ == "__main__":

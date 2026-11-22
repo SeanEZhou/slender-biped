@@ -272,12 +272,23 @@ class EnvConfig:
     # from where the feet are to the table's landing pose. () = off.
     ref_anchor: tuple = ()
     ref_anchor_max: float = 0.35
+    # round 27: the anchored reference also moves the action's base (q_cmd = anchored reference + action). False: it
+    # only moves the reward's reference and the action's base stays the table. z7_anc (True, the first version) fell
+    # within 2.4 s from its first iteration: the anchor took the measured angles, so a servo sagging under load moved the
+    # base toward the sag at every lift-off, and the policy can't see the offset.
+    ref_anchor_base: bool = True
     # round 27: episodes start with the feet staggered front-back: the double-support pose of the table at a speed
     # U(-reset_stagger, reset_stagger) m/s (negative: the other foot ahead, i.e. the next swing foot is already ahead).
     reset_stagger: float = 0.0
     # round 27: step-length variety (training only; the policy doesn't see it): at each reference lift-off the table's
     # speed is the command x U(1 - j, 1 + j), held for the step. With ref_anchor the change is absorbed at the lift-off.
     ref_v_jitter: float = 0.0
+    # round 28: a share of the episodes start from robot log states (scripts/robot28/build_bank.py: joint angles and
+    # speeds, body tilt, spin and fitted velocity, clock phase, the logged policy's last actions and servo targets),
+    # with small noise; many are the states just before the robot's falls
+    reset_bank: str = ""               # models/bank/<name>.npz
+    reset_bank_prob: float = 0.0
+    reset_bank_noise: tuple = (0.02, 0.05, 0.2)   # joint angles (rad), body velocity (m/s), spin (rad/s) std
     # settle gate (2026-11-08, step-and-settle): the gait clock stops at these phases (cycle fractions, the lift-offs)
     # while the body still rotates faster than settle_gate_w rad/s (roll/pitch gyro), for at most settle_gate_max s
     # IMU mounting / calibration error (2026-11-09: the robot reads ~+2 deg roll standing level): the observed gravity
@@ -502,6 +513,14 @@ class SlenderBipedEnv(Env):
         self._leg_mask = jp.array([[1.0 if j.startswith(sd) else 0.0 for j in self.joints] for sd in ("L_", "R_")])
         self._swing_frac = (float(np.mean(np.asarray(self.ref["stance"])[-1, :, 0] < 0.5))
                             if self.ref is not None else 0.2) or 0.2
+        self._bank = None
+        if cfg.reset_bank and cfg.reset_bank_prob > 0:
+            from pathlib import Path as _P
+            bp = _P(cfg.reset_bank)
+            if not bp.exists():
+                bp = _P(__file__).resolve().parents[1] / "models" / "bank" / (cfg.reset_bank + ".npz")
+            zb = np.load(bp)
+            self._bank = {k: jp.asarray(zb[k], dtype=jp.float32) for k in ("qe", "quat", "v", "w", "qd", "phase", "last", "last2", "tgt", "g", "vx")}
         self._cycle_n = int(round(1.0 / (cfg.gait_hz * cfg.ctrl_dt)))  # control steps per gait cycle
         W = np.zeros((3, self.nj))                                      # frame-mode drive (evaluation.ring_weights)
         for i, j in enumerate(self.joints):
@@ -649,6 +668,24 @@ class SlenderBipedEnv(Env):
         w2, x2, y2, z2 = q_rp
         quat = jp.array([w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2, w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
                          w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2])
+        use_bank = jp.array(False)
+        if self._bank is not None:
+            kbk = jax.random.split(jax.random.fold_in(k1, 401), 6)
+            use_bank = jax.random.uniform(kbk[0]) < c.reset_bank_prob
+            bi = jax.random.randint(kbk[1], (), 0, self._bank["phase"].shape[0])
+            B = {k: v[bi] for k, v in self._bank.items()}
+            nq, nv_, nw = c.reset_bank_noise
+            qj = jp.where(use_bank, jp.clip(B["qe"] - q_off + nq * jax.random.normal(kbk[2], (self.nj,)), self.q_lo, self.q_hi), qj)
+            qe = qj + q_off
+            w2, x2, y2, z2 = B["quat"]; w1, x1, y1, z1 = q_y
+            qb = jp.array([w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2, w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
+                           w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2])
+            quat = jp.where(use_bank, qb, quat)
+            cy, sy = jp.cos(yaw), jp.sin(yaw)
+            vb = B["v"] + nv_ * jax.random.normal(kbk[3], (3,)) * jp.array([1.0, 1.0, 0.3])
+            vb = jp.array([cy * vb[0] - sy * vb[1], sy * vb[0] + cy * vb[1], vb[2]])
+            qvel_b = jp.zeros(self.sys.nv).at[0:3].set(vb).at[3:6].set(B["w"] + nw * jax.random.normal(kbk[4], (3,)))
+            qvel_b = qvel_b.at[6:6 + self.nj].set(B["qd"])
         qpos = qpos.at[3:7].set(quat).at[7:7 + self.nj].set(qj)
         data = self._data0.replace(qpos=qpos, qvel=jp.zeros(self.sys.nv))
         data = mjx.kinematics(self.sys, data)
@@ -661,6 +698,8 @@ class SlenderBipedEnv(Env):
             r = jp.array([0.0, 0.0, qpos[2]])               # base above the floor contact
             qvel = jp.zeros(self.sys.nv).at[0:3].set(jp.cross(w, r)).at[3:6].set(data.xmat[1].T @ w)
             data = mjx.forward(self.sys, data.replace(qvel=qvel))
+        if self._bank is not None:
+            data = jax.lax.cond(use_bank, lambda dd: mjx.forward(self.sys, dd.replace(qvel=qvel_b)), lambda dd: dd, data)
         servo = self._sample_servo(k4)
         kr = jax.random.split(jax.random.fold_in(k4, 77), 4)
         rp = self._ring_p
@@ -718,15 +757,27 @@ class SlenderBipedEnv(Env):
             hold_on=jp.array(False), wp_f=data.qvel[4], gate_wf=jp.array(0.0), gate_rs=jp.array(0.0), gate_wa=jp.zeros(2),
             vib=self._vib_sample(jax.random.fold_in(kb4, 11)),
         )
+        if self._bank is not None:
+            sw_ = lambda x: jp.where(info["mirror"], self._swap(x), x)   # noqa: E731  (actions: the policy's frame)
+            tgt = B["tgt"]
+            bo = dict(phase=B["phase"], walking=B["vx"] > 1e-3, cmd=info["cmd"].at[0].set(B["vx"]),
+                      cmd_goal=info["cmd_goal"].at[0].set(B["vx"]), last_act=sw_(B["last"]), last_act2=sw_(B["last2"]),
+                      prev_cmd=tgt, q_tgt=tgt, cmd_buf=jp.tile(tgt, (self.max_delay + 1, 1)), g_est=B["g"],
+                      w_f=data.qvel[3:6], wp_f=data.qvel[4], v_prev=data.qvel[0:3], anc_st=jp.ones(2, bool))
+            for k_, v_ in bo.items():
+                if k_ in info:
+                    info[k_] = jp.where(use_bank, v_, info[k_])
+            info["contact_prev"] = jp.where(use_bank, low < 0.0015, info["contact_prev"])
         metrics = {k: jp.array(0.0) for k in self._metric_keys()}
-        obs, frame = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
+        obs, frame = self._obs(data, info, jp.where(use_bank, info["last_act"], jp.zeros(self.nj)) if self._bank is not None
+                               else jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
         info["hist"] = jp.tile(frame, (c.obs_hist, 1))
         info["held"] = frame[:6 + 2 * self.nj]
         info["gate_rs"] = _roll_of(_tilt_obs(info["g_est"] if c.imu_filter else
                                              _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0])), info["imu_off"]))
         g_i = _tilt_obs(info["g_est"] if c.imu_filter else _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0])), info["imu_off"])
         info["sup_ref"] = jp.array([_roll_of(g_i), _pitch_of(g_i)])
-        obs, _ = self._obs(data, info, jp.zeros(self.nj), jp.zeros((self.nj,)), rng)
+        obs, _ = self._obs(data, info, info["last_act"], jp.zeros((self.nj,)), rng)
         return State(data, obs, jp.array(0.0), jp.array(0.0), metrics, info)
 
     def _vib_sample(self, k):
@@ -785,6 +836,7 @@ class SlenderBipedEnv(Env):
             z_ref = jp.where(mir, z_ref[::-1], z_ref)
             st_ref = jp.where(mir, st_ref[::-1], st_ref)
         anc, anc_w, anc_st = state.info["anc"], state.info["anc_w"], state.info["anc_st"]
+        q_tab = q_ref if self.ref is not None else None
         if c.ref_anchor and self.ref is not None:            # round 27: the reference re-anchored to the legs
             st_b = st_ref.astype(bool)
             q_meas = state.pipeline_state.qpos[7:7 + self.nj] + state.info["q_off"]
@@ -836,6 +888,8 @@ class SlenderBipedEnv(Env):
                 q_ref, z_ref, st_ref = q_r, z_r, st_r
                 phase_next = 2 * jp.pi * jp.minimum(rec_u_next, 1.0)
         q_base = q_ref if (self.ref is not None and c.ref_residual) else self.q_nom
+        if c.ref_anchor and not c.ref_anchor_base and self.ref is not None and c.ref_residual:
+            q_base = q_tab                                   # round 27: the anchor moves the reward's reference only
         serr, serr_st = state.info["serr"], state.info["serr_st"]
         if c.step_err and self.ref is not None:              # round 26: per-step execution errors
             p_, sr_, sp_ = c.step_err

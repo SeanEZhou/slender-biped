@@ -1,0 +1,272 @@
+[
+ {
+  "file": "stand_h4x2_t10_20261119_102627.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 11.3399,
+  "u": 0.6699945639339517,
+  "roll": 11.650765814734878,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.4375,
+   "forward": 0.5625,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.46,
+  "V": [
+   0.050000000000000044,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 1.5298577503554907,
+  "fit_err_v0": 3.24384035928521,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102627.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 11.0399,
+  "u": 0.5200069455641496,
+  "roll": 8.008283020681011,
+  "fall": 1.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.5,
+   "forward": 0.5,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 0.5700000000000001,
+  "V": [
+   0.10000000000000003,
+   -0.25,
+   0.0
+  ],
+  "fit_err": 0.9552770343696068,
+  "fit_err_v0": 2.6649110215608682,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102627.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 10.6399,
+  "u": 0.3199969285805648,
+  "roll": -1.9922972243149357,
+  "fall": 0.03125,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.03125,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": 1.6600000000000001,
+  "V": [
+   -0.2,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 1.6193084148344405,
+  "fit_err_v0": 3.3526960167196824,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102627.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 10.2399,
+  "u": 0.1200028270912891,
+  "roll": -6.205560692493178,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.15000000000000002,
+   0.19999999999999996,
+   0.0
+  ],
+  "fit_err": 1.719866552049156,
+  "fit_err_v0": 4.139200332513379,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102627.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 9.4399,
+  "u": 0.7200010470534254,
+  "roll": -2.964815340588419,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "right",
+  "t_fall_sim": null,
+  "V": [
+   0.0,
+   -0.2,
+   0.0
+  ],
+  "fit_err": 1.7590338800652316,
+  "fit_err_v0": 2.889285479873859,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102646.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": -0.3,
+  "t0": 8.3432,
+  "u": 0.1599984642902824,
+  "roll": -10.5047254663812,
+  "fall": 1.0,
+  "sides": {
+   "left": 1.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": 0.5,
+  "V": [
+   -0.09999999999999998,
+   0.19999999999999996,
+   0.0
+  ],
+  "fit_err": 2.3516077674902545,
+  "fit_err_v0": 4.526911458319053,
+  "repro": true
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102646.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.0,
+  "t0": 8.0431,
+  "u": 0.009994930426171026,
+  "roll": -7.69201205929042,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.15,
+   0.09999999999999998,
+   0.0
+  ],
+  "fit_err": 1.3603002068266086,
+  "fit_err_v0": 2.3336256503871837,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102646.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.4,
+  "t0": 7.6432,
+  "u": 0.8100031673718923,
+  "roll": 0.6251243400299016,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   0.25,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 0.9244551399064208,
+  "fit_err_v0": 3.496481419427643,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102646.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 0.8,
+  "t0": 7.2432,
+  "u": 0.6099931503883073,
+  "roll": 6.901348207748497,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.15,
+   -0.1,
+   0.0
+  ],
+  "fit_err": 0.9701728165840429,
+  "fit_err_v0": 5.99415665763878,
+  "repro": false
+ },
+ {
+  "file": "stand_h4x2_t10_20261119_102646.csv",
+  "policy": "h4x2_t10:params_0020M.pkl",
+  "gate": false,
+  "kind": "pre",
+  "dt": 1.6,
+  "t0": 6.4432,
+  "u": 0.2100049474097559,
+  "roll": -0.4393496009769768,
+  "fall": 0.0,
+  "sides": {
+   "left": 0.0,
+   "right": 0.0,
+   "forward": 0.0,
+   "back": 0.0
+  },
+  "robot_side": "left",
+  "t_fall_sim": null,
+  "V": [
+   -0.09999999999999998,
+   0.24999999999999994,
+   0.0
+  ],
+  "fit_err": 1.7842362240606666,
+  "fit_err_v0": 3.342671168279836,
+  "repro": false
+ }
+]

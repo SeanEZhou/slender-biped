@@ -3,11 +3,15 @@
 #     mpremote connect /dev/ttyACM0 cp hardware/imu/imu_stream.py :main.py + reset
 #
 # Output, 100 lines/s on the USB serial port, in the SENSOR's own axes (the host maps them to the pelvis):
-#     I <gx> <gy> <gz> <wx> <wy> <wz> <seq>
+#     I <gx> <gy> <gz> <wx> <wy> <wz> <seq> <ax> <ay> <az> <t_us>
 #   g = gravity direction, unit vector pointing DOWN (complementary filter: gyro-propagated, pulled toward the
 #       accelerometer with a ~0.25 s time constant while it reads within 0.15 g of 1 g), w = angular rate in rad/s
 #       (+-1000 dps range) with the startup bias removed,
-#   seq = sample counter (the host checks for gaps).
+#   seq = sample counter (the host checks for gaps),
+#   a = the raw accelerometer in g (the mean of the two 200 Hz readings since the last line; at rest it reads 1 g UP),
+#   t_us = the board's microsecond clock at the line (wraps every 2^30 us = 17.9 min). 2026-11-21: a and t_us added
+#       so the host can log every sample and recover the body's acceleration and the touchdown impacts (the host
+#       reads both formats).
 #     W i2c <n>  = running count of failed I2C transfers (retried), at most once a second
 # Input (single characters on the same port): 'b' = re-measure the gyro bias (hold still for 1 s).
 #
@@ -102,6 +106,7 @@ poll.register(sys.stdin, select.POLLIN)
 seq = 0
 k = 0
 errors_sent = 0
+sa = [0.0, 0.0, 0.0]                   # raw accelerometer summed over the lines' filter steps
 t_next = time.ticks_us()
 while True:
     ax, ay, az, wx, wy, wz = read_retry()
@@ -115,10 +120,14 @@ while True:
     al = ALPHA if abs(an - 1.0) < GATE else 0.0
     a = norm(-ax, -ay, -az)
     g = norm((1 - al) * gx + al * a[0], (1 - al) * gy + al * a[1], (1 - al) * gz + al * a[2])
+    sa[0] += ax; sa[1] += ay; sa[2] += az
     k += 1
     if k % PRINT_EVERY == 0:
         seq += 1
-        sys.stdout.write("I %.4f %.4f %.4f %.4f %.4f %.4f %d\n" % (g[0], g[1], g[2], wx, wy, wz, seq))
+        sys.stdout.write("I %.4f %.4f %.4f %.4f %.4f %.4f %d %.4f %.4f %.4f %d\n" % (
+            g[0], g[1], g[2], wx, wy, wz, seq, sa[0] / PRINT_EVERY, sa[1] / PRINT_EVERY, sa[2] / PRINT_EVERY,
+            time.ticks_us()))
+        sa = [0.0, 0.0, 0.0]
         if seq % 100 == 0 and errors != errors_sent:
             sys.stdout.write("W i2c %d\n" % errors)
             errors_sent = errors
