@@ -235,6 +235,20 @@ class EnvConfig:
     cmd_vy: tuple = (0.0, 0.0)
     cmd_wz: tuple = (0.0, 0.0)
     cmd_zero_prob: float = 1.0
+    # round 29: turning in place. A share turn_prob of the nonzero commands is a turn: vx 0, wz = +-U(turn_wz). With
+    # heading_cmd (z0's lineage) that wz is a heading offset of 2 wz rad and the policy sees the corrective yaw rate
+    # (clipped to +-0.3 rad/s); without it wz is the rate itself (ramped at turn_slew rad/s^2) and the heading the
+    # heading reward tracks integrates it. With walk_state a turn walks (in-place steps) while |cmd wz| > turn_go.
+    # turn_yaw: the reference turns too: both hip yaws get the same offset o (the right yaw axis is mirrored: toe-out
+    # on one leg, toe-in on the other); during a left swing o moves to +D/2, during a right swing to -D/2, D = cmd wz x
+    # the step time. The stance hip unwinding turns the pelvis by D per step; in double support o holds; a zero
+    # command unwinds o in the next swing.
+    turn_prob: float = 0.0
+    turn_wz: tuple = (0.0, 0.0)
+    turn_slew: float = 0.3
+    turn_go: float = 0.05
+    turn_yaw: bool = False
+    turn_yaw_scale: float = 1.0        # the turning reference's D = turn_yaw_scale x cmd wz x the step time
     cmd_resample_s: tuple = (3.0, 6.0)
     cmd_vx_slew: float = 0.0           # m/s^2: the forward command the policy sees (and the reference uses) ramps toward
                                        # the sampled one at this rate (0 = jumps); from rest the first steps are short
@@ -511,6 +525,7 @@ class SlenderBipedEnv(Env):
         self._roll_mask = jp.array([1.0 if j.endswith("_roll") else 0.0 for j in self.joints])
         self._anc_mask = jp.array([1.0 if any(j.endswith(x) for x in cfg.ref_anchor) else 0.0 for j in self.joints])
         self._leg_mask = jp.array([[1.0 if j.startswith(sd) else 0.0 for j in self.joints] for sd in ("L_", "R_")])
+        self._yaw_mask = jp.array([1.0 if j.endswith("hip_yaw") else 0.0 for j in self.joints])
         self._swing_frac = (float(np.mean(np.asarray(self.ref["stance"])[-1, :, 0] < 0.5))
                             if self.ref is not None else 0.2) or 0.2
         self._bank = None
@@ -618,6 +633,11 @@ class SlenderBipedEnv(Env):
                         jax.random.uniform(k[1], minval=c.cmd_vy[0], maxval=c.cmd_vy[1]),
                         jax.random.uniform(k[2], minval=c.cmd_wz[0], maxval=c.cmd_wz[1])])
         zero = jax.random.uniform(k[3]) < c.cmd_zero_prob
+        if c.turn_prob > 0:                                  # round 29: in-place turns
+            kt = jax.random.split(jax.random.fold_in(rng, 29), 3)
+            wz = jax.random.uniform(kt[0], minval=c.turn_wz[0], maxval=c.turn_wz[1]) * jp.where(
+                jax.random.uniform(kt[1]) < 0.5, 1.0, -1.0)
+            cmd = jp.where(jax.random.uniform(kt[2]) < c.turn_prob, jp.array([0.0, 0.0, 1.0]) * wz, cmd)
         return jp.where(zero, jp.zeros(3), cmd)
 
     def _steps(self, rng, lohi):
@@ -724,7 +744,7 @@ class SlenderBipedEnv(Env):
         g0 = _quat_rot_t(data.qpos[3:7], jp.array([0.0, 0.0, -1.0]))
         info = dict(
             g_est=g0,
-            rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * 2.0, cmd_timer=self._steps(k6, c.cmd_resample_s),
+            rng=rng, servo=servo, cmd=cmd, cmd_goal=cmd_goal, heading=yaw + cmd[2] * (0.0 if (c.turn_prob > 0 and not c.heading_cmd) else 2.0), cmd_timer=self._steps(k6, c.cmd_resample_s),
             push_timer=self._steps(k7, c.push_interval_s), push_left=jp.array(0, jp.int32), push_f=jp.zeros(3),
             sup_on=jp.array(False), sup_t=jp.array(0, jp.int32), sup_q=jp.array(0, jp.int32), sup_wf=jp.zeros(2),
             sup_ref=jp.zeros(2), sup_n=jp.array(0, jp.int32),
@@ -737,7 +757,7 @@ class SlenderBipedEnv(Env):
             q_off=q_off, drag_x0=qpos[0:2], drag_dir=jp.array([jp.cos(yaw), jp.sin(yaw)]),
             drag_k=c.drag_back * jax.random.uniform(jax.random.fold_in(kb3, 9), ()),
             phase=ph0, pre_t=jp.array(0, jp.int32), hold_n=hold_n,
-            walking=jp.array(False), anc=jp.zeros(self.nj), anc_w=jp.zeros(2), anc_st=jp.ones(2, bool), vj=jp.array(1.0),
+            walking=jp.array(False), yaw_o=jp.array(0.0), anc=jp.zeros(self.nj), anc_w=jp.zeros(2), anc_st=jp.ones(2, bool), vj=jp.array(1.0),
             serr=jp.zeros(self.nj), serr_st=jp.ones(2, bool),
             air_time=jp.zeros(2), gate_held=jp.array(0, jp.int32),
             imu_off=jp.array(c.imu_tilt_bias, dtype=float) + c.dr_imu_tilt * jax.random.uniform(jax.random.fold_in(kb3, 7), (2,), minval=-1.0, maxval=1.0),
@@ -813,6 +833,8 @@ class SlenderBipedEnv(Env):
         walking_next = walking0
         if c.walk_state:                                     # round 27: the clock runs only while walking
             go_ = jp.linalg.norm(state.info["cmd"][:2]) > 1e-3   # not the heading correction (cmd[2])
+            if c.turn_prob > 0:                              # round 29: ... unless it is a turn
+                go_ = go_ | (jp.abs(state.info["cmd"][2]) > c.turn_go)
             wu0, wu1 = state.info["phase"] / (2 * jp.pi), phase_next / (2 * jp.pi)
             r0_ = jp.mod(wu0, 1.0) > jp.mod(wu1, 1.0)
             r5_ = jp.mod(wu0 - 0.5, 1.0) > jp.mod(wu1 - 0.5, 1.0)
@@ -835,6 +857,16 @@ class SlenderBipedEnv(Env):
             q_ref = jp.where(mir, self._swap(q_ref), q_ref)
             z_ref = jp.where(mir, z_ref[::-1], z_ref)
             st_ref = jp.where(mir, st_ref[::-1], st_ref)
+        yaw_o = state.info["yaw_o"]
+        if c.turn_yaw and self.ref is not None:              # round 29: the turning reference (see turn_yaw)
+            t_step = 0.5 / c.gait_hz
+            d_ = c.turn_yaw_scale * state.info["cmd"][2] * t_step
+            st_b = st_ref.astype(bool)
+            tgt = jp.where(~st_b[0] & st_b[1], 0.5 * d_, jp.where(st_b[0] & ~st_b[1], -0.5 * d_, yaw_o))
+            wz_max = 0.3 if c.heading_cmd else max(abs(c.turn_wz[0]), abs(c.turn_wz[1]))
+            rate = c.turn_yaw_scale * wz_max * t_step / (float(self._swing_frac) / c.gait_hz) * c.ctrl_dt
+            yaw_o = yaw_o + jp.clip(tgt - yaw_o, -rate, rate)
+            q_ref = q_ref + yaw_o * self._yaw_mask
         anc, anc_w, anc_st = state.info["anc"], state.info["anc_w"], state.info["anc_st"]
         q_tab = q_ref if self.ref is not None else None
         if c.ref_anchor and self.ref is not None:            # round 27: the reference re-anchored to the legs
@@ -983,7 +1015,7 @@ class SlenderBipedEnv(Env):
                   state.info["ring"]), jp.arange(self.n_sub))
 
         info = dict(state.info)
-        info.update(serr=serr, serr_st=serr_st, walking=walking_next, anc=anc, anc_w=anc_w, anc_st=anc_st)
+        info.update(serr=serr, serr_st=serr_st, walking=walking_next, anc=anc, anc_w=anc_w, anc_st=anc_st, yaw_o=yaw_o)
         if self.ref is not None:
             info["vj"] = vj
         info["ring"] = rs
@@ -1280,6 +1312,10 @@ class SlenderBipedEnv(Env):
             ds = c.cmd_vx_slew * c.ctrl_dt
             base_ = info["wcmd"] if (self.rec is not None and c.rec_walk) else cmd
             goal = goal.at[0].set(base_[0] + jp.clip(goal[0] - base_[0], -ds, ds))
+        if c.turn_prob > 0 and not c.heading_cmd:   # round 29: wz ramps; the tracked heading follows the command
+            dw = c.turn_slew * c.ctrl_dt
+            goal = goal.at[2].set(cmd[2] + jp.clip(goal[2] - cmd[2], -dw, dw))
+            info["heading"] = info["heading"] + goal[2] * c.ctrl_dt
         info["cmd"] = goal
         yaw_now = jp.arctan2(2 * (quat[0] * quat[3] + quat[1] * quat[2]), 1 - 2 * (quat[2] ** 2 + quat[3] ** 2))
         if c.heading_cmd:

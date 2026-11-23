@@ -1,0 +1,25 @@
+turn z9_a1m ZERO ACTION vx 0.025 heading 60 deg | walk 0-5 s, turn to 15 s, walk to 22 s | n 16  turn_yaw True
+  left  up   0 /   0 /   0 %  (walk / turn / walk)
+        hip yaw during the turn: p5 -10.5 p95 +11.3 deg
+  right up   0 /   0 /   0 %  (walk / turn / walk)
+        hip yaw during the turn: p5 -10.1 p95 +11.4 deg
+turn z9_a1m ZERO ACTION vx 0.025 heading 90 deg | walk 0-5 s, turn to 15 s, walk to 22 s | n 16  turn_yaw True
+  left  up   0 /   0 /   0 %  (walk / turn / walk)
+        hip yaw during the turn: p5 -10.5 p95 +11.3 deg
+  right up   0 /   0 /   0 %  (walk / turn / walk)
+        hip yaw during the turn: p5 -10.6 p95 +11.3 deg
+turn z9_a1m vx 0.025 heading 60 deg | walk 0-5 s, turn to 15 s, walk to 22 s | n 16  turn_yaw False
+  left  up 100 /  75 /  75 %  (walk / turn / walk) | turned  44.0 deg (p10 -15.9, p90  51.4; asked 60) | then walked 10.9 cm in 5.5 s, heading error at the end 20.5 deg | yaw drift in the first walk  +2.7 deg
+        hip yaw during the turn: p5  -1.6 p95  +5.9 deg
+  right up 100 / 100 / 100 %  (walk / turn / walk) | turned  30.6 deg (p10 -25.3, p90  44.6; asked 60) | then walked  9.7 cm in 5.5 s, heading error at the end 18.2 deg | yaw drift in the first walk  -0.3 deg
+        hip yaw during the turn: p5  -1.0 p95  +6.1 deg
+turn z9_a1m vx 0.025 heading 60 deg | walk 0-5 s, turn to 15 s, walk to 22 s | n 16  turn_yaw True
+  left  up  88 /  50 /  38 %  (walk / turn / walk) | turned  59.4 deg (p10  57.9, p90  75.0; asked 60) | then walked 14.8 cm in 5.5 s, heading error at the end  2.7 deg | yaw drift in the first walk  -7.8 deg
+        hip yaw during the turn: p5 -13.6 p95 +13.0 deg
+  right up 100 /  38 /  38 %  (walk / turn / walk) | turned  56.9 deg (p10  53.5, p90  66.2; asked 60) | then walked 10.5 cm in 5.5 s, heading error at the end  3.4 deg | yaw drift in the first walk  -3.3 deg
+        hip yaw during the turn: p5 -10.8 p95 +14.9 deg
+turn z0_y2c vx 0.025 heading 60 deg | walk 0-5 s, turn to 15 s, walk to 22 s | n 16  turn_yaw True
+  left  up  88 /  12 /  12 %  (walk / turn / walk) | turned  77.5 deg (p10  77.5, p90  77.5; asked 60) | then walked 13.0 cm in 5.5 s, heading error at the end  7.2 deg | yaw drift in the first walk -11.7 deg
+        hip yaw during the turn: p5 -14.0 p95 +12.7 deg
+  right up 100 /  38 /  38 %  (walk / turn / walk) | turned  54.4 deg (p10  47.2, p90  58.3; asked 60) | then walked 10.1 cm in 5.5 s, heading error at the end  3.2 deg | yaw drift in the first walk  -6.7 deg
+        hip yaw during the turn: p5 -12.2 p95 +15.7 deg

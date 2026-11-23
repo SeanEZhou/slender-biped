@@ -417,6 +417,56 @@ def install_lcp(coef, n_sensor, idx=""):
     ppo_losses.compute_ppo_loss = loss
 
 
+def install_anchor_mirror(env, anchor, anchor_restore, anchor_vx, mirror):
+    """2026-11-22 (round 29): two extra policy losses for fine-tunes.
+    anchor: keep the start checkpoint's walking. Fine-tunes from a good policy drifted away from it (round 27: the
+    start/stop fine-tunes from z0 lost its pace and steadiness on the robot; round 28: even a control fine-tune without
+    any change drifted). Squared distance between the policy's mean action and the frozen start policy's (with its own
+    frozen normalizer), weighted by the commanded speed: 0 at vx <= anchor_vx[0] (standing, starting, stopping: free to
+    learn), 1 at vx >= anchor_vx[1] (walking: stay with the start policy).
+    mirror: the symmetry loss of Mittal et al. 2024 / Su et al. 2024: squared distance between the mean action and the
+    mirror image of the mean action for the mirrored input (round 27's policies learned a weak weight shift before left
+    steps only: the left limp). The mirror is the env's mirror_aug map (left/right swap, phase + pi)."""
+    c = env.cfg
+    assert not (c.obs_vel or c.obs_accel or c.obs_line or c.obs_hist or c.obs_hold_u), "mirror map: plain inputs only"
+    nj = env.nj
+    perm_j = np.concatenate([np.asarray(env.right_idx), np.asarray(env.left_idx)])
+    # state = [g 3, w 3, q nj, 0.1 qd nj, action nj, cmd 3, clock 2]
+    perm = np.concatenate([np.arange(6), 6 + perm_j, 6 + nj + perm_j, 6 + 2 * nj + perm_j, 6 + 3 * nj + np.arange(5)])
+    sign = np.concatenate([[1, -1, 1, -1, 1, -1], np.ones(3 * nj), [1, -1, -1, -1, -1]]).astype(np.float32)
+    assert len(perm) == env.observation_size["state"][0], (len(perm), env.observation_size)
+    i_vx = 6 + 3 * nj
+    orig = ppo_losses.compute_ppo_loss
+    if anchor_restore is not None:
+        norm0, pol0 = jax.device_put(anchor_restore[0]), jax.device_put(anchor_restore[1])
+
+    def loss(params, normalizer_params, data, rng, ppo_network, **kw):
+        total, metrics = orig(params, normalizer_params, data, rng, ppo_network, **kw)
+        obs = data.observation
+        x = obs["state"]
+
+        def mean_act(norm, pol, xs):
+            logits = ppo_network.policy_network.apply(norm, pol, dict(obs, state=xs))
+            return jnp.tanh(logits[..., : logits.shape[-1] // 2])
+
+        mu = mean_act(normalizer_params, params.policy, x)
+        if anchor > 0:
+            mu0 = jax.lax.stop_gradient(mean_act(norm0, pol0, x))
+            w = jnp.clip((x[..., i_vx] - anchor_vx[0]) / (anchor_vx[1] - anchor_vx[0]), 0.0, 1.0)
+            w = w * jnp.clip(1.0 - jnp.abs(x[..., i_vx + 2]) / 0.02, 0.0, 1.0)   # not while turning (wz)
+            la = jnp.mean(w * jnp.sum((mu - mu0) ** 2, -1))
+            metrics = dict(metrics, anchor_mse=la)
+            total = total + anchor * la
+        if mirror > 0:
+            mu_m = mean_act(normalizer_params, params.policy, x[..., perm] * sign)
+            lm = jnp.mean(jnp.sum((mu - mu_m[..., perm_j]) ** 2, -1))
+            metrics = dict(metrics, mirror_mse=lm)
+            total = total + mirror * lm
+        return total, metrics
+
+    ppo_losses.compute_ppo_loss = loss
+
+
 def build_cfg(a) -> EnvConfig:
     base = EnvConfig()
     over = dict(TASKS[a.task])
@@ -462,6 +512,11 @@ def main():
     ap.add_argument("--lcp", type=float, default=0.0,
                     help="Lipschitz-constrained policy (Chen et al. 2024): loss += lcp * E||d action_mean / d sensors||^2 "
                          "over the sensor inputs (gravity, gyro, joint angles / speeds, last action); 0 = off")
+    ap.add_argument("--anchor", type=float, default=0.0, help="round 29: pull the mean action toward the start policy's "
+                    "while walking (see install_anchor_mirror)")
+    ap.add_argument("--anchor-params", default="", help="the policy to anchor to (default: --init)")
+    ap.add_argument("--anchor-vx", default="0.01,0.02", help="commanded vx where the anchor fades in (lo,hi m/s)")
+    ap.add_argument("--mirror", type=float, default=0.0, help="round 29: left/right symmetry loss on the mean action")
     ap.add_argument("--lcp-idx", default="", help='LCP over only these state inputs, "lo:hi" (3:6 = the gyro); "" = all sensors')
     a = ap.parse_args()
 
@@ -503,6 +558,13 @@ def main():
 
     if a.lcp > 0:
         install_lcp(a.lcp, 6 + 3 * env.nj, a.lcp_idx)
+    if a.anchor > 0 or a.mirror > 0:
+        assert a.lcp == 0, "one loss patch at a time"
+        anc = None
+        if a.anchor > 0:
+            with open(a.anchor_params or a.init, "rb") as f:
+                anc = widen(pickle.load(f), env)
+        install_anchor_mirror(env, a.anchor, anc, [float(v) for v in a.anchor_vx.split(",")], a.mirror)
 
     net = functools.partial(ppo_networks.make_ppo_networks, policy_hidden_layer_sizes=(128, 128, 128, 128),
                             value_hidden_layer_sizes=(256, 256, 256, 256, 256),

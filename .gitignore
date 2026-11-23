@@ -315,3 +315,13 @@ robotvid/
 !runs/z7_rgq/params_0025M.pkl
 !runs/z7_anc2/params_0025M.pkl
 !runs/z7_anc2/params_0012M.pkl
+# round 29 (2026-11-22): start/stop with the z0 anchor and mirror loss, turning in place (results/robot29/NOTES.md)
+!runs/z9_a1m/params_0020M.pkl
+!runs/z9_a5m/params_0020M.pkl
+!runs/z9_as5/params_0020M.pkl
+!runs/z9_t2/params_0030M.pkl
+!runs/z9_t3/params_0030M.pkl
+!runs/z9_t4/params_0030M.pkl
+# electronics mount: the torso free-space cache is rebuilt by cad/torso_fit.py; source photos show the room
+hardware/electronics_p0/torso_cache/
+electronics/

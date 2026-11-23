@@ -36,7 +36,7 @@ Everything the project has learned, from servo modelling to reward weights to ro
 **Contents**
 - **The study:** [1. Concept](#1-concept) · [2. Design](#2-design-before-any-training) · [3. Training](#3-training) · [4. Results](#4-results)
 - **Toward the real robot:** [5. P0 printable leg](#5-toward-hardware-the-p0-printable-leg) · [6. Training on the as-built model](#6-training-on-the-as-built-model) · [7. Real steps](#7-walking-with-real-steps-round-4) · [8. Walking on a line](#8-walking-on-a-line-round-5)
-- **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu)
+- **Building the body:** [9. Torso](#9-torso-design) · [10. Head](#10-head-design) · [11. Power delivery](#11-power-delivery) · [12. Full-body assembly and load test](#12-full-body-assembly-and-load-test) · [13. IMU](#13-imu) · [18. Internal electronics](#18-internal-electronics)
 - **On the robot:** [14. Sim to real: standing and recovering](#14-sim-to-real-standing-and-recovering-on-the-robot) · [15. Big feet for soft rugs](#15-big-feet-for-soft-rugs) · [16. Walking on the big pads](#16-walking-on-the-big-pads) · [17. Full-body walking](#17-full-body-walking)
 - **Reference:** [Lessons learned](docs/lessons.md) · [Engineering practices](#engineering-practices) · [Reproduce](#reproduce) · [Repository map](#repository-map) · [Limitations and next steps](#limitations-and-next-steps)
 
@@ -1325,6 +1325,71 @@ the robot they barely moved while falling. The current approach treats recovery 
 steps, chosen by the capture point and imitated with large rewards. The robot can now take commanded steps, and steps
 forward when pushed from behind; sideways and backward steps don't work yet
 ([docs/walking_clean.md](docs/walking_clean.md) §32–34).
+
+## 18. Internal electronics
+
+<table>
+<tr>
+<td valign="top"><img src="hardware/electronics_p0/renders/mount_views.png" width="580" alt="The electronics mount with the battery, Raspberry Pi, servo adapter and IMU, from the front, back and side"><br><sub>The mount (E01, light grey) on the hip plate, loaded. Front: IMU on the base (blue), servo adapter (navy), the channel for the lever connectors and cables between the two ribs. Back: the battery in its pouch under the strap (E02, orange), the Raspberry Pi above it.</sub></td>
+<td valign="top"><img src="hardware/electronics_p0/renders/mount_in_torso.png" width="260" alt="The loaded mount inside the transparent torso"><br><sub>Inside the torso. Everything passes the waist at the T03/T04 seam.</sub></td>
+</tr>
+</table>
+
+So far the robot has walked tethered, to a bench supply and a laptop, with the cables held slack above it (§17). It
+already walks on battery power with the pack outside the body. To walk free, it has to carry these inside the torso:
+- the battery: 2S, 2200 mAh, 85 × 34 × 17 mm;
+- the computer: a Raspberry Pi 3 B+;
+- the Waveshare bus servo adapter;
+- the IMU.
+
+### 18.1 The waist decides the layout
+
+The torso's narrow waist (§9) is also the only way in. At the T03/T04 seam the free space is about 72 mm side to side
+and 55 mm front to back, and it is rounded: 20 mm off centre the width is down to 36–50 mm. The Pi (85 × 56 mm) can't
+pass the waist lying flat, and neither can the battery. Both pass standing up, and the torso is long, so everything
+stands in a vertical stack on one printed spine bolted to the hip plate:
+
+- **Behind the spine:** the battery low, in a pouch closed by a screwed strap, and the Pi above it.
+- **In front:** the IMU on the base, the servo adapter above it, then a channel between two ribs for the cables.
+
+A power distribution block wouldn't fit. Wago-style lever connectors split the battery power instead, hanging free on
+their cables in the front channel, so the mount only has to hold the battery and the two boards.
+
+### 18.2 Checked along the assembly path
+
+A script slices each torso tube every millimetre. The check follows the build order:
+1. T03 goes on the plate.
+2. The loaded mount is lowered into T03.
+3. T04, T05 and T06 are lowered over it.
+
+At every height, every part has to pass each tube section that slides past it. The boards and their plugs count as
+keep-out boxes. With 1 mm clearance all of it passes. The one exception is a 1 mm² graze between T06's neck and the box
+assumed for the Pi's USB plugs, which clears with no clearance asked. A deliberately oversized part fails the check, so
+a pass means something.
+
+### 18.3 Fitting what's already on the robot
+
+- **The plate's screws.** The base uses the plate's four existing M3 holes. Its screws go down through counterbored
+  holes into the nuts under the plate and the hip panels' ear nuts, replacing T03's floor screws. The heads sit flush
+  with the pouch floor, under the battery.
+- **Pilots.** Every pilot is self-tapping into the print:
+  - M3 uses the torso's 2.9 mm, from its thread test;
+  - both boards use 2.5 mm for M2.5 (the adapter's screws turned out to be M2.5 too).
+
+  A 3 mm test plate checks the M2.5 size.
+- **Plugs.** The Pi is powered through its GPIO 5 V pins, because the micro-USB plug would stick out past the waist.
+  Its USB ports face up under the neck, so they need right-angle plugs.
+- **The IMU** moves from its own slab onto the mount's base, so it needs recalibrating.
+
+### 18.4 Status
+
+The mount is designed and checked in CAD, but not printed yet. Loaded, it weighs about **243 g**, with its centre of
+mass 80 mm above the plate. The simulator has a 20 g placeholder for these parts, so the robot gets about 21 % heavier,
+high up. The parts need weighing, adding to the model and retraining before the current policies can be trusted with
+it.
+
+Build notes, screws and wiring are in the [electronics mount README](hardware/electronics_p0/README.md). The CAD and
+the torso check are in [`cad/mount.py`](hardware/electronics_p0/cad/mount.py).
 
 ## Limitations and next steps
 

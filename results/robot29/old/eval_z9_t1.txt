@@ -1,0 +1,66 @@
+== gated
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.015 n 48 20s | c_K2ip
+  up  90%  walked  33.5 cm (median of up)  touchdowns 557  |  landing speed p50  274 p90  317 mm/s  jolt after td p50  14.9 p90  20.5  mid-swing   6.1 (deg/s per tick)  clearance p10 26.3 p50 34.4 mm
+  gate holding (clock stopped) 1.4 % of the walking time
+  both feet down 76 % of the time: 1.06 s per step (stretches p50 0.86 s); a step every 1.40 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 15.4 p50 18.3 deg; peak in the swing p50 29.4 (lift-off / peak 62%)
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip
+  up  83%  walked  34.1 cm (median of up)  touchdowns 542  |  landing speed p50  279 p90  325 mm/s  jolt after td p50  15.6 p90  21.2  mid-swing   6.3 (deg/s per tick)  clearance p10 26.2 p50 34.7 mm
+  gate holding (clock stopped) 1.9 % of the walking time
+  both feet down 77 % of the time: 1.08 s per step (stretches p50 0.88 s); a step every 1.41 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 13.4 p50 16.7 deg; peak in the swing p50 29.2 (lift-off / peak 57%)
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.035 n 48 20s | c_K2ip
+  up  90%  walked  41.4 cm (median of up)  touchdowns 554  |  landing speed p50  290 p90  335 mm/s  jolt after td p50  16.9 p90  22.6  mid-swing   7.2 (deg/s per tick)  clearance p10 24.9 p50 34.3 mm
+  gate holding (clock stopped) 3.9 % of the walking time
+  both feet down 79 % of the time: 1.14 s per step (stretches p50 0.90 s); a step every 1.44 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 11.0 p50 14.4 deg; peak in the swing p50 28.7 (lift-off / peak 50%)
+gait z9_t1 (params_0025M.pkl) sim loose vx 0.025 n 48 20s | c_K2ip
+  up  12%  walked  11.8 cm (median of up)  touchdowns 149  |  landing speed p50  284 p90  322 mm/s  jolt after td p50  16.1 p90  22.9  mid-swing   5.4 (deg/s per tick)  clearance p10 20.7 p50 31.7 mm
+  gate holding (clock stopped) 3.1 % of the walking time
+  both feet down 74 % of the time: 1.30 s per step (stretches p50 0.90 s); a step every 1.76 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 15.5 p50 20.3 deg; peak in the swing p50 31.3 (lift-off / peak 65%)
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip step_err=[0.5,0.02,0.03]
+  up  65%  walked  36.0 cm (median of up)  touchdowns 486  |  landing speed p50  279 p90  328 mm/s  jolt after td p50  16.0 p90  22.1  mid-swing   6.7 (deg/s per tick)  clearance p10 21.4 p50 33.0 mm
+  gate holding (clock stopped) 5.8 % of the walking time
+  both feet down 77 % of the time: 1.06 s per step (stretches p50 0.88 s); a step every 1.37 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 12.7 p50 17.3 deg; peak in the swing p50 29.1 (lift-off / peak 59%)
+startstop z9_t1 (params_0025M.pkl) vx 0.025 stop 8.0s go 13.0s T 19.0s n 32 
+  up: after 3 s 29, at the stop command 29, at the restart 29, at the end 29 of 32
+  start: step 1: dx +26 (p10 +10) / dy 117 mm, step 2: dx +26 (p10 +15) / dy 115 mm, shift at 1st lift-off +14.1 deg (p10 +11.6; table +13.8)
+  stop: clock stopped 1.72 s after the command (p90 3.42), never 6 of 29
+  standing (before the restart): feet stagger |dx| p50 14 p90 19 mm, tilt wobble std p50 0.15 deg
+  restart: step 1: dx +28 (p10 +17) / dy 119 mm, step 2: dx +29 (p10 +21) / dy 116 mm, shift at 1st lift-off +10.8 deg (p10 +10.0; table +13.8)
+== gate-free
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.015 n 48 20s | c_K2ip settle_gate_u=[]
+  up  90%  walked  34.5 cm (median of up)  touchdowns 566  |  landing speed p50  273 p90  313 mm/s  jolt after td p50  15.6 p90  20.9  mid-swing   6.1 (deg/s per tick)  clearance p10 26.2 p50 34.4 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 77 % of the time: 1.08 s per step (stretches p50 0.88 s); a step every 1.41 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 15.0 p50 18.0 deg; peak in the swing p50 29.4 (lift-off / peak 61%)
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.025 n 48 20s | c_K2ip settle_gate_u=[]
+  up  90%  walked  36.5 cm (median of up)  touchdowns 574  |  landing speed p50  277 p90  321 mm/s  jolt after td p50  15.7 p90  20.8  mid-swing   6.4 (deg/s per tick)  clearance p10 25.6 p50 34.2 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 77 % of the time: 1.04 s per step (stretches p50 0.88 s); a step every 1.37 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 12.9 p50 16.5 deg; peak in the swing p50 29.1 (lift-off / peak 57%)
+gait z9_t1 (params_0025M.pkl) sim robot vx 0.035 n 48 20s | c_K2ip settle_gate_u=[]
+  up  90%  walked  42.6 cm (median of up)  touchdowns 596  |  landing speed p50  289 p90  337 mm/s  jolt after td p50  17.0 p90  22.9  mid-swing   7.3 (deg/s per tick)  clearance p10 25.0 p50 34.4 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 78 % of the time: 1.04 s per step (stretches p50 0.90 s); a step every 1.34 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 10.6 p50 13.9 deg; peak in the swing p50 28.7 (lift-off / peak 48%)
+gait z9_t1 (params_0025M.pkl) sim loose vx 0.025 n 48 20s | c_K2ip settle_gate_u=[]
+  up  21%  walked  17.3 cm (median of up)  touchdowns 238  |  landing speed p50  276 p90  318 mm/s  jolt after td p50  16.5 p90  22.9  mid-swing   6.2 (deg/s per tick)  clearance p10 20.7 p50 30.7 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 74 % of the time: 1.03 s per step (stretches p50 0.90 s); a step every 1.40 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 14.6 p50 19.9 deg; peak in the swing p50 31.3 (lift-off / peak 63%)
+startstop z9_t1 (params_0025M.pkl) vx 0.025 stop 8.0s go 13.0s T 19.0s n 32 settle_gate_u=[]
+  up: after 3 s 30, at the stop command 30, at the restart 30, at the end 30 of 32
+  start: step 1: dx +25 (p10 +8) / dy 125 mm, step 2: dx +26 (p10 +13) / dy 115 mm, shift at 1st lift-off +11.6 deg (p10 +10.9; table +13.8)
+  stop: clock stopped 1.62 s after the command (p90 4.02), never 7 of 30
+  standing (before the restart): feet stagger |dx| p50 15 p90 26 mm, tilt wobble std p50 1.41 deg
+  restart: step 1: dx +25 (p10 +12) / dy 120 mm, step 2: dx +27 (p10 +20) / dy 117 mm, shift at 1st lift-off +10.5 deg (p10 +9.7; table +13.8)
+== symmetry
+limp_sim z9_t1 (params_0025M.pkl) vx 0.02   up 23/24
+  L: dx  +23 (p10  +14) dy 119 | air 0.44s of 0.46 | roll at lift-off  +0.2 at td  -5.8 range  -6.5.. +0.6 | shift +10.1
+  R: dx  +23 (p10  +16) dy 119 | air 0.42s of 0.46 | roll at lift-off  -0.3 at td  +6.2 range  -0.4.. +6.9 | shift  +9.9
+limp_sim z9_t1 (params_0025M.pkl) vx 0.02 nogate   up 21/24
+  L: dx  +23 (p10  +12) dy 117 | air 0.44s of 0.46 | roll at lift-off  +0.5 at td  -5.6 range  -6.5.. +0.8 | shift +10.1
+  R: dx  +23 (p10  +17) dy 119 | air 0.42s of 0.46 | roll at lift-off  -0.4 at td  +6.8 range  -0.6.. +7.2 | shift  +9.7

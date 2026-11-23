@@ -1,0 +1,102 @@
+{
+ "parts": {
+  "E01_mount": {
+   "watertight": true,
+   "bodies": 1,
+   "size_mm": [
+    43.5,
+    69.2,
+    177.0
+   ],
+   "solid_g": 67.7,
+   "printed_g_est": 40.6
+  },
+  "E02_battery_strap": {
+   "watertight": true,
+   "bodies": 1,
+   "size_mm": [
+    3.8,
+    47.0,
+    22.0
+   ],
+   "solid_g": 4.3,
+   "printed_g_est": 2.6
+  }
+ },
+ "checks": {
+  "mount_x_strap_mm3": -0.0,
+  "overlaps": {},
+  "battery_outside_pouch_mm3": 0.0,
+  "strap_pad_to_battery_mm": 0.2
+ },
+ "torso_fit": {
+  "T03_pelvis_ring": {
+   "margin_0mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   },
+   "margin_1mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   }
+  },
+  "T04_midriff": {
+   "margin_0mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   },
+   "margin_1mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   }
+  },
+  "T05_chest": {
+   "margin_0mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   },
+   "margin_1mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   }
+  },
+  "T06_shoulders": {
+   "margin_0mm": {
+    "outside_mm2": 0.0,
+    "at_zp": null
+   },
+   "margin_1mm": {
+    "outside_mm2": 1.2,
+    "at_zp": 200
+   }
+  },
+  "top_zp": 200.1,
+  "note": "mount on T03's floor (zp 3); worst area of any part outside the free space of each tube as it slides past, with 0 and 1 mm clearance"
+ },
+ "screws": {
+  "base": "4 x M3 down through the counterbores (2.8 mm of base under the head): with the torso (+3 mm floor, 5 mm plate) M3x14 into the nuts / ear nuts, M3x16 if an ear nut doesn't catch; without the torso M3x12 + nut",
+  "battery strap": "2 x M3x10 (3 mm bar + 7 into the pouch-wall bosses)",
+  "raspberry pi": "4 x M2.5x10 (1.4 board + 3 standoff + 3 spine + 3 front boss, pilot 2.5 through)",
+  "waveshare": "4 x M2.5x8 (1.6 board + 4 standoff + 2.4 of the 3 mm spine; pilot 2.5 through)",
+  "imu": "2 x M3x6 or M3x8 (pilot 2.9, 8 deep from the boss top)"
+ },
+ "mass": {
+  "items_g": {
+   "E01_mount": 40.6,
+   "E02_battery_strap": 2.6,
+   "battery": 112,
+   "pi": 50,
+   "ws_board": 10,
+   "imu": 3,
+   "screws": 4.3,
+   "lever connectors + buck converter (on their cables)": 20.0
+  },
+  "total_g": 242.5,
+  "com_mm_leg_frame": [
+   -1.6,
+   0.0,
+   110.7
+  ],
+  "com_height_above_plate_top_mm": 80.0
+ }
+}

@@ -942,8 +942,18 @@ def cmd_run(a):
     anc_max = float(env.get("ref_anchor_max", 0.35))
     if anc_suf and not env.get("ref_anchor_base", True):
         anc_suf = ()                                     # anchored reward only: the action's base is the table
+    # round 29 (mjx_env turn_prob / turn_yaw): turning in place. l / r move the target heading by --turn-deg; the
+    # policy sees the corrective yaw rate (heading_cmd, as trained); with turn_prob it steps in place while that rate
+    # is above turn_go; turn_yaw: the reference's hip yaws turn the body as trained
+    turn_on = walk_state and float(env.get("turn_prob", 0.0) or 0.0) > 0
+    turn_go = float(env.get("turn_go", 0.05))
+    turn_yaw = bool(env.get("turn_yaw", False)) and ref is not None
+    turn_ys = float(env.get("turn_yaw_scale", 1.0))
     if walk_state:
-        print("walk state ON: the clock waits at its rest point while the command is 0. Keys: p = stop walking, g = walk again")
+        print("walk state ON: the clock waits at its rest point while the command is 0. Keys: p = stop walking, g = walk again, "
+              f"l / r = turn {a.turn_deg:.0f} deg left / right in place" + ("" if turn_on else " (this run was not trained to turn)"))
+    if turn_yaw:
+        print("turning reference ON (hip yaws)")
     if anc_suf:
         print(f"reference re-anchored to the legs at each lift-off: {anc_suf}")
     gate_u = () if getattr(a, "no_gate", False) else tuple(env.get("settle_gate_u", ()))   # round 24: --no-gate, trained gated, run gate-free
@@ -1095,10 +1105,14 @@ def cmd_run(a):
         a_est = np.zeros(nj)                            # --ready-act: the policy's standing action, smoothed
         phase = 0.0
         walking, vx_goal = False, a.vx                  # round 27: walk state; p / g keys set the goal
+        head_t, turning, vx_resume, yaw_o = 0.0, False, a.vx, 0.0   # round 29: target heading, l / r turn in progress
+        yaw_mask = np.array([1.0 if n.endswith("hip_yaw") else 0.0 for n in sv.names])
         anc, anc_w, anc_st = np.zeros(nj), np.zeros(2), np.ones(2, bool)
         anc_mask = np.array([1.0 if any(n.endswith(x) for x in anc_suf) else 0.0 for n in sv.names])
         leg_mask = np.array([[1.0 if n.startswith(sd) else 0.0 for n in sv.names] for sd in ("L_", "R_")])
         sw_frac = float(np.mean(ref["stance"][-1, :, 0] < 0.5)) if ref is not None else 0.2
+        t_step = 0.5 / hz
+        yaw_rate = float(env.get("turn_yaw_scale", 1.0)) * 0.3 * t_step / (sw_frac / hz) * dt if ref is not None else 0.0   # as mjx_env turn_yaw (heading_cmd)
         ph_look = phase
         # round 24 gait start (mjx_env start_u): the clock starts at start_u and holds while the reference shifts the
         # weight onto the stance foot (the rolls, start_pre[0] s) and lifts the swing foot (the rest, start_pre[1] s)
@@ -1129,6 +1143,7 @@ def cmd_run(a):
                    + [f"volt_{n}" for n in sv.names] + [f"temp_{n}" for n in sv.names] + [f"load_{n}" for n in sv.names]
                    + ["phase", "gate_held", "roll_pred", "gate_guard", "sup_on", "sup_pred_roll", "sup_pred_pitch",
                       "rec_on", "rec_u", "rec_dx", "rec_dy", "rec_side", "walking", "vx_cmd",
+                      "wz_cmd", "yaw_est", "head_t", "yaw_ref",          # round 29: heading (rad) and the turning reference
                       # 2026-11-21, for reconstructing the robot's state: the bus timing (ms after the tick's start), the
                       # IMU sample used (its number and age; every sample is in <log>_imu.csv), the raw accelerometer
                       # (g, pelvis frame, 1 g UP at rest), each servo's current (mA) and error status byte
@@ -1183,8 +1198,13 @@ def cmd_run(a):
                 else:
                     if slew > 0:
                         cmd_v[0] += float(np.clip(vx_goal - cmd_v[0], -slew * dt, slew * dt))
-                    if a.vx:
-                        cmd_v[2] = float(np.clip(-a.heading_gain * yaw, -0.3, 0.3))
+                    if walk_state and not walking and not turning and vx_goal == 0.0:
+                        head_t = yaw          # standing: as training (a zero command resets the heading), no gyro-drift turns
+                    if a.vx or walk_state:
+                        cmd_v[2] = float(np.clip(a.heading_gain * (head_t - yaw), -0.3, 0.3))
+                    if turning and abs(head_t - yaw) < math.radians(a.turn_done_deg):
+                        turning, vx_goal = False, vx_resume
+                        print(f"\n  TURNED at {t_run:.2f} s (heading {math.degrees(yaw):+.0f} deg); goal {vx_goal:.3f} m/s")
                     if sup is not None and t_run >= ready + a.ramp:
                         ev = sup.update(g, wv, walking=bool(a.vx))
                         if ev == "trigger":
@@ -1275,7 +1295,7 @@ def cmd_run(a):
                         ph_look = (phase + 2 * math.pi * hz * dt) % (2 * math.pi)
                         walking_next = walking
                         if walk_state and t_run >= ready + a.ramp:      # as mjx_env walk_state
-                            go = abs(cmd_v[0]) > 1e-3 or abs(cmd_v[1]) > 1e-3
+                            go = abs(cmd_v[0]) > 1e-3 or abs(cmd_v[1]) > 1e-3 or (turn_on and abs(cmd_v[2]) > turn_go)
                             wu0, wu1 = phase / (2 * math.pi), ph_look / (2 * math.pi)
                             r0_, r5_ = (wu0 % 1.0) > (wu1 % 1.0), ((wu0 - 0.5) % 1.0) > ((wu1 - 0.5) % 1.0)
                             stop_ = walking and not go and (r0_ or r5_)
@@ -1285,6 +1305,12 @@ def cmd_run(a):
                             if walking_next != walking:
                                 print(f"\n  {'WALK' if walking_next else 'STAND'} at {t_run:.2f} s (u {ph_look / (2 * math.pi):.2f})")
                         q_r = ref_lookup(ref, cmd_v[0], ph_look)
+                        if turn_yaw:                                    # as mjx_env turn_yaw
+                            st_y = ref_stance(ref, cmd_v[0], ph_look)
+                            d_ = turn_ys * cmd_v[2] * t_step
+                            tgt = 0.5 * d_ if (not st_y[0] and st_y[1]) else (-0.5 * d_ if (st_y[0] and not st_y[1]) else yaw_o)
+                            yaw_o += float(np.clip(tgt - yaw_o, -yaw_rate, yaw_rate))
+                            q_r = q_r + yaw_o * yaw_mask
                         if anc_suf:                                     # as mjx_env ref_anchor
                             st_r = ref_stance(ref, cmd_v[0], ph_look)
                             ev_ = bool(np.any(anc_st & ~st_r)) or (walking_next and not walking)
@@ -1375,6 +1401,7 @@ def cmd_run(a):
                            + ([int(sup.on), round(math.degrees(sup.pred[0]), 2), round(math.degrees(sup.pred[1]), 2)]
                               if sup is not None else [0, 0.0, 0.0])
                            + [int(rec_on), round(rec_u, 4)] + list(np.round(rec_cmd, 4)) + [int(walking), round(float(cmd_v[0]), 4)]
+                           + [round(float(cmd_v[2]), 4), round(yaw, 4), round(head_t, 4), round(yaw_o, 4)]
                            + [round(t_rd_ms, 2), round(t_wr_ms, 2), imu_seq, round(age * 1000, 1)] + list(np.round(acc_p, 4))
                            + (list(np.round(sv.cur).astype(int)) + list(sv.status) if sv.current else []))
                 v_min = min(v_min, float(sv.volt.min()))
@@ -1389,7 +1416,14 @@ def cmd_run(a):
                 k += 1
                 kc = keys.get()
                 if kc is not None:
-                    if walk_state and kc in "pg":                # round 27: stop walking / walk again
+                    if walk_state and kc in "lr":                # round 29: turn in place, then carry on
+                        head_t += math.radians(a.turn_deg) * (1.0 if kc == "l" else -1.0)
+                        if not turning:
+                            vx_resume = vx_goal
+                        turning, vx_goal = True, 0.0
+                        print(f"\n  TURN {'left' if kc == 'l' else 'right'} to {math.degrees(head_t):+.0f} deg at {t_run:.2f} s")
+                    elif walk_state and kc in "pg":                # round 27: stop walking / walk again
+                        turning = False
                         vx_goal = 0.0 if kc == "p" else a.vx
                         print(f"\n  goal {vx_goal:.3f} m/s ({'stop' if kc == 'p' else 'go'}) at {t_run:.2f} s")
                     elif rtab is not None and kc in "wsadx":       # round 14: commanded recovery step
@@ -1585,6 +1619,9 @@ def main():
     sp.add_argument("--vx", type=float, default=0.0,
                     help="forward speed command, m/s, for walking / skiing policies (e.g. 0.08); 0 = stand")
     sp.add_argument("--heading-gain", type=float, default=1.0, help="yaw-rate command per rad of heading error")
+    sp.add_argument("--turn-deg", type=float, default=45.0, help="round 29: keys l / r turn the target heading by this "
+                    "much (walk_state policies); the robot turns in place, then walks on if it was walking")
+    sp.add_argument("--turn-done-deg", type=float, default=5.0, help="the turn counts as done within this heading error")
     a = ap.parse_args()
     {"ports": cmd_ports, "imu-calib": cmd_imu_calib, "imu-check": cmd_imu_check, "timing": cmd_timing,
      "step-test": cmd_step_test, "reset-gains": cmd_reset_gains, "run": cmd_run}[a.cmd](a)

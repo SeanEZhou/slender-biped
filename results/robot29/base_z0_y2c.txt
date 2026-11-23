@@ -1,0 +1,21 @@
+gait z0_y2c (params_0020M.pkl) sim robot vx 0.015 n 48 20s | c_K2gr settle_gate_u=[]
+  up  96%  walked  33.7 cm (median of up)  touchdowns 723  |  landing speed p50  275 p90  316 mm/s  jolt after td p50  16.9 p90  21.4  mid-swing   7.2 (deg/s per tick)  clearance p10 23.2 p50 32.9 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 72 % of the time: 0.84 s per step (stretches p50 0.88 s); a step every 1.17 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 14.0 p50 17.6 deg; peak in the swing p50 29.2 (lift-off / peak 60%)
+gait z0_y2c (params_0020M.pkl) sim robot vx 0.035 n 48 20s | c_K2gr settle_gate_u=[]
+  up  98%  walked  42.8 cm (median of up)  touchdowns 735  |  landing speed p50  274 p90  323 mm/s  jolt after td p50  18.1 p90  23.7  mid-swing   7.9 (deg/s per tick)  clearance p10 24.0 p50 33.5 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 73 % of the time: 0.85 s per step (stretches p50 0.88 s); a step every 1.17 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 9.5 p50 12.9 deg; peak in the swing p50 28.4 (lift-off / peak 45%)
+gait z0_y2c (params_0020M.pkl) sim loose vx 0.025 n 48 20s | c_K2gr settle_gate_u=[]
+  up  52%  walked  40.5 cm (median of up)  touchdowns 517  |  landing speed p50  272 p90  310 mm/s  jolt after td p50  16.0 p90  21.1  mid-swing   7.2 (deg/s per tick)  clearance p10 22.3 p50 29.8 mm
+  gate holding (clock stopped) 0.0 % of the walking time
+  both feet down 72 % of the time: 0.86 s per step (stretches p50 0.90 s); a step every 1.19 s; neither down 0 %
+  legs apart at lift-off (hip roll L - R): p10 11.3 p50 16.0 deg; peak in the swing p50 31.4 (lift-off / peak 51%)
+limp_sim z0_y2c (params_0020M.pkl) vx 0.02   up 23/24
+  L: dx  +23 (p10  +12) dy 114 | air 0.44s of 0.46 | roll at lift-off  +2.6 at td  -6.6 range  -7.1.. +2.7 | shift  +9.0
+  R: dx  +27 (p10  +19) dy 132 | air 0.42s of 0.46 | roll at lift-off  +1.0 at td  +5.3 range  +0.7.. +7.5 | shift  +8.9
+limp_sim z0_y2c (params_0020M.pkl) vx 0.02 nogate   up 23/24
+  L: dx  +23 (p10  +12) dy 113 | air 0.44s of 0.46 | roll at lift-off  +2.7 at td  -6.6 range  -7.1.. +2.7 | shift  +8.7
+  R: dx  +27 (p10  +19) dy 132 | air 0.44s of 0.46 | roll at lift-off  +0.7 at td  +5.5 range  +0.4.. +7.6 | shift  +8.9
